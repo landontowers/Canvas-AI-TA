@@ -11,6 +11,8 @@ This is v0, a new build. The current goal is a functional demo hosted locally, s
 
 ## Docs
 
+- [Developer guide: setup and usage](doc/developer-guide.md): how to configure, run, and interact with the local demo.
+- [Demo walk-through script](doc/demo-walkthrough.md): the 5-step script for stakeholder presentations, secrets hygiene, and operations.
 - [Architecture critique and decisions](doc/v0-architecture-critique.md): what v0 keeps from the prototype, what it changes, and why.
 - [Implementation plan](doc/v0-implementation-plan.md): the phased plan, from cleanup to production.
 - [GEMINI.md](GEMINI.md): project context and rules for AI coding assistants.
@@ -42,6 +44,12 @@ Prerequisites: Docker, Docker Compose, Node.js (>= 22), pnpm, and just.
    ```bash
    just dev-down
    ```
+
+5. **Reset demo state:**
+   ```bash
+   just demo-reset
+   ```
+   Clears conversation history and restores default course settings to full.
 
 ## License and credit
 
