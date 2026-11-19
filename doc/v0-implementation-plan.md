@@ -96,6 +96,8 @@ The critique links to prototype files that 0.3 deletes, for example `../backend/
 
 ## Phase 1: Foundation
 
+_Status, 2026-11-19: Phase 1 is complete. Monorepo scaffolded with pnpm workspaces, `packages/core` defines ports and domain types with no vendor SDKs, `packages/adapters` implements fakes passing shared contract tests, Fastify API serves `/health`, React web app renders the SDI 320px sidebar drawer, and Docker Compose local stack passes end-to-end verification._
+
 **Goal:** an empty but correctly shaped TypeScript project that runs with one command.
 
 **Work:**

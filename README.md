@@ -17,9 +17,31 @@ This is v0, a new build. The current goal is a functional demo hosted locally, s
 
 ## Running it
 
-There's nothing to run yet; Phase 1 of the implementation plan adds the local stack and fills in this section.
+Prerequisites: Docker, Docker Compose, Node.js (>= 22), pnpm, and just.
 
-To get ready, copy `template.env` to `.env` and fill in your own values. `.env` is gitignored; never commit it.
+1. **Configure environment:**
+   Copy `template.env` to `.env`:
+   ```bash
+   cp template.env .env
+   ```
+   `.env` is gitignored; never commit it.
+
+2. **Run verification checks:**
+   ```bash
+   just check
+   ```
+   This runs strict TypeScript typechecks across all packages and apps, ESLint, dependency-cruiser boundary checks (ensuring `packages/core` never imports adapters or vendor SDKs), and Vitest contract test suites.
+
+3. **Start the local stack:**
+   ```bash
+   just dev
+   ```
+   This starts PostgreSQL, the Fastify API (port 3001), and the React web app (port 5173) in Docker Compose. The web client connects to `http://localhost:5173` and proxies to the API.
+
+4. **Stop the local stack:**
+   ```bash
+   just dev-down
+   ```
 
 ## License and credit
 

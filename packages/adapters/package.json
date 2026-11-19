@@ -1,0 +1,35 @@
+{
+  "name": "@ai-tutor/adapters",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --loader tsx src/persistence/migrate.ts",
+    "db:seed": "node --loader tsx src/persistence/seed.ts"
+  },
+  "dependencies": {
+    "@ai-tutor/core": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "mathjs": "^14.3.1",
+    "postgres": "^3.4.5",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/mathjs": "^9.4.2",
+    "drizzle-kit": "^0.31.8",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.7"
+  }
+}

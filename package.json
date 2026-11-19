@@ -1,0 +1,35 @@
+{
+  "name": "ai-tutor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Socratic AI tutor built into Canvas LMS",
+  "license": "Apache-2.0",
+  "author": "Landon Towers",
+  "type": "module",
+  "scripts": {
+    "dev": "docker compose up --build",
+    "build": "pnpm --filter @ai-tutor/core run build && pnpm --filter @ai-tutor/adapters run build && pnpm --filter @ai-tutor/api run build && pnpm --filter @ai-tutor/web run build",
+    "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm dep-check && pnpm test",
+    "typecheck": "pnpm --recursive run typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dep-check": "depcruise --config .dependency-cruiser.cjs packages apps",
+    "db:generate": "pnpm --filter @ai-tutor/adapters db:generate",
+    "db:migrate": "pnpm --filter @ai-tutor/adapters db:migrate",
+    "db:seed": "pnpm --filter @ai-tutor/adapters db:seed"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/node": "^22.13.9",
+    "dependency-cruiser": "^16.10.0",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.26.0",
+    "vitest": "^3.0.7"
+  }
+}
