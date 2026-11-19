@@ -21,6 +21,10 @@ check:
 test:
   pnpm test
 
+# Run the 60-case Socratic and instructor evaluation suite (plan Phase 3)
+eval:
+  pnpm eval
+
 # Run TypeScript compiler checks in strict mode
 typecheck:
   pnpm typecheck

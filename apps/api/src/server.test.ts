@@ -99,4 +99,79 @@ describe('API Server', () => {
     expect(instructorOkRes.statusCode).toBe(200);
     expect(instructorOkRes.json().isError).toBe(false);
   });
+
+  it('POST /api/chat streams SSE events for student and instructor', async () => {
+    // 1. Student chat stream
+    const studentStreamRes = await server.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        personaId: 'demo_student',
+        courseId: '101',
+        message: 'When is Week 1 Lab due?',
+      },
+    });
+
+    expect(studentStreamRes.statusCode).toBe(200);
+    expect(studentStreamRes.headers['content-type']).toContain('text/event-stream');
+    expect(studentStreamRes.body).toContain('data: {"type":');
+    expect(studentStreamRes.body).toContain('"type":"done"');
+
+    // 2. Instructor chat stream
+    const instructorStreamRes = await server.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        personaId: 'demo_instructor',
+        courseId: '101',
+        message: 'Draft an announcement regarding the deadline.',
+      },
+    });
+
+    expect(instructorStreamRes.statusCode).toBe(200);
+    expect(instructorStreamRes.headers['content-type']).toContain('text/event-stream');
+    expect(instructorStreamRes.body).toContain('"type":"done"');
+  });
+
+  it('declines course material under logistics_only setting (Phase 3 exit criteria)', async () => {
+    // Set course to logistics_only
+    const putRes = await server.inject({
+      method: 'PUT',
+      url: '/api/courses/sdi-ftt101/settings',
+      payload: { setting: 'logistics_only' },
+    });
+    expect(putRes.statusCode).toBe(200);
+    expect(putRes.json().setting).toBe('logistics_only');
+
+    // Student asks subject matter question
+    const chatRes = await server.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        personaId: 'demo_student',
+        courseId: 'sdi-ftt101',
+        message: 'How do I solve question 2 of the lab?',
+      },
+    });
+
+    expect(chatRes.statusCode).toBe(200);
+    expect(chatRes.body).toContain('configured this tutor for course logistics only');
+
+    // Reset back to full
+    await server.inject({
+      method: 'PUT',
+      url: '/api/courses/sdi-ftt101/settings',
+      payload: { setting: 'full' },
+    });
+  });
+
+  it('supports "clear my data" student opt-out endpoint', async () => {
+    const res = await server.inject({
+      method: 'DELETE',
+      url: '/api/users/user-1001/data',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().success).toBe(true);
+  });
 });

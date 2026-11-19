@@ -174,6 +174,8 @@ _Status, 2026-11-19: Phase 2 is complete. Typed Canvas REST adapter with rate-li
 
 ## Phase 3: Tutor engine
 
+_Status, 2026-11-19: Phase 3 is complete. TutorEngine coordinates Socratic guidance, GeminiAdapter provides @google/genai streaming and tool-calling, question classifier enforces full vs logistics_only course setting on the server, SSE streaming API tested for both personas, and the 60-case eval suite baseline is recorded._
+
 **Goal:** both tutors answer correctly, the student tutor stays Socratic on course material, and the course setting is enforced.
 
 **Work:**

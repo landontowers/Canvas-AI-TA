@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "eval": "vitest run packages/adapters/src/evals/evals.test.ts",
     "dep-check": "depcruise --config .dependency-cruiser.cjs packages apps",
     "db:generate": "pnpm --filter @ai-tutor/adapters db:generate",
     "db:migrate": "pnpm --filter @ai-tutor/adapters db:migrate",

@@ -12,6 +12,7 @@ import {
   createStandardToolRegistry,
   ToolRegistry,
   UnauthorizedToolError,
+  TutorEngine,
 } from '@ai-tutor/core';
 import {
   FakeLlmAdapter,
@@ -80,6 +81,19 @@ export function buildServer(
   };
 
   const toolRegistry: ToolRegistry = createStandardToolRegistry();
+
+  const engine = new TutorEngine({
+    llm: ports.llm,
+    classifierLlm: ports.llm,
+    lms: ports.lms,
+    identity: ports.identity,
+    persistence: ports.persistence,
+    calculator: ports.calculator,
+    moderation: ports.moderation,
+    telemetry: ports.telemetry,
+    toolRegistry,
+    collegeConfig: config.college,
+  });
 
   // Health check endpoint (Phase 1 exit criteria)
   server.get('/health', async () => {
@@ -174,14 +188,44 @@ export function buildServer(
     }
   });
 
-  // Stream-event endpoint stub
+  // Course settings endpoints (critique §3.4)
+  server.get('/api/courses/:courseId/settings', async (request) => {
+    const { courseId } = request.params as { courseId: string };
+    return ports.persistence.getCourseSettings(courseId);
+  });
+
+  server.put('/api/courses/:courseId/settings', async (request) => {
+    const { courseId } = request.params as { courseId: string };
+    const body = request.body as { setting: 'full' | 'logistics_only' };
+    return ports.persistence.updateCourseSettings(courseId, body.setting);
+  });
+
+  // Conversation history endpoints
+  server.get('/api/conversations', async (request) => {
+    const query = request.query as { userId: string; courseId: string };
+    return ports.persistence.listConversations(query.userId, query.courseId);
+  });
+
+  server.get('/api/conversations/:id/messages', async (request) => {
+    const { id } = request.params as { id: string };
+    return ports.persistence.listMessages(id);
+  });
+
+  // "Clear my data" student opt-out endpoint (critique §3.1, §3.7)
+  server.delete('/api/users/:userId/data', async (request) => {
+    const { userId } = request.params as { userId: string };
+    await ports.persistence.clearUserData(userId);
+    return { success: true, message: 'All user conversations and data cleared.' };
+  });
+
+  // Full streaming SSE chat endpoint driven by TutorEngine
   server.post('/api/chat', async (request, reply) => {
-    const body = request.body as { personaId?: string; message: string; courseId?: string };
-    const personaId = body.personaId || 'demo_student';
-    const authContext = await ports.identity.resolveIdentity({
-      personaId,
-      courseId: body.courseId,
-    });
+    const body = request.body as {
+      personaId?: string;
+      message: string;
+      courseId?: string;
+      conversationId?: string;
+    };
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -189,9 +233,11 @@ export function buildServer(
       Connection: 'keep-alive',
     });
 
-    const stream = ports.llm.stream({
-      systemPrompt: `You are the ${authContext.tutorRole} tutor for ${config.college.name}.`,
-      messages: [{ role: 'user', content: body.message }],
+    const stream = engine.executeTurn({
+      personaId: body.personaId,
+      message: body.message,
+      courseId: body.courseId,
+      conversationId: body.conversationId,
     });
 
     for await (const event of stream) {
