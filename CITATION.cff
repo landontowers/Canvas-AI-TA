@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use or build on this software, please cite it as below."
+title: "AI Tutor"
+type: software
+authors:
+  - family-names: Towers
+    given-names: Landon
+    alias: landontowers
+repository-code: "https://github.com/landontowers/ai-tutor"
+license: Apache-2.0
+abstract: >-
+  A Socratic AI tutor that runs inside the Canvas LMS, with separate
+  student and instructor assistants.

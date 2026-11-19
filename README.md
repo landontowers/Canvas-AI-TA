@@ -20,6 +20,12 @@ There's nothing to run yet; Phase 1 of the implementation plan adds the local st
 
 To get ready, copy `template.env` to `.env` and fill in your own values. `.env` is gitignored; never commit it.
 
-## License
+## License and credit
 
-Apache 2.0 (see [LICENSE](LICENSE)), carried over from the prototype. The license for v0 hasn't been decided yet.
+Copyright 2026 Landon Towers ([@landontowers](https://github.com/landontowers)). Licensed under the [Apache License 2.0](LICENSE).
+
+- **Redistributing:** if you redistribute this project or a modified version, Apache 2.0 requires you to keep the attributions in the [NOTICE](NOTICE) file.
+- **Deploying:** a credit line such as "Built on AI Tutor by Landon Towers" is appreciated, though not required.
+- **Citing:** use GitHub's "Cite this repository" button, which reads [CITATION.cff](CITATION.cff).
+
+AI Tutor grew out of an earlier college prototype led by Spencer Thompson ([@spencer-thompson](https://github.com/spencer-thompson)). The prototype is preserved at the [`prototype-final`](https://github.com/landontowers/ai-tutor/tree/prototype-final) tag.

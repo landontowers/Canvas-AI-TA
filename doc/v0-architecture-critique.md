@@ -555,6 +555,7 @@ The full prototype is preserved at the [`prototype-final`](https://github.com/la
 12. **Prototype deployments.** Out of scope for this fork.
 13. **Two tutors.** A student tutor and an instructor tutor on one engine, separated in access and instruction harness. The instructor tutor gives direct, read-only help (§3.14).
 14. **Current phase.** A functional demo, not a production implementation. It runs locally in Docker Compose, uses Gemini on a personal Google account for the model, and is shared through a tunnel on a personal domain until SDI can provide one (§4).
+15. **License and ownership.** Apache 2.0, copyright Landon Towers, with a `NOTICE` that acknowledges the original prototype led by Spencer Thompson. v0 is a personal open-source project, and only the SDI integration happens on company time (implementation plan, step 0.6).
 
 **Before the student pilot:**
 

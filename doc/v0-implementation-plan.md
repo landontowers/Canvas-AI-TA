@@ -22,7 +22,7 @@ Phases run in order. One exception: Phase 4 can start alongside Phase 3, once Ph
 
 ## Phase 0: Clear out the prototype (destructive)
 
-_Status, 2026-11-19: 0.1–0.5 are done. The `prototype-final` tag is pushed and 0.2 is on `main`; 0.3–0.5 are on the `phase-0` branch, pending review. 0.6, the license decision, is still open._
+_Status, 2026-11-19: Phase 0 is complete. The prototype is tagged `prototype-final`, the cleanup is merged into `main`, and the license is decided (0.6)._
 
 Everything in this phase removes or rewrites existing material. Land it as its own pull request, so the deletion is easy to review and, if ever needed, to revert. Nothing in v0 depends on prototype code; its lessons are captured in the critique.
 
@@ -75,7 +75,15 @@ The critique links to prototype files that 0.3 deletes, for example `../backend/
 
 ### 0.6 Decide on the license
 
-The fork carries the prototype's Apache 2.0 license. v0 is new code, so SDI may want different terms, either open source or proprietary. Decide before v0 code is published. Until then, leave `LICENSE` unchanged.
+**Decided:** Apache 2.0, copyright Landon Towers. `LICENSE` keeps the standard text.
+
+- **`NOTICE`** carries the attribution that redistributors must keep, and acknowledges the original prototype, which was led by Spencer Thompson.
+- **`CITATION.cff`** turns on GitHub's "Cite this repository" button.
+
+**Ownership:** v0 is a personal open-source project. The core is built on personal time and resources; only the SDI integration is done on company time.
+
+- **Get SDI's agreement in writing before publishing.** It should say that SDI's integration contributions are released under Apache 2.0.
+- **Keep SDI-specific pieces separate from the core.** That covers the SDI config and theme, and the Canvas setup. The modular design (critique §3.12) already does this.
 
 ### Exit criteria
 
