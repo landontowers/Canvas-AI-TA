@@ -1,7 +1,0 @@
-openai
-fastapi[standard]
-motor[srv]
-pyjwt
-markdownify
-anthropic
-ipython

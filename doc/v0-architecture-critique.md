@@ -19,7 +19,7 @@ Two requirements apply across the whole system:
 - **Modularity.** Every external dependency, starting with the AI provider, sits behind an interchangeable adapter that carries that dependency's specific constraints (§3.12).
 - **Interface.** The UI matches SDI's design language and Canvas's look and feel, and can be re-themed for another college through configuration, not code changes (§3.13).
 
-This review comes from a direct read of the prototype's code. File references are evidence for each point, not a to-do list. Files described as removed are gone from the working tree but remain in git history (§6).
+This review comes from a direct read of the prototype's code. File references are evidence for each point, not a to-do list. The prototype's code now lives only at the `prototype-final` tag, and file references link there (§6).
 
 ---
 
@@ -29,9 +29,9 @@ The prototype treated its extension as a way past a Canvas protection. It wasn't
 
 The real weakness was on the prototype's side: **the client told the server who the user was, and the server never checked.**
 
-- The extension posted `{sub: canvas_id, uni}` to `POST /token`, and the backend minted a JWT for whatever ID it received, as long as the caller sent the API key ([backend/main.py:323-330](../backend/main.py#L323-L330)).
-- That API key was compiled into the shipped extension bundle, so it was public. The Svelte server `load` also handed its private `API_KEY` to the browser ([svelte/src/routes/+layout.server.ts](../svelte/src/routes/+layout.server.ts)).
-- No key had scoped permissions. `check_api_key` looks up the key's value, but no endpoint checks it ([backend/main.py:155-166](../backend/main.py#L155-L166)). So one public key could:
+- The extension posted `{sub: canvas_id, uni}` to `POST /token`, and the backend minted a JWT for whatever ID it received, as long as the caller sent the API key ([backend/main.py:323-330](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L323-L330)).
+- That API key was compiled into the shipped extension bundle, so it was public. The Svelte server `load` also handed its private `API_KEY` to the browser ([svelte/src/routes/+layout.server.ts](https://github.com/landontowers/ai-tutor/blob/prototype-final/svelte/src/routes/+layout.server.ts)).
+- No key had scoped permissions. `check_api_key` looks up the key's value, but no endpoint checks it ([backend/main.py:155-166](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L155-L166)). So one public key could:
   - mint a token for any student and read their grades, activity, and chat history (`GET /user`);
   - overwrite any student's stored Canvas data (`POST /user`, `/course`), which also changed the context the model saw for that student;
   - dump all users (`GET /analytics_data`);
@@ -42,7 +42,7 @@ The lesson for v0: **identity must come from something Canvas signs, and nothing
 ## 2. What to keep
 
 - **The product thesis.** A tutor that knows _this_ student: their courses, deadlines, grades, and recent feedback, across every class. That's the differentiator, and API access makes it stronger.
-- **Tools instead of context-stuffing.** The model fetched grades, assignments, and updates through tools rather than getting everything up front ([backend/responses.py](../backend/responses.py)). That's the right shape; v0's tools pull live data.
+- **Tools instead of context-stuffing.** The model fetched grades, assignments, and updates through tools rather than getting everything up front ([backend/responses.py](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py)). That's the right shape; v0's tools pull live data.
 - **The in-context UX.** Users loved the side panel. v0 keeps the sidebar, natively inside Canvas (§3.1).
 - **Code execution as a separate boundary.** The instinct was right; the implementation wasn't (§3.5).
 - **Catalog enrichment.** Official course descriptions and prerequisites are a cheap, trustworthy grounding source; v0 uses SDI's catalog.
@@ -101,7 +101,7 @@ If live fetching turns out too slow or too shallow, the next steps are a per-cou
 
 ### 3.4 The Socratic method and instructor policy
 
-In the prototype, the Socratic prompt applied only when an LLM router picked "Tutor" ([backend/responses.py:420-451](../backend/responses.py#L420-L451)). The "Assistant" and "Friend" routes answered directly, and a client could send `role: "Quick"` to skip routing entirely. Sending `role: "Tutor"` or `"General"` explicitly crashed, because neither branch defines the prompt. The Socratic instruction itself was four lines.
+In the prototype, the Socratic prompt applied only when an LLM router picked "Tutor" ([backend/responses.py:420-451](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py#L420-L451)). The "Assistant" and "Friend" routes answered directly, and a client could send `role: "Quick"` to skip routing entirely. Sending `role: "Tutor"` or `"General"` explicitly crashed, because neither branch defines the prompt. The Socratic instruction itself was four lines.
 
 What v0 builds:
 
@@ -114,13 +114,13 @@ What v0 builds:
 
 ### 3.5 Code execution: does v0 need a sandbox?
 
-The prototype's runner ([python_sandbox/main.py](../python_sandbox/main.py)) wasn't a sandbox:
+The prototype's runner ([python_sandbox/main.py](https://github.com/landontowers/ai-tutor/blob/prototype-final/python_sandbox/main.py)) wasn't a sandbox:
 
 - It used one process-wide `InteractiveShell` singleton, so every student's variables were visible to every other student.
 - It had no timeout and no CPU or memory limits.
 - It had network access on the same Docker network as the database.
 - It returned only the value of the last expression, not stdout.
-- It wasn't wired into the active tool list ([backend/responses.py:330](../backend/responses.py#L330)), even though the UI advertised it.
+- It wasn't wired into the active tool list ([backend/responses.py:330](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py#L330)), even though the UI advertised it.
 
 The general goal is a private, throwaway shell the model can use behind the scenes for calculations, running student code, or small scripts that help it answer.
 
@@ -139,7 +139,7 @@ The general goal is a private, throwaway shell the model can use behind the scen
 
 ### 3.6 Data model
 
-The prototype's own retrospective pointed toward a relational database, and the code backs that up. The catalog "join" in `get_user_from_token` pairs two independently ordered query results by position ([backend/main.py:223-233](../backend/main.py#L223-L233)), so it only merges correctly when the orders happen to line up. Chat history was a single array per user that each save overwrote.
+The prototype's own retrospective pointed toward a relational database, and the code backs that up. The catalog "join" in `get_user_from_token` pairs two independently ordered query results by position ([backend/main.py:223-233](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L223-L233)), so it only merges correctly when the orders happen to line up. Chat history was a single array per user that each save overwrote.
 
 - **Use a relational core** for colleges, users, courses, course settings, conversations, messages, and audit. Add JSON columns for cached Canvas payloads. Postgres can also hold vectors later, if a search index is ever needed (§3.3).
 - **Keep the re-fetchable Canvas cache separate from first-party data** (conversations, settings, policies). The two need different retention, backup, and deletion rules.
@@ -150,7 +150,7 @@ The prototype's own retrospective pointed toward a relational database, and the 
 
 FERPA applies to student records, and an official integration will likely face a vendor or security review. These prototype practices wouldn't pass:
 
-- Student names and Canvas IDs were sent to Plausible as event properties ([streamlit/app.py:256-268](../streamlit/app.py#L256-L268)).
+- Student names and Canvas IDs were sent to Plausible as event properties ([streamlit/app.py:256-268](https://github.com/landontowers/ai-tutor/blob/prototype-final/streamlit/app.py#L256-L268)).
 - Names were logged when moderation flagged a message, and Streamlit logged every request body, chats included, at INFO.
 - The LLM `safety_identifier` was a hardcoded constant rather than a hash of each user's ID.
 - `/analytics_data` returned every user's record.
@@ -500,7 +500,7 @@ Across all stages:
 
 ## 6. Repository status (cleanup, 2026-11-19)
 
-Removed files remain in git history; they were last present in commit `b1bddf8`.
+The full prototype is preserved at the [`prototype-final`](https://github.com/landontowers/ai-tutor/tree/prototype-final) tag (commit `b1bddf8`). Phase 0 of the [implementation plan](v0-implementation-plan.md) removed everything else from the working tree.
 
 **Removed:**
 
@@ -515,10 +515,19 @@ Removed files remain in git history; they were last present in commit `b1bddf8`.
 | `.github/CODEOWNERS` | Assigned reviews to former team members. |
 | `doc/course_schema.jsonc`, `doc/user_schema.jsonc` | Empty or one-line stubs. |
 | School deliverables in `doc/` (sprint reports, meeting logs, course reports, surveys) | Not product documentation. |
+| `backend/`, `python_sandbox/`, `streamlit/`, `svelte/`, `mongo/`, `tests/`, `develop.yaml`, `svelte_dev.yaml`, `pyrightconfig.json`, `images/`, and the prototype diagram, API notes, and privacy policy in `doc/` | The rest of the prototype, removed in Phase 0. The table below records the lessons. |
 
-**Prototype code still in the tree.** v0 doesn't build on these. Phase 0 of the [implementation plan](v0-implementation-plan.md) tags the prototype as `prototype-final` and then deletes them. The table records what each was useful for, and what not to repeat:
+**Rewritten in Phase 0:**
 
-| Path | Useful for | Problems not to repeat | See |
+- `README.md`;
+- `.gitignore`, without the Flutter and school sections or the `*.lock` rule;
+- `template.env`, with v0 variables only;
+- the `Justfile`, to which Phase 1 adds recipes;
+- `doc/README.md`.
+
+**Prototype components, archived.** v0 doesn't build on these. They're browsable at the tag, and the table records what each was useful for and what not to repeat:
+
+| Component (at `prototype-final`) | Useful for | Problems not to repeat | See |
 | --- | --- | --- | --- |
 | `backend/` | Canvas data shaping, tool definitions, the moderation flow | Client-asserted identity and a shared key; endpoints that only served the extension; CORS for extension origins; an open `/v1/chat` proxy; dead files (`ai.py`, which `main.py` still imports, plus `database.py`, `config.py`, `requirements.txt`) | §1, §3.1, §3.8, §3.12 |
 | `python_sandbox/` | Nothing to reuse | Shared state, no limits, network access | §3.5 |
@@ -526,12 +535,7 @@ Removed files remain in git history; they were last present in commit `b1bddf8`.
 | `svelte/` | Markdown and KaTeX rendering | Private API key handed to the browser, hardcoded `api.aitutor.live`, leftover experiment routes. v0 uses Instructure UI (React) instead. | §3.13 |
 | `mongo/mongo-dev-init.js` | Nothing; replaced by Postgres migrations and seed data | Hardcoded `user`/`pass` credentials and the extension's API key | §3.6 |
 | `tests/test_api.py` | Nothing | Ran against the live API with a real student's Canvas ID | §3.12, §8 |
-| `develop.yaml`, `svelte_dev.yaml`, `Justfile` | A starting point for the demo's local stack | Prototype services only | §4.2 |
-| `template.env` | The variable inventory, including the Canvas development variables | Shared-key and prototype variables | §3.12, §5 |
-| `README.md`, `images/` | Nothing | Prototype instructions and UVU framing; v0 needs a new README and screenshots | — |
-| `.gitignore` | Nothing | Leftover Flutter and school sections; its `*.lock` rule ignores `uv.lock` | §5.1 |
-| `pyrightconfig.json` | Nothing | Type checking is off | §5.4 |
-| `doc/privacy-policy.md`, `doc/backend-api.md` | Nothing | Prototype-era policy and API notes; rewrite for v0 | §3.7 |
+| `doc/privacy-policy.md` | Nothing | A prototype-era policy; v0 writes a new one before the pilot | §3.7 |
 
 ## 7. Decisions
 

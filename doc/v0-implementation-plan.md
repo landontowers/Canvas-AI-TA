@@ -22,6 +22,8 @@ Phases run in order. One exception: Phase 4 can start alongside Phase 3, once Ph
 
 ## Phase 0: Clear out the prototype (destructive)
 
+_Status, 2026-11-19: 0.1–0.5 are done. The `prototype-final` tag is pushed and 0.2 is on `main`; 0.3–0.5 are on the `phase-0` branch, pending review. 0.6, the license decision, is still open._
+
 Everything in this phase removes or rewrites existing material. Land it as its own pull request, so the deletion is easy to review and, if ever needed, to revert. Nothing in v0 depends on prototype code; its lessons are captured in the critique.
 
 ### 0.1 Preserve the prototype first

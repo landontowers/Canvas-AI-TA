@@ -1,47 +1,25 @@
 # AI Tutor
 
-This is the repository for the Generative AI Tutor pioneered at [UVU](https://www.uvu.edu/).
+A Socratic AI tutor that lives inside Canvas, starting with Sonoran Desert Institute (SDI).
 
+- **Students** get a quick-response helper in Canvas's sidebar. It knows their courses, deadlines, and grades, and it guides them through course material with questions instead of handing over answers.
+- **Instructors** get their own assistant in the same sidebar, for questions about their course and for drafting.
 
-![AI Tutor Homepage](./images/ai_tutor_screenshot_1.png)
+## Status
 
-## Introduction
+This is v0, a new build. The current goal is a functional demo hosted locally, so it isn't ready for real students. The original college prototype is preserved at the [`prototype-final`](https://github.com/landontowers/ai-tutor/tree/prototype-final) tag.
 
-The AI Tutor project has been under active development for quite some time, started back in early 2024.
-In discussions with the excellent faculty in the Tech Management Department at Utah Valley University,
-we hypothesized that using the new and exciting technology of large language models,
-we could provide excellent, _personalized_ tutoring to students *whenever they needed it*.
+## Docs
 
-So, we set out to provide a novel way to accomplish this goal.
-The original AI Tutor was indeed a success, quickly being adopted into a several courses at Utah Valley University,
-and gaining attention among multiple departments and more than a handful of students.
+- [Architecture critique and decisions](doc/v0-architecture-critique.md): what v0 keeps from the prototype, what it changes, and why.
+- [Implementation plan](doc/v0-implementation-plan.md): the phased plan, from cleanup to production.
 
-This repository is where that code lives.
+## Running it
 
+There's nothing to run yet; Phase 1 of the implementation plan adds the local stack and fills in this section.
 
-## Design
+To get ready, copy `template.env` to `.env` and fill in your own values. `.env` is gitignored; never commit it.
 
-![An overview of the system design of the AI Tutor](./doc/ai-tutor-2-diagram-light.png)
+## License
 
-## Development
-
-In order to run the project in development mode:
-
-1. Ensure [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed.
-2. In the project root directory, run the command: `docker compose -f develop.yaml build`
-3. Then, still in the project root, run: `docker compose -f develop.yaml up --watch`
-4. Everything should be up and running 😄
-
-## Deployment
-
-- Our deployments are hosted on a [Hetzner](https://www.hetzner.com/cloud) virtual private server.
-
-1. We use [just](https://github.com/casey/just) to bundle everything needed to deploy into one command `just deploy`
-2. This essentially just uses `rsync` and `ssh` to send the files up, build the docker containers, and run them.
-
-
-
-# Acknowledgments
-
-- [**Dr. Ahmed Alsharif**](https://www.uvu.edu/directory/employee/?id=eXpuVHFkeWcrVkF0N2pvTjdpNmg2dz09): For making everything possible and supporting this project so wholeheartedly.
-- [**Dr. Armen Ilikchyan**](https://www.uvu.edu/directory/employee/?id=ZnBHYXBLNUN3cUgvV2ZNQjFVTEUzdz09): For paving the way, and providing invaluable guidance.
+Apache 2.0 (see [LICENSE](LICENSE)), carried over from the prototype. The license for v0 hasn't been decided yet.
