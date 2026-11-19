@@ -13,6 +13,7 @@ This is v0, a new build. The current goal is a functional demo hosted locally, s
 
 - [Architecture critique and decisions](doc/v0-architecture-critique.md): what v0 keeps from the prototype, what it changes, and why.
 - [Implementation plan](doc/v0-implementation-plan.md): the phased plan, from cleanup to production.
+- [GEMINI.md](GEMINI.md): project context and rules for AI coding assistants.
 
 ## Running it
 
