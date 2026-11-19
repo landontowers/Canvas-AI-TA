@@ -135,6 +135,8 @@ _Status, 2026-11-19: Phase 1 is complete. Monorepo scaffolded with pnpm workspac
 
 ## Phase 2: Canvas integration
 
+_Status, 2026-11-19: Phase 2 is complete. Typed Canvas REST adapter with rate-limit and Link-header pagination, HTML-to-Markdown conversion, demo masquerading identity adapter, role-based tool execution registry with strict boundary checks, and offline sandbox course fixtures implemented and passing._
+
 **Goal:** read-only Canvas access that behaves exactly like the demo personas.
 
 **Work:**
