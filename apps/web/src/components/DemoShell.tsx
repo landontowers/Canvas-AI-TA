@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ChatInterface } from './ChatInterface.js';
 import { InstructorSettings } from './InstructorSettings.js';
 import { StudentSettings } from './StudentSettings.js';
+import { DemoAuthModal } from './DemoAuthModal.js';
 
 interface HealthStatus {
   status: string;
@@ -18,6 +19,15 @@ export const DemoShell: React.FC = () => {
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
+  // Authentication & Hardening (critique §4.3)
+  const [authToken, setAuthToken] = useState<string | null>(() => {
+    return typeof window !== 'undefined' ? sessionStorage.getItem('demo_token') : null;
+  });
+  const [authRequired, setAuthRequired] = useState<boolean>(false);
+  const [authenticated, setAuthenticated] = useState<boolean>(true);
+  const [resetting, setResetting] = useState<boolean>(false);
+  const [resetFeedback, setResetFeedback] = useState<string | null>(null);
+
   const isStaff = persona === 'demo_instructor' || persona === 'demo_ta';
 
   useEffect(() => {
@@ -28,7 +38,46 @@ export const DemoShell: React.FC = () => {
       })
       .then((data: HealthStatus) => setHealth(data))
       .catch(() => {});
-  }, []);
+
+    // Check auth status
+    fetch('/api/auth/status', {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    })
+      .then((res) => res.json())
+      .then((data: { authRequired?: boolean; authenticated?: boolean }) => {
+        setAuthRequired(Boolean(data.authRequired));
+        setAuthenticated(Boolean(data.authenticated));
+      })
+      .catch(() => {});
+  }, [authToken]);
+
+  const handleLoginSuccess = (token: string) => {
+    sessionStorage.setItem('demo_token', token);
+    setAuthToken(token);
+    setAuthenticated(true);
+  };
+
+  const handleDemoReset = async () => {
+    setResetting(true);
+    setResetFeedback(null);
+    try {
+      const res = await fetch('/api/demo/reset', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ courseId }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setResetFeedback('Reset complete: conversations cleared & course setting restored to Full.');
+      setTimeout(() => setResetFeedback(null), 4000);
+    } catch (err: unknown) {
+      setResetFeedback(`Reset failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setResetting(false);
+    }
+  };
 
   const handleToggleHighContrast = () => {
     setHighContrast((prev) => !prev);
@@ -49,6 +98,11 @@ export const DemoShell: React.FC = () => {
 
   return (
     <div className={`demo-container ${highContrast ? 'high-contrast-mode' : ''}`}>
+      {/* Sign-in gate if demo authentication is required and user is unauthenticated */}
+      {authRequired && !authenticated && (
+        <DemoAuthModal onSuccess={handleLoginSuccess} />
+      )}
+
       {/* External Demo Controls Bar (Simulates Canvas Host Environment) */}
       <aside className="demo-host-controls" aria-label="Demo Host Controls">
         <div className="demo-controls-header">
@@ -112,6 +166,24 @@ export const DemoShell: React.FC = () => {
           </div>
         </div>
 
+        <div className="demo-actions-row">
+          <button
+            type="button"
+            className="demo-reset-btn"
+            onClick={handleDemoReset}
+            disabled={resetting}
+            aria-label="Reset demo state and clear conversations"
+          >
+            {resetting ? 'Resetting...' : '🔄 Reset Demo State'}
+          </button>
+
+          {resetFeedback && (
+            <span className="reset-feedback-text" role="status">
+              {resetFeedback}
+            </span>
+          )}
+        </div>
+
         <div className="demo-meta-row">
           <div className="status-indicator-chip">
             <span className={`chip-dot ${health ? 'connected' : 'connecting'}`}></span>
@@ -155,6 +227,7 @@ export const DemoShell: React.FC = () => {
               courseId={courseId}
               currentPageTitle={activePage}
               highContrast={highContrast}
+              authToken={authToken}
             />
           ) : isStaff ? (
             <InstructorSettings

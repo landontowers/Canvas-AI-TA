@@ -368,4 +368,22 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
 
     await this.db.delete(schema.usersTable).where(eq(schema.usersTable.id, userId));
   }
+
+  async resetDemo(courseId = 'sdi-ftt101'): Promise<void> {
+    await this.db.delete(schema.messagesTable);
+    await this.db.delete(schema.conversationsTable);
+    await this.db
+      .insert(schema.courseSettingsTable)
+      .values({
+        courseId,
+        setting: 'full',
+      })
+      .onConflictDoUpdate({
+        target: schema.courseSettingsTable.courseId,
+        set: {
+          setting: 'full',
+          updatedAt: new Date(),
+        },
+      });
+  }
 }

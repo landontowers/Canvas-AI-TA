@@ -17,7 +17,8 @@
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --loader tsx src/persistence/migrate.ts",
-    "db:seed": "node --loader tsx src/persistence/seed.ts"
+    "db:seed": "node --loader tsx src/persistence/seed.ts",
+    "demo:reset": "node --loader tsx src/persistence/reset.ts"
   },
   "dependencies": {
     "@ai-tutor/core": "workspace:*",

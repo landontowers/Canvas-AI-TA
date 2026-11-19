@@ -13,7 +13,7 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
 
 ## Where things stand (2026-11-19)
 
-- **Phases 0 through 4 (cleanup, foundation, Canvas integration, tutor engine, and interface) are complete.** Next up is Phase 5, demo hosting and hardening.
+- **Phases 0 through 5 (cleanup, foundation, Canvas integration, tutor engine, interface, demo hosting & hardening) are complete.** Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
 - **The current goal is a functional demo hosted locally** (critique §4), not production.
 - **The old prototype is preserved at the `prototype-final` tag.** It's reference only: don't copy its code back in, and link to it only at the tag.
 

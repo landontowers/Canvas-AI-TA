@@ -18,12 +18,14 @@ interface ChatInterfaceProps {
   courseId: string;
   currentPageTitle: string;
   highContrast: boolean;
+  authToken?: string | null;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   personaId,
   courseId,
   currentPageTitle,
+  authToken,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -107,7 +109,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
         body: JSON.stringify({
           personaId,
           message: messageContent,

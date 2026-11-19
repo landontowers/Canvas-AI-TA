@@ -254,6 +254,8 @@ _Status, 2026-11-19: Phase 4 is complete. The 320px Canvas sidebar drawer interf
 
 ## Phase 5: Demo hosting and hardening
 
+_Status, 2026-11-19: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full._
+
 **Goal:** invited viewers can use the demo safely over the internet.
 
 **Work:**

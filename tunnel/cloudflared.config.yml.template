@@ -1,0 +1,20 @@
+# Cloudflare Tunnel Ingress Configuration Template (critique §4.3, plan Phase 5)
+# Use with named Cloudflare Tunnels to share the local demo stack securely over HTTPS.
+# Never commit actual credentials files or tunnel tokens.
+
+tunnel: <TUNNEL_UUID_OR_NAME>
+credentials-file: /etc/cloudflared/<TUNNEL_UUID>.json
+
+ingress:
+  # Map dedicated demo subdomain to the local web frontend (Nginx reverse proxy)
+  - hostname: tutor-demo.yourdomain.com
+    service: http://web:80
+    originRequest:
+      noTLSVerify: false
+
+  # Optional direct route to API if ever needed separately
+  # - hostname: api-tutor-demo.yourdomain.com
+  #   service: http://api:3000
+
+  # Default catch-all rule (required by Cloudflare Tunnel)
+  - service: http_status:404

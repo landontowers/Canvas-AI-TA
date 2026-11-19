@@ -164,4 +164,15 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     }
     this.users.delete(userId);
   }
+
+  async resetDemo(courseId = 'sdi-ftt101'): Promise<void> {
+    this.conversations.clear();
+    this.messages = [];
+    this.courseSettings.set(courseId, {
+      id: crypto.randomUUID(),
+      courseId,
+      setting: 'full',
+      updatedAt: new Date(),
+    });
+  }
 }

@@ -25,6 +25,12 @@ export const DemoPersonaSchema = z.object({
   description: z.string(),
 });
 
+export const DemoAuthConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  password: z.string().optional(),
+  invitedEmails: z.array(z.string()).default([]),
+});
+
 export const CollegeConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -62,9 +68,14 @@ export const AppConfigSchema = z.object({
     instructorModel: z.string().default('gemini-2.5-flash'),
     classifierModel: z.string().default('gemini-2.5-flash-lite'),
   }),
+  demoAuth: DemoAuthConfigSchema.default({
+    enabled: false,
+    invitedEmails: [],
+  }),
   college: CollegeConfigSchema,
 });
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
+export type DemoAuthConfig = z.infer<typeof DemoAuthConfigSchema>;
 export type CollegeConfig = z.infer<typeof CollegeConfigSchema>;
 export type DemoPersona = z.infer<typeof DemoPersonaSchema>;

@@ -35,6 +35,9 @@ services:
       CANVAS_ACCESS_TOKEN: ${CANVAS_ACCESS_TOKEN:-mock-dev-token}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       MODEL_PROVIDER: ${MODEL_PROVIDER:-fake}
+      DEMO_AUTH_ENABLED: ${DEMO_AUTH_ENABLED:-false}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+      DEMO_INVITED_EMAILS: ${DEMO_INVITED_EMAILS:-}
     ports:
       - "${API_PORT:-3001}:3000"
 
@@ -48,6 +51,20 @@ services:
       - api
     ports:
       - "5173:80"
+
+  # Cloudflare Tunnel service for public demo sharing (critique §4.3, plan Phase 5)
+  # Run with: docker compose --profile tunnel up
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: ai_tutor_tunnel
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - web
 
 volumes:
   pgdata:

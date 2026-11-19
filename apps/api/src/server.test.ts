@@ -174,4 +174,142 @@ describe('API Server', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
   });
+
+  it('supports one-command demo reset endpoint (plan Phase 5)', async () => {
+    // 1. Alter setting to logistics_only
+    await server.inject({
+      method: 'PUT',
+      url: '/api/courses/sdi-ftt101/settings',
+      payload: { setting: 'logistics_only' },
+    });
+
+    // 2. Call demo reset
+    const resetRes = await server.inject({
+      method: 'POST',
+      url: '/api/demo/reset',
+      payload: { courseId: 'sdi-ftt101' },
+    });
+
+    expect(resetRes.statusCode).toBe(200);
+    expect(resetRes.json().success).toBe(true);
+    expect(resetRes.json().setting).toBe('full');
+
+    // 3. Verify settings restored to full
+    const getRes = await server.inject({
+      method: 'GET',
+      url: '/api/courses/sdi-ftt101/settings',
+    });
+    expect(getRes.json().setting).toBe('full');
+  });
+
+  describe('Demo Authentication & Hardening (critique §4.3, §8)', () => {
+    const secureConfig = {
+      ...config,
+      demoAuth: {
+        enabled: true,
+        password: 'sdi-secure-demo-pass',
+        invitedEmails: ['invited.guest@sdi.edu', 'evaluator@sdi.edu'],
+      },
+    };
+    const secureServer = buildServer(secureConfig);
+
+    it('rejects protected endpoints when unauthenticated', async () => {
+      const res = await secureServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          message: 'Hello',
+        },
+      });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json().error).toBe('Unauthorized');
+    });
+
+    it('rejects login with incorrect password', async () => {
+      const res = await secureServer.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'wrong-password' },
+      });
+
+      expect(res.statusCode).toBe(401);
+      expect(res.json().error).toBe('Unauthorized');
+    });
+
+    it('allows login with valid password and grants access via Bearer token', async () => {
+      const loginRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'sdi-secure-demo-pass' },
+      });
+
+      expect(loginRes.statusCode).toBe(200);
+      const { token } = loginRes.json();
+      expect(token).toMatch(/^demo_/);
+
+      // Call protected chat with Bearer token
+      const chatRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'When is Safety Lab 1 due?',
+        },
+      });
+
+      expect(chatRes.statusCode).toBe(200);
+      expect(chatRes.headers['content-type']).toContain('text/event-stream');
+    });
+
+    it('allows access via Cloudflare Access header for invited emails', async () => {
+      const cfRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: {
+          'cf-access-authenticated-user-email': 'evaluator@sdi.edu',
+        },
+        payload: {
+          personaId: 'demo_instructor',
+          courseId: 'sdi-ftt101',
+          message: 'Draft an announcement.',
+        },
+      });
+
+      expect(cfRes.statusCode).toBe(200);
+    });
+
+    it('rejects access via Cloudflare Access header for uninvited email', async () => {
+      const cfRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: {
+          'cf-access-authenticated-user-email': 'unauthorized.user@external.com',
+        },
+        payload: {
+          personaId: 'demo_student',
+          message: 'Hello',
+        },
+      });
+
+      expect(cfRes.statusCode).toBe(401);
+    });
+
+    it('ensures Canvas token is never exposed to public configuration endpoint', async () => {
+      const res = await secureServer.inject({
+        method: 'GET',
+        url: '/api/config/demo',
+      });
+
+      expect(res.statusCode).toBe(200);
+      const text = res.body;
+      expect(text).not.toContain('mock-dev-token');
+      expect(text).not.toContain(config.canvas.accessToken);
+    });
+  });
 });

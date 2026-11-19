@@ -44,3 +44,8 @@ db-migrate:
 # Seed the database with SDI college and sandbox course
 db-seed:
   pnpm db:seed
+
+# Reset demo state: clear conversations and restore default full course setting (plan Phase 5)
+demo-reset:
+  pnpm demo:reset
+

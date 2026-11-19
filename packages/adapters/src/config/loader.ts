@@ -24,6 +24,13 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       instructorModel: env.INSTRUCTOR_MODEL || 'gemini-2.5-flash',
       classifierModel: env.CLASSIFIER_MODEL || 'gemini-2.5-flash-lite',
     },
+    demoAuth: {
+      enabled: env.DEMO_AUTH_ENABLED === 'true' || Boolean(env.DEMO_PASSWORD),
+      password: env.DEMO_PASSWORD,
+      invitedEmails: env.DEMO_INVITED_EMAILS
+        ? env.DEMO_INVITED_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean)
+        : [],
+    },
     college: SDI_COLLEGE_CONFIG,
   };
 
