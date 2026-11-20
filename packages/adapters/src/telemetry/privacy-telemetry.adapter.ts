@@ -1,9 +1,10 @@
-import { TelemetryPort } from '@ai-tutor/core';
+import { LogStoragePort, TelemetryPort } from '@ai-tutor/core';
 import crypto from 'node:crypto';
 
 export interface PrivacyTelemetryOptions {
   secretSalt?: string;
   sink?: (line: string) => void;
+  logStorage?: LogStoragePort;
   enableStdout?: boolean;
 }
 
@@ -14,6 +15,7 @@ export interface PrivacyTelemetryOptions {
 export class PrivacyTelemetryAdapter implements TelemetryPort {
   private secretSalt: string;
   private sink: (line: string) => void;
+  private logStorage?: LogStoragePort;
   private disallowedTextKeys = new Set([
     'message',
     'prompt',
@@ -28,6 +30,7 @@ export class PrivacyTelemetryAdapter implements TelemetryPort {
 
   constructor(options: PrivacyTelemetryOptions = {}) {
     this.secretSalt = options.secretSalt || process.env.TELEMETRY_SALT || 'sdi-telemetry-salt-v0';
+    this.logStorage = options.logStorage;
     this.sink =
       options.sink ||
       (options.enableStdout !== false
@@ -76,7 +79,11 @@ export class PrivacyTelemetryAdapter implements TelemetryPort {
       properties: sanitizedProps,
     };
 
-    this.sink(JSON.stringify(payload));
+    const line = JSON.stringify(payload);
+    this.sink(line);
+    if (this.logStorage) {
+      void this.logStorage.write(line);
+    }
   }
 
   recordMetric(name: string, value: number, tags?: Record<string, string | undefined>): void {
@@ -100,6 +107,10 @@ export class PrivacyTelemetryAdapter implements TelemetryPort {
       tags: sanitizedTags,
     };
 
-    this.sink(JSON.stringify(payload));
+    const line = JSON.stringify(payload);
+    this.sink(line);
+    if (this.logStorage) {
+      void this.logStorage.write(line);
+    }
   }
 }

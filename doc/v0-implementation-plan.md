@@ -255,7 +255,7 @@ _Status, 2026-11-19: Phase 4 is complete. The 320px Canvas sidebar drawer interf
 
 ## Phase 5: Demo hosting and hardening
 
-_Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); PrivacyTelemetryAdapter provides HMAC-SHA256 pseudonymized telemetry with full free-text scrubbing (FERPA § 99.31(b)); WebhookCrisisAlertAdapter provides emergency incident alerting (FERPA § 99.36); a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full._
+_Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); PrivacyTelemetryAdapter provides HMAC-SHA256 pseudonymized telemetry with full free-text scrubbing (FERPA § 99.31(b)); WebhookCrisisAlertAdapter provides emergency incident alerting (FERPA § 99.36); AzureBlobLogStorageAdapter enables optional export of de-identified telemetry and audit logs to Azure Blob Storage; a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full._
 
 **Goal:** invited viewers can use the demo safely over the internet.
 

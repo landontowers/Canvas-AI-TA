@@ -174,6 +174,7 @@ To resolve the tension between deep observability and educational privacy regula
    - Implements `TelemetryPort`. Captures operational metrics: turn latency, prompt/response character counts, tool call counts, citation counts, and routing decisions.
    - Automatically de-identified under FERPA 34 CFR § 99.31(b): student identifiers are salted and hashed via HMAC-SHA256 (`TELEMETRY_SALT`) into irreversible `anon_<16-hex>` handles.
    - Raw free-text keys (`message`, `prompt`, `content`, `body`, `email`) are scrubbed before emission. Safe for export to standard observability infrastructure (Azure Monitor, Application Insights, or Datadog) without creating external FERPA education records.
+   - Optional Azure Blob Storage export: when configured, `AzureBlobLogStorageAdapter` (implementing `LogStoragePort`) buffers and streams de-identified `.jsonl` batches directly to an Azure Storage Account container via SAS URL or connection string, providing durable cloud log archiving.
 2. **Tier 2: Course-scoped ephemeral conversation storage.**
    - Conversations and messages reside strictly in first-party persistence (`PersistencePort`), scoped by student, course, and persona.
    - Never exported to shared telemetry sinks.
@@ -471,6 +472,7 @@ Each service maps onto a port from §3.12, so any one of them can be swapped lat
 | Configuration | Azure App Configuration, or the database | SDI's settings and feature flags (§3.12) change without a redeploy. Validate and version them. |
 | Images | Azure Container Registry | One image per commit, tagged with the git SHA and promoted unchanged through environments. |
 | Observability | Azure Monitor and Application Insights, through OpenTelemetry | Scrub PII before export (§3.7). Track model cost per course as a custom metric. |
+| Log storage (optional) | Azure Blob Storage | Low-cost, durable long-term storage and archiving for de-identified operational telemetry batches and security audit logs, via `AzureBlobLogStorageAdapter` (§3.7). |
 | Cache (optional) | Azure Managed Redis | Canvas response cache and per-user limits, if load needs it. |
 | Code execution (later) | Azure Container Apps dynamic sessions | Only when a college needs it (§3.5). |
 
@@ -581,6 +583,7 @@ The full prototype is preserved at the [`prototype-final`](https://github.com/la
 14. **Current phase.** A functional demo, not a production implementation. It runs locally in Docker Compose, uses Gemini on a personal Google account for the model, and is shared through a tunnel on a personal domain until SDI can provide one (§4).
 15. **License and ownership.** Apache 2.0, copyright Landon Towers, with a `NOTICE` that acknowledges the original prototype led by Spencer Thompson. v0 is a personal open-source project, and only the SDI integration happens on company time (implementation plan, step 0.6).
 16. **Privacy telemetry and crisis escalation.** Operational telemetry is de-identified under FERPA 34 CFR § 99.31(b) using HMAC-SHA256 pseudonymized identifiers and strict free-text scrubbing (`PrivacyTelemetryAdapter`). In-flight crisis detection (self-harm, suicide, imminent violence) invokes the FERPA 34 CFR § 99.36 Health & Safety Emergency Exception, storing isolated incident records and dispatching alerts to student welfare webhooks via `CrisisAlertPort` while presenting immediate 988 Lifeline resources in the UI (§3.7, §3.8).
+17. **Optional Azure log storage.** De-identified operational telemetry and audit logs can be optionally exported directly to Azure Blob Storage via `AzureBlobLogStorageAdapter` (`LogStoragePort`) using SAS URL or connection string configuration, with automated batching and graceful flush on shutdown (§3.7, §5.2).
 
 **Before the student pilot:**
 

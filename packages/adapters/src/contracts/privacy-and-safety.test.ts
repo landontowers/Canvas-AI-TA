@@ -7,6 +7,8 @@ import {
 import { PrivacyTelemetryAdapter } from '../telemetry/privacy-telemetry.adapter.js';
 import { WebhookCrisisAlertAdapter } from '../crisis/webhook-crisis-alert.adapter.js';
 import { FakeCrisisAlertAdapter } from '../crisis/fake-crisis-alert.adapter.js';
+import { FakeLogStorageAdapter } from '../log-storage/fake-log-storage.adapter.js';
+import { AzureBlobLogStorageAdapter } from '../log-storage/azure-blob-log-storage.adapter.js';
 import { FakeModerationAdapter } from '../fake/fake-moderation.adapter.js';
 import { InMemoryPersistenceAdapter } from '../fake/in-memory-persistence.adapter.js';
 import { FakeLlmAdapter } from '../fake/fake-llm.adapter.js';
@@ -206,6 +208,116 @@ describe('Privacy-Preserving Telemetry & Crisis Escalation System', () => {
       const parsed = JSON.parse(crisisTelemetry!);
       expect(parsed.properties.pseudonymId).toMatch(/^anon_[a-f0-9]{16}$/);
       expect(parsed.properties.userId).toBeUndefined();
+    });
+  });
+
+  describe('Azure Log Storage & Telemetry Export (Optional Cloud Storage)', () => {
+    it('FakeLogStorageAdapter collects entries and records flush events', async () => {
+      const fakeStorage = new FakeLogStorageAdapter();
+      await fakeStorage.write({ type: 'event', name: 'test_event' });
+      await fakeStorage.write('{"type":"raw_line"}');
+
+      expect(fakeStorage.entries.length).toBe(2);
+      expect(fakeStorage.flushCount).toBe(0);
+
+      await fakeStorage.flush();
+      expect(fakeStorage.flushCount).toBe(1);
+
+      await fakeStorage.close();
+      expect(fakeStorage.closed).toBe(true);
+      expect(fakeStorage.flushCount).toBe(2);
+    });
+
+    it('PrivacyTelemetryAdapter forwards scrubbed entries to configured LogStoragePort', async () => {
+      const fakeStorage = new FakeLogStorageAdapter();
+      const telemetry = new PrivacyTelemetryAdapter({
+        secretSalt: 'test-salt',
+        logStorage: fakeStorage,
+        enableStdout: false,
+      });
+
+      telemetry.recordEvent('login_completed', {
+        userId: '1001',
+        courseId: 'sdi-ftt101',
+        password: 'should_be_scrubbed',
+      });
+
+      expect(fakeStorage.entries.length).toBe(1);
+      const parsed = JSON.parse(fakeStorage.entries[0]);
+      expect(parsed.name).toBe('login_completed');
+      expect(parsed.properties.pseudonymId).toMatch(/^anon_[a-f0-9]{16}$/);
+      expect(parsed.properties.password).toBeUndefined();
+    });
+
+    it('AzureBlobLogStorageAdapter uploads batches via SAS URL with BlockBlob headers', async () => {
+      const requests: { url: string; method?: string; headers?: Record<string, string>; body?: string }[] = [];
+
+      const mockFetch: typeof fetch = async (input, init) => {
+        requests.push({
+          url: String(input),
+          method: init?.method,
+          headers: init?.headers as Record<string, string>,
+          body: init?.body ? String(init.body) : undefined,
+        });
+        return new Response('', { status: 201 });
+      };
+
+      const storage = new AzureBlobLogStorageAdapter({
+        containerUrl: 'https://testaccount.blob.core.windows.net/telemetry-logs?sv=2023-11-03&sig=fake_sas',
+        batchSize: 2,
+        flushIntervalMs: 0,
+        fetchFn: mockFetch,
+      });
+
+      await storage.write({ type: 'event', name: 'event_1' });
+      expect(requests.length).toBe(0); // Under batch size
+
+      await storage.write({ type: 'event', name: 'event_2' });
+      // Reached batchSize 2 -> automatic flush
+      expect(requests.length).toBe(1);
+      expect(requests[0].method).toBe('PUT');
+      expect(requests[0].url).toContain('https://testaccount.blob.core.windows.net/telemetry-logs/logs/');
+      expect(requests[0].url).toContain('.jsonl?sv=2023-11-03&sig=fake_sas');
+      expect(requests[0].headers?.['x-ms-blob-type']).toBe('BlockBlob');
+      expect(requests[0].headers?.['x-ms-version']).toBe('2023-11-03');
+      expect(requests[0].body).toContain('event_1');
+      expect(requests[0].body).toContain('event_2');
+
+      await storage.close();
+    });
+
+    it('AzureBlobLogStorageAdapter signs SharedKey authorization with connection string', async () => {
+      const requests: { url: string; headers?: Record<string, string>; body?: string }[] = [];
+
+      const mockFetch: typeof fetch = async (input, init) => {
+        requests.push({
+          url: String(input),
+          headers: init?.headers as Record<string, string>,
+          body: init?.body ? String(init.body) : undefined,
+        });
+        return new Response('', { status: 201 });
+      };
+
+      const connStr =
+        'DefaultEndpointsProtocol=https;AccountName=teststorageaccount;AccountKey=dGVzdF9rZXlfYmFzZTY0;EndpointSuffix=core.windows.net';
+
+      const storage = new AzureBlobLogStorageAdapter({
+        connectionString: connStr,
+        containerName: 'audit-logs',
+        batchSize: 10,
+        flushIntervalMs: 0,
+        fetchFn: mockFetch,
+      });
+
+      await storage.write('{"type":"audit_event","action":"clear_data"}');
+      await storage.flush();
+
+      expect(requests.length).toBe(1);
+      expect(requests[0].url).toContain('https://teststorageaccount.blob.core.windows.net/audit-logs/logs/');
+      expect(requests[0].headers?.['x-ms-blob-type']).toBe('BlockBlob');
+      expect(requests[0].headers?.['Authorization']).toMatch(/^SharedKey teststorageaccount:[A-Za-z0-9+/=]+$/);
+
+      await storage.close();
     });
   });
 });

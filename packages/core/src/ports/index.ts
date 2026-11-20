@@ -7,3 +7,4 @@ export * from './moderation.port.js';
 export * from './persistence.port.js';
 export * from './telemetry.port.js';
 export * from './crisis-alert.port.js';
+export * from './log-storage.port.js';

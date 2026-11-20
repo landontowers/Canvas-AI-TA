@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadAppConfig } from '@ai-tutor/adapters';
+import { loadAppConfig, FakeLogStorageAdapter } from '@ai-tutor/adapters';
 import { buildServer, PortsContainer } from '../src/server.js';
 
 describe('API Server', () => {
@@ -429,6 +429,17 @@ describe('API Server', () => {
       const text = res.body;
       expect(text).not.toContain('mock-dev-token');
       expect(text).not.toContain(config.canvas.accessToken);
+    });
+
+    it('flushes configured LogStoragePort when server closes', async () => {
+      const fakeStorage = new FakeLogStorageAdapter();
+      const instance = buildServer(config, { logStorage: fakeStorage });
+
+      await instance.ready();
+      expect(fakeStorage.flushCount).toBe(0);
+
+      await instance.close();
+      expect(fakeStorage.flushCount).toBeGreaterThanOrEqual(1);
     });
   });
 });

@@ -11,6 +11,7 @@ import {
   ModerationPort,
   TelemetryPort,
   CrisisAlertPort,
+  LogStoragePort,
   createStandardToolRegistry,
   ToolRegistry,
   UnauthorizedToolError,
@@ -26,6 +27,7 @@ import {
   NoopTelemetryAdapter,
   PrivacyTelemetryAdapter,
   WebhookCrisisAlertAdapter,
+  AzureBlobLogStorageAdapter,
   CanvasClient,
   CanvasRestAdapter,
   CanvasDemoIdentityAdapter,
@@ -42,6 +44,7 @@ export interface PortsContainer {
   moderation: ModerationPort;
   telemetry: TelemetryPort;
   crisisAlert?: CrisisAlertPort;
+  logStorage?: LogStoragePort;
 }
 
 export function buildServer(
@@ -144,14 +147,54 @@ export function buildServer(
       portsOverride?.telemetry ??
       (config.env === 'test'
         ? new NoopTelemetryAdapter()
-        : new PrivacyTelemetryAdapter({ secretSalt: process.env.TELEMETRY_SALT })),
+        : new PrivacyTelemetryAdapter({
+            secretSalt: process.env.TELEMETRY_SALT,
+            logStorage:
+              portsOverride?.logStorage ??
+              ((process.env.AZURE_LOG_STORAGE_ENABLED === 'true' ||
+                Boolean(
+                  process.env.AZURE_STORAGE_CONNECTION_STRING ||
+                    process.env.AZURE_STORAGE_LOG_CONTAINER_URL,
+                ))
+                ? new AzureBlobLogStorageAdapter({
+                    connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+                    containerUrl: process.env.AZURE_STORAGE_LOG_CONTAINER_URL,
+                    containerName: process.env.AZURE_STORAGE_LOG_CONTAINER,
+                    logger: (msg) => server.log.info(`[AzureLogStorage] ${msg}`),
+                  })
+                : undefined),
+          })),
     crisisAlert:
       portsOverride?.crisisAlert ??
       new WebhookCrisisAlertAdapter({
         webhookUrl: process.env.CRISIS_ALERT_WEBHOOK_URL,
         logger: (msg) => server.log.error(msg),
       }),
+    logStorage:
+      portsOverride?.logStorage ??
+      ((process.env.AZURE_LOG_STORAGE_ENABLED === 'true' ||
+        Boolean(
+          process.env.AZURE_STORAGE_CONNECTION_STRING ||
+            process.env.AZURE_STORAGE_LOG_CONTAINER_URL,
+        ))
+        ? new AzureBlobLogStorageAdapter({
+            connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING,
+            containerUrl: process.env.AZURE_STORAGE_LOG_CONTAINER_URL,
+            containerName: process.env.AZURE_STORAGE_LOG_CONTAINER,
+            logger: (msg) => server.log.info(`[AzureLogStorage] ${msg}`),
+          })
+        : undefined),
   };
+
+  if (ports.logStorage) {
+    server.addHook('onClose', async () => {
+      if (ports.logStorage?.close) {
+        await ports.logStorage.close();
+      } else if (ports.logStorage?.flush) {
+        await ports.logStorage.flush();
+      }
+    });
+  }
 
   (server as unknown as { ports: PortsContainer }).ports = ports;
 
