@@ -34,9 +34,9 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
     model: {
       provider: (env.MODEL_PROVIDER as 'fake' | 'gemini' | 'azure-openai') || 'fake',
       apiKey: env.GEMINI_API_KEY || env.AZURE_OPENAI_API_KEY,
-      studentModel: env.STUDENT_MODEL || 'gemini-2.5-flash',
-      instructorModel: env.INSTRUCTOR_MODEL || 'gemini-2.5-flash',
-      classifierModel: env.CLASSIFIER_MODEL || 'gemini-2.5-flash-lite',
+      studentModel: env.STUDENT_MODEL || 'gemini-3.8-flash',
+      instructorModel: env.INSTRUCTOR_MODEL || 'gemini-3.8-flash',
+      classifierModel: env.CLASSIFIER_MODEL || 'gemini-3.8-flash',
     },
     demoAuth: {
       enabled: env.DEMO_AUTH_ENABLED === 'true' || Boolean(env.DEMO_PASSWORD),

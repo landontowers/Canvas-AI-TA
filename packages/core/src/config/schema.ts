@@ -64,9 +64,9 @@ export const AppConfigSchema = z.object({
   model: z.object({
     provider: z.enum(['fake', 'gemini', 'azure-openai']).default('fake'),
     apiKey: z.string().optional(),
-    studentModel: z.string().default('gemini-2.5-flash'),
-    instructorModel: z.string().default('gemini-2.5-flash'),
-    classifierModel: z.string().default('gemini-2.5-flash-lite'),
+    studentModel: z.string().default('gemini-3.8-flash'),
+    instructorModel: z.string().default('gemini-3.8-flash'),
+    classifierModel: z.string().default('gemini-3.8-flash'),
   }),
   demoAuth: DemoAuthConfigSchema.default({
     enabled: false,

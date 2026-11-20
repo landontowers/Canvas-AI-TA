@@ -23,7 +23,7 @@ export class GeminiAdapter implements LlmPort {
     if (key) {
       this.client = new GoogleGenAI({ apiKey: key });
     }
-    this.defaultModel = options.defaultModel || 'gemini-2.5-flash';
+    this.defaultModel = options.defaultModel || 'gemini-3.8-flash';
   }
 
   getCapabilities(): LlmCapabilities {

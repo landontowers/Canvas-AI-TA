@@ -71,10 +71,14 @@ DEMO_AUTH_ENABLED=false
 ```
 
 ### Mode B: Live Gemini AI generation
-Uses Google Gemini 2.5 Flash on a personal Google account for development and demo (critique §3.9). Send synthetic sandbox data only.
+Uses Google Gemini 3.8 Flash on a personal Google account for development and demo (critique §3.9). Send synthetic sandbox data only.
 ```ini
 MODEL_PROVIDER=gemini
 GEMINI_API_KEY=your_google_ai_studio_api_key_here
+# Optional model overrides (defaults to gemini-3.8-flash):
+# STUDENT_MODEL=gemini-3.8-flash
+# INSTRUCTOR_MODEL=gemini-3.8-flash
+# CLASSIFIER_MODEL=gemini-3.8-flash
 ```
 
 ### Mode C: Protected remote demo sharing
