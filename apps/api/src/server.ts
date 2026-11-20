@@ -26,10 +26,12 @@ import {
   CanvasClient,
   CanvasRestAdapter,
   CanvasDemoIdentityAdapter,
+  GeminiAdapter,
 } from '@ai-tutor/adapters';
 
 export interface PortsContainer {
   llm: LlmPort;
+  classifierLlm?: LlmPort;
   lms: LmsPort;
   identity: IdentityPort;
   persistence: PersistencePort;
@@ -81,8 +83,40 @@ export function buildServer(
       })
     : undefined;
 
+  // Setup LLM adapter based on config (critique §3.9)
+  let defaultLlm: LlmPort;
+  let defaultClassifierLlm: LlmPort;
+
+  if (config.model.provider === 'gemini') {
+    if (!config.model.apiKey) {
+      server.log.warn(
+        'MODEL_PROVIDER is set to "gemini", but GEMINI_API_KEY is not configured. Falling back to FakeLlmAdapter.',
+      );
+      defaultLlm = new FakeLlmAdapter();
+      defaultClassifierLlm = defaultLlm;
+    } else {
+      server.log.info(
+        `Configuring GeminiAdapter with studentModel=${config.model.studentModel}, classifierModel=${config.model.classifierModel}`,
+      );
+      defaultLlm = new GeminiAdapter({
+        apiKey: config.model.apiKey,
+        defaultModel: config.model.studentModel,
+      });
+      defaultClassifierLlm = new GeminiAdapter({
+        apiKey: config.model.apiKey,
+        defaultModel: config.model.classifierModel,
+      });
+    }
+  } else {
+    defaultLlm = new FakeLlmAdapter();
+    defaultClassifierLlm = defaultLlm;
+  }
+
   const ports: PortsContainer = {
-    llm: portsOverride?.llm ?? new FakeLlmAdapter(),
+    llm: portsOverride?.llm ?? defaultLlm,
+    classifierLlm:
+      portsOverride?.classifierLlm ??
+      (portsOverride?.llm ? portsOverride.llm : defaultClassifierLlm),
     lms:
       portsOverride?.lms ??
       (defaultCanvasClient ? new CanvasRestAdapter(defaultCanvasClient) : new FakeLmsAdapter()),
@@ -100,6 +134,8 @@ export function buildServer(
     moderation: portsOverride?.moderation ?? new FakeModerationAdapter(config.college.crisis.message),
     telemetry: portsOverride?.telemetry ?? new NoopTelemetryAdapter(),
   };
+
+  (server as unknown as { ports: PortsContainer }).ports = ports;
 
   const toolRegistry: ToolRegistry = createStandardToolRegistry();
 
@@ -134,7 +170,7 @@ export function buildServer(
 
   const engine = new TutorEngine({
     llm: ports.llm,
-    classifierLlm: ports.llm,
+    classifierLlm: ports.classifierLlm ?? ports.llm,
     lms: ports.lms,
     identity: ports.identity,
     persistence: ports.persistence,
@@ -151,6 +187,7 @@ export function buildServer(
       status: 'ok',
       env: config.env,
       college: config.college.id,
+      modelProvider: config.model.provider,
       timestamp: new Date().toISOString(),
     };
   });
@@ -166,6 +203,7 @@ export function buildServer(
         personaCopy: config.college.personaCopy,
       },
       personas: config.canvas.demoPersonas,
+      modelProvider: config.model.provider,
       demoAuth: {
         enabled: config.demoAuth?.enabled ?? false,
       },
@@ -390,8 +428,16 @@ export function buildServer(
       conversationId: body.conversationId,
     });
 
-    for await (const event of stream) {
-      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    try {
+      for await (const event of stream) {
+        reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+      }
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      server.log.error(err);
+      reply.raw.write(
+        `data: ${JSON.stringify({ type: 'error', error: errMsg })}\n\n`,
+      );
     }
 
     reply.raw.end();

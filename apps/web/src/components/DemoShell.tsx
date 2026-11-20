@@ -8,6 +8,7 @@ interface HealthStatus {
   status: string;
   college: string;
   env: string;
+  modelProvider?: string;
   timestamp: string;
 }
 
@@ -187,7 +188,12 @@ export const DemoShell: React.FC = () => {
         <div className="demo-meta-row">
           <div className="status-indicator-chip">
             <span className={`chip-dot ${health ? 'connected' : 'connecting'}`}></span>
-            <span>API: {health ? `ONLINE (${health.college.toUpperCase()})` : 'CONNECTING...'}</span>
+            <span>
+              API:{' '}
+              {health
+                ? `ONLINE (${health.college.toUpperCase()} • ${health.modelProvider || 'fake'})`
+                : 'CONNECTING...'}
+            </span>
           </div>
           <span className="frame-size-chip">Drawer Width: 320px fixed</span>
         </div>

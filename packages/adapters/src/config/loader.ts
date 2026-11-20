@@ -1,7 +1,21 @@
 import { AppConfig, AppConfigSchema } from '@ai-tutor/core';
 import { SDI_COLLEGE_CONFIG, SDI_DEMO_PERSONAS } from './sdi.config.js';
 
-export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
+  if (!customEnv) {
+    if (typeof process !== 'undefined' && typeof process.loadEnvFile === 'function') {
+      try {
+        process.loadEnvFile();
+      } catch {
+        try {
+          process.loadEnvFile('../.env');
+        } catch {
+          // Ignore if .env is missing
+        }
+      }
+    }
+  }
+  const env = customEnv || process.env;
   const rawConfig = {
     env: env.NODE_ENV || 'development',
     server: {

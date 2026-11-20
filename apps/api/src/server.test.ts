@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { loadAppConfig } from '@ai-tutor/adapters';
-import { buildServer } from '../src/server.js';
+import { buildServer, PortsContainer } from '../src/server.js';
 
 describe('API Server', () => {
   const config = loadAppConfig({
@@ -19,6 +19,7 @@ describe('API Server', () => {
     const json = response.json();
     expect(json.status).toBe('ok');
     expect(json.college).toBe('sdi');
+    expect(json.modelProvider).toBe('fake');
     expect(json.timestamp).toBeDefined();
   });
 
@@ -33,6 +34,30 @@ describe('API Server', () => {
     expect(json.college.id).toBe('sdi');
     expect(json.college.theme.brandColor).toBe('#D50032');
     expect(json.personas.length).toBeGreaterThan(0);
+    expect(json.modelProvider).toBe('fake');
+  });
+
+  it('wires GeminiAdapter when configured with MODEL_PROVIDER=gemini and an API key', () => {
+    const geminiConfig = loadAppConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      MODEL_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'test-secret-gemini-key',
+    });
+    const geminiServer = buildServer(geminiConfig) as unknown as { ports: PortsContainer };
+    expect(geminiServer.ports.llm.providerName).toBe('gemini');
+    expect(geminiServer.ports.classifierLlm?.providerName).toBe('gemini');
+  });
+
+  it('falls back to FakeLlmAdapter when MODEL_PROVIDER=gemini but GEMINI_API_KEY is missing', () => {
+    const missingKeyConfig = loadAppConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      MODEL_PROVIDER: 'gemini',
+      GEMINI_API_KEY: '',
+    });
+    const fallbackServer = buildServer(missingKeyConfig) as unknown as { ports: PortsContainer };
+    expect(fallbackServer.ports.llm.providerName).toBe('fake');
   });
 
   it('GET /api/tools filters tools strictly by role', async () => {

@@ -92,7 +92,7 @@ export class GeminiAdapter implements LlmPort {
         systemInstruction: options.systemPrompt,
         maxOutputTokens: options.maxTokens,
         temperature: options.temperature,
-        tools,
+        ...(tools ? { tools } : {}),
       },
     });
 
@@ -133,7 +133,7 @@ export class GeminiAdapter implements LlmPort {
         systemInstruction: options.systemPrompt,
         maxOutputTokens: options.maxTokens,
         temperature: options.temperature,
-        tools,
+        ...(tools ? { tools } : {}),
       },
     });
 
