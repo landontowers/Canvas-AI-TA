@@ -17,12 +17,22 @@ import {
   AlertTriangleIcon,
 } from './Icons.js';
 
+export interface CrisisResourceInfo {
+  hotlineName: string;
+  phone: string;
+  sms?: string;
+  url: string;
+  message?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   citations: Citation[];
   toolsUsed: string[];
+  isCrisis?: boolean;
+  crisis?: CrisisResourceInfo;
   createdAt: Date;
 }
 
@@ -39,10 +49,17 @@ export interface ConversationItem {
   updatedAt: string;
 }
 
+export interface PageContextInfo {
+  title?: string;
+  url?: string;
+  content?: string;
+}
+
 interface ChatInterfaceProps {
   personaId: string;
   courseId: string;
   currentPageTitle: string;
+  pageContext?: PageContextInfo;
   highContrast: boolean;
   authToken?: string | null;
 }
@@ -51,6 +68,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   personaId,
   courseId,
   currentPageTitle,
+  pageContext,
   authToken,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -162,6 +180,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         role: string;
         content: string;
         citations?: Citation[];
+        isCrisis?: boolean;
         createdAt: string | Date;
       }) => ({
         id: m.id,
@@ -169,6 +188,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         content: m.content,
         citations: m.citations || [],
         toolsUsed: [],
+        isCrisis: Boolean(m.isCrisis),
         createdAt: new Date(m.createdAt),
       }));
 
@@ -256,6 +276,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           message: messageContent,
           courseId,
           conversationId: conversationId ?? undefined,
+          pageContext: pageContext || { title: currentPageTitle },
         }),
         signal: controller.signal,
       });
@@ -341,6 +362,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   accumulatedAssistantText
                     ? `AI Tutor finished responding: ${accumulatedAssistantText.slice(0, 150)}...`
                     : 'AI Tutor finished responding.',
+                );
+                break;
+
+              case 'crisis':
+                setMessages((prev) =>
+                  prev.map((msg) =>
+                    msg.id === assistantMsgId
+                      ? {
+                          ...msg,
+                          isCrisis: true,
+                          crisis: {
+                            hotlineName: event.hotlineName,
+                            phone: event.phone,
+                            sms: event.sms,
+                            url: event.url,
+                            message: event.message,
+                          },
+                        }
+                      : msg,
+                  ),
                 );
                 break;
 
@@ -599,29 +640,34 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 </div>
               )}
 
-              {msg.role === 'assistant' && msg.content.includes('988') && (
+              {msg.role === 'assistant' && (msg.isCrisis || Boolean(msg.crisis)) && (
                 <div className="crisis-action-card" role="alert" aria-label="Emergency Crisis Support">
                   <div className="crisis-card-header">
                     <ShieldAlertIcon size={18} className="crisis-icon" />
                     <strong>Immediate Confidential Support (24/7)</strong>
                   </div>
                   <div className="crisis-card-actions">
-                    <a href="tel:988" className="crisis-btn crisis-btn-call">
+                    <a href={`tel:${msg.crisis?.phone || '988'}`} className="crisis-btn crisis-btn-call">
                       <PhoneIcon size={14} className="crisis-btn-icon" />
-                      <span>Call 988</span>
+                      <span>Call {msg.crisis?.phone || '988'}</span>
                     </a>
-                    <a href="sms:988" className="crisis-btn crisis-btn-sms">
-                      <ChatBubbleIcon size={14} className="crisis-btn-icon" />
-                      <span>Text 988</span>
-                    </a>
+                    {(msg.crisis?.sms ?? '988') && (
+                      <a
+                        href={`sms:${msg.crisis?.sms || '988'}`}
+                        className="crisis-btn crisis-btn-sms"
+                      >
+                        <ChatBubbleIcon size={14} className="crisis-btn-icon" />
+                        <span>Text {msg.crisis?.sms || '988'}</span>
+                      </a>
+                    )}
                     <a
-                      href="https://988lifeline.org"
+                      href={msg.crisis?.url || 'https://988lifeline.org'}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="crisis-btn crisis-btn-chat"
                     >
                       <GlobeIcon size={14} className="crisis-btn-icon" />
-                      <span>988 Online Chat</span>
+                      <span>{msg.crisis?.hotlineName || '988 Online Chat'}</span>
                     </a>
                   </div>
                 </div>

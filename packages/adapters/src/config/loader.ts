@@ -35,6 +35,13 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
       ? env.CANVAS_USE_FAKE_COURSE_DATA === 'true' || env.CANVAS_USE_FAKE_COURSE_DATA === '1'
       : true;
 
+  const persistenceMode: 'memory' | 'postgres' =
+    env.PERSISTENCE_MODE === 'postgres' || env.USE_POSTGRES === 'true' ? 'postgres' : 'memory';
+
+  const crisisWebhookUrl =
+    (env.CRISIS_ALERT_WEBHOOK_URL || env.CRISIS_WEBHOOK_URL)?.trim() || undefined;
+  const crisisBearerToken = env.CRISIS_ALERT_BEARER_TOKEN?.trim() || undefined;
+
   const rawConfig = {
     env: env.NODE_ENV || 'development',
     server: {
@@ -44,6 +51,7 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
     },
     database: {
       url: env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ai_tutor',
+      persistenceMode,
     },
     canvas: {
       baseUrl: env.CANVAS_BASE_URL || 'https://classroom.sdi.edu',
@@ -64,7 +72,16 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
       invitedEmails: env.DEMO_INVITED_EMAILS
         ? env.DEMO_INVITED_EMAILS.split(',').map((e: string) => e.trim().toLowerCase()).filter(Boolean)
         : [],
+      cfAccessTeamDomain: env.CF_ACCESS_TEAM_DOMAIN?.trim() || undefined,
+      cfAccessAud: env.CF_ACCESS_AUD?.trim() || undefined,
     },
+    crisisAlert:
+      crisisWebhookUrl || crisisBearerToken
+        ? {
+            webhookUrl: crisisWebhookUrl,
+            bearerToken: crisisBearerToken,
+          }
+        : undefined,
     college: SDI_COLLEGE_CONFIG,
   };
 

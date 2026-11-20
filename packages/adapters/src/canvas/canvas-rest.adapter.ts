@@ -294,7 +294,7 @@ export class CanvasRestAdapter implements LmsPort {
         }
       }
 
-      const total = submissions.length || 25; // fallback to course enrollment size
+      const total = submissions.length;
       summaries.push({
         assignmentId: a.id,
         assignmentName: a.name,
@@ -309,26 +309,68 @@ export class CanvasRestAdapter implements LmsPort {
   }
 
   async getGradebookSummary(courseId: string, asUserId?: string): Promise<GradebookSummary> {
-    const assignments = await this.getUpcomingAssignments(courseId, asUserId || '');
-    const summaries = await this.getSubmissionSummaries(courseId, undefined, asUserId);
+    const encodedCourse = encodeURIComponent(courseId);
+    const assignmentsRes = await this.client.getAllPages<unknown>(
+      `/api/v1/courses/${encodedCourse}/assignments`,
+      asUserId ? { asUserId } : undefined,
+    );
 
-    let totalScore = 0;
-    let gradedCount = 0;
+    const parsedAssignments = assignmentsRes
+      .map((aRaw) => CanvasAssignmentSchema.safeParse(aRaw))
+      .filter((r): r is { success: true; data: ReturnType<typeof CanvasAssignmentSchema.parse> } => r.success)
+      .map((r) => r.data);
 
-    for (const sum of summaries) {
-      if (sum.gradedCount > 0) {
-        totalScore += (sum.submittedCount / sum.totalEnrolled) * 100;
-        gradedCount++;
+    const pointsByAssignment = new Map<string, number>();
+    for (const a of parsedAssignments) {
+      if (typeof a.points_possible === 'number' && a.points_possible > 0) {
+        pointsByAssignment.set(a.id, a.points_possible);
       }
     }
 
-    const averagePercent = gradedCount > 0 ? totalScore / gradedCount : 85.0;
+    const scorePercentages: number[] = [];
+    for (const a of parsedAssignments) {
+      const submissions = await this.client.getAllPages<unknown>(
+        `/api/v1/courses/${encodedCourse}/assignments/${encodeURIComponent(a.id)}/submissions`,
+        asUserId ? { asUserId } : undefined,
+      );
+
+      for (const sRaw of submissions) {
+        const sParsed = CanvasSubmissionSchema.safeParse(sRaw);
+        if (!sParsed.success) continue;
+        const s = sParsed.data;
+        if (s.assignment_id !== a.id) continue;
+
+        const pointsPossible = pointsByAssignment.get(a.id);
+        if (typeof s.score === 'number' && pointsPossible && pointsPossible > 0) {
+          scorePercentages.push((s.score / pointsPossible) * 100);
+        }
+      }
+    }
+
+    if (scorePercentages.length === 0) {
+      return {
+        courseId,
+        averageScorePercent: 0,
+        medianScorePercent: 0,
+        assignmentCount: parsedAssignments.length,
+      };
+    }
+
+    scorePercentages.sort((x, y) => x - y);
+    const sum = scorePercentages.reduce((acc, v) => acc + v, 0);
+    const average = sum / scorePercentages.length;
+
+    const mid = Math.floor(scorePercentages.length / 2);
+    const median =
+      scorePercentages.length % 2 === 1
+        ? scorePercentages[mid]
+        : (scorePercentages[mid - 1] + scorePercentages[mid]) / 2;
 
     return {
       courseId,
-      averageScorePercent: Math.round(averagePercent * 10) / 10,
-      medianScorePercent: Math.round(averagePercent * 10) / 10,
-      assignmentCount: assignments.length,
+      averageScorePercent: Math.round(average * 10) / 10,
+      medianScorePercent: Math.round(median * 10) / 10,
+      assignmentCount: parsedAssignments.length,
     };
   }
 }

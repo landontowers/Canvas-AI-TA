@@ -11,7 +11,8 @@ export const getStudentGradesTool: CoreTool<Record<string, never>> = {
   requiredRole: 'student',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/analytics/users/:user_id/assignments'],
   async execute(_args, context) {
-    return context.ports.lms.getStudentGrades(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getStudentGrades(context.courseId, lmsUserId);
   },
 };
 
@@ -22,7 +23,8 @@ export const getUpcomingAssignmentsTool: CoreTool<Record<string, never>> = {
   requiredRole: 'both',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments'],
   async execute(_args, context) {
-    return context.ports.lms.getUpcomingAssignments(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getUpcomingAssignments(context.courseId, lmsUserId);
   },
 };
 
@@ -35,7 +37,8 @@ export const getAssignmentDetailsTool: CoreTool<{ assignmentId: string }> = {
   requiredRole: 'both',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments/:id'],
   async execute(args, context) {
-    return context.ports.lms.getAssignmentDetails(context.courseId, args.assignmentId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getAssignmentDetails(context.courseId, args.assignmentId, lmsUserId);
   },
 };
 
@@ -46,7 +49,8 @@ export const getSyllabusTool: CoreTool<Record<string, never>> = {
   requiredRole: 'both',
   requiredScopes: ['url:GET|/api/v1/courses/:id'],
   async execute(_args, context) {
-    return context.ports.lms.getSyllabus(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getSyllabus(context.courseId, lmsUserId);
   },
 };
 
@@ -57,7 +61,8 @@ export const getAnnouncementsTool: CoreTool<Record<string, never>> = {
   requiredRole: 'both',
   requiredScopes: ['url:GET|/api/v1/announcements'],
   async execute(_args, context) {
-    return context.ports.lms.getAnnouncements(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getAnnouncements(context.courseId, lmsUserId);
   },
 };
 
@@ -68,7 +73,8 @@ export const getCourseModulesTool: CoreTool<Record<string, never>> = {
   requiredRole: 'student',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/modules'],
   async execute(_args, context) {
-    return context.ports.lms.getCourseModules(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getCourseModules(context.courseId, lmsUserId);
   },
 };
 
@@ -81,7 +87,8 @@ export const getCoursePageTool: CoreTool<{ pageUrl: string }> = {
   requiredRole: 'student',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/pages/:url'],
   async execute(args, context) {
-    return context.ports.lms.getCoursePage(context.courseId, args.pageUrl, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getCoursePage(context.courseId, args.pageUrl, lmsUserId);
   },
 };
 
@@ -92,7 +99,8 @@ export const listEnrolledCoursesTool: CoreTool<Record<string, never>> = {
   requiredRole: 'student',
   requiredScopes: ['url:GET|/api/v1/courses'],
   async execute(_args, context) {
-    return context.ports.lms.getEnrolledCourses(context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getEnrolledCourses(lmsUserId);
   },
 };
 
@@ -103,7 +111,8 @@ export const getCrossCourseDeadlinesTool: CoreTool<Record<string, never>> = {
   requiredRole: 'student',
   requiredScopes: ['url:GET|/api/v1/users/self/upcoming_events'],
   async execute(_args, context) {
-    return context.ports.lms.getCrossCourseUpcomingAssignments(context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getCrossCourseUpcomingAssignments(lmsUserId);
   },
 };
 
@@ -150,7 +159,8 @@ export const getAssignmentsWithoutDueDatesTool: CoreTool<Record<string, never>> 
   requiredRole: 'instructor',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments'],
   async execute(_args, context) {
-    const assignments = await context.ports.lms.getUpcomingAssignments(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    const assignments = await context.ports.lms.getUpcomingAssignments(context.courseId, lmsUserId);
     return assignments.filter((a) => !a.dueAt);
   },
 };
@@ -164,7 +174,8 @@ export const getSubmissionSummariesTool: CoreTool<{ assignmentId?: string }> = {
   requiredRole: 'instructor',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments/:assignment_id/submissions'],
   async execute(args, context) {
-    return context.ports.lms.getSubmissionSummaries(context.courseId, args.assignmentId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getSubmissionSummaries(context.courseId, args.assignmentId, lmsUserId);
   },
 };
 
@@ -175,7 +186,8 @@ export const getGradebookSummaryTool: CoreTool<Record<string, never>> = {
   requiredRole: 'instructor',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/gradebook'],
   async execute(_args, context) {
-    return context.ports.lms.getGradebookSummary(context.courseId, context.userId);
+    const lmsUserId = context.canvasUserId || context.userId;
+    return context.ports.lms.getGradebookSummary(context.courseId, lmsUserId);
   },
 };
 

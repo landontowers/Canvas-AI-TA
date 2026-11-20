@@ -131,8 +131,10 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
 
       render(
         <StudentSettings
-          userId="student_1"
+          userId="demo_student"
+          personaId="demo_student"
           courseId="sdi-ftt101"
+          authToken="session-tok-123"
           onClose={onClose}
           onDataCleared={onCleared}
         />,
@@ -150,6 +152,13 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       await waitFor(() => {
         expect(screen.getByText(/Deleted 2 conversations and 10 messages/i)).toBeDefined();
       });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/users/demo_student/data?personaId=demo_student',
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer session-tok-123' },
+        }),
+      );
       expect(onCleared).toHaveBeenCalled();
 
       const backBtn = screen.getByRole('button', { name: /Back to.*Drawer/i });
@@ -176,6 +185,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         <InstructorSettings
           courseId="sdi-ftt101"
           personaId="demo_instructor"
+          authToken="inst-tok-456"
           onClose={onClose}
         />,
       );
@@ -190,6 +200,17 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       await waitFor(() => {
         expect(screen.getByText(/Course setting updated to Logistics Only/i)).toBeDefined();
       });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/courses/sdi-ftt101/settings',
+        expect.objectContaining({
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer inst-tok-456',
+          },
+          body: JSON.stringify({ setting: 'logistics_only', personaId: 'demo_instructor' }),
+        }),
+      );
 
       const backBtn = screen.getByRole('button', { name: /Back to.*Drawer/i });
       fireEvent.click(backBtn);
@@ -256,6 +277,239 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       // Clicking New Chat resets conversation
       fireEvent.click(newChatBtn);
     });
+
+    it('streams SSE responses with pageContext, renders citations without false-positive 988 banner, and renders typed crisis card', async () => {
+      const createSseStream = (events: unknown[]) => {
+        const encoder = new TextEncoder();
+        return new ReadableStream({
+          start(controller) {
+            for (const ev of events) {
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify(ev)}\n\n`));
+            }
+            controller.close();
+          },
+        });
+      };
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('/api/conversations/conv-crisis/messages')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'm-1',
+                  role: 'user',
+                  content: 'Older crisis check',
+                  citations: [],
+                  createdAt: new Date().toISOString(),
+                },
+                {
+                  id: 'm-2',
+                  role: 'assistant',
+                  content: 'Support is available.',
+                  citations: [],
+                  isCrisis: true,
+                  createdAt: new Date().toISOString(),
+                },
+              ]),
+          });
+        }
+        if (url.includes('/api/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve([
+                {
+                  id: 'conv-crisis',
+                  collegeId: 'sdi',
+                  courseId: 'sdi-ftt101',
+                  userId: 'user-1001',
+                  role: 'student',
+                  title: 'Older crisis check',
+                  messageCount: 2,
+                  lastMessageAt: new Date().toISOString(),
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                },
+              ]),
+          });
+        }
+        if (url === '/api/chat') {
+          const callCount = fetchMock.mock.calls.filter(([u]) => u === '/api/chat').length;
+          if (callCount === 1) {
+            // Turn 1: answer mentions number 988 (ballistics math) WITHOUT a crisis event
+            return Promise.resolve({
+              ok: true,
+              body: createSseStream([
+                { type: 'tool-status', toolName: 'calculate', status: 'calling', message: 'Computing energy' },
+                { type: 'tool-status', toolName: 'calculate', status: 'complete' },
+                { type: 'text-delta', delta: 'Bullet kinetic energy is 988 ft-lbs.' },
+                {
+                  type: 'citation',
+                  citation: {
+                    title: 'Course Syllabus',
+                    url: 'https://classroom.sdi.edu/courses/sdi-ftt101/syllabus',
+                    type: 'syllabus',
+                  },
+                },
+                { type: 'done', conversationId: 'conv-stream-1', messageId: 'msg-a1' },
+              ]),
+            });
+          }
+          // Turn 2: typed crisis SSE event
+          return Promise.resolve({
+            ok: true,
+            body: createSseStream([
+              {
+                type: 'crisis',
+                hotlineName: '988 Suicide & Crisis Lifeline',
+                phone: '988',
+                sms: '988',
+                url: 'https://988lifeline.org',
+                message: 'Help is available 24/7.',
+              },
+              { type: 'text-delta', delta: 'Please reach out right away.' },
+              { type: 'done', conversationId: 'conv-stream-1', messageId: 'msg-a2' },
+            ]),
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      });
+
+      globalThis.fetch = fetchMock;
+
+      render(
+        <ChatInterface
+          personaId="demo_student"
+          courseId="sdi-ftt101"
+          currentPageTitle="Ballistics Lab"
+          pageContext={{
+            title: 'Ballistics Lab',
+            url: 'https://classroom.sdi.edu/courses/sdi-ftt101/pages/ballistics',
+            content: 'Compute kinetic energy for 55gr projectile.',
+          }}
+          highContrast={false}
+          authToken="bearer-abc"
+        />,
+      );
+
+      const input = screen.getByLabelText(/Ask the SDI AI Tutor/i);
+      const sendBtn = screen.getByRole('button', { name: /Send message to AI Tutor/i });
+
+      // Turn 1: ballistics math mentioning '988'
+      fireEvent.change(input, { target: { value: 'Calculate energy' } });
+      fireEvent.click(sendBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/Bullet kinetic energy is 988 ft-lbs\./i)).toBeDefined();
+      });
+      // Must NOT show crisis card on numeric '988'
+      expect(screen.queryByRole('alert', { name: /Emergency Crisis Support/i })).toBeNull();
+
+      // Verify pageContext and authToken were included in POST /api/chat
+      const chatCall = fetchMock.mock.calls.find(([u]) => u === '/api/chat');
+      const sentBody = JSON.parse(String(chatCall?.[1]?.body));
+      expect(sentBody.pageContext.title).toBe('Ballistics Lab');
+      expect(sentBody.pageContext.content).toContain('55gr projectile');
+      expect(chatCall?.[1]?.headers).toEqual(
+        expect.objectContaining({ Authorization: 'Bearer bearer-abc' }),
+      );
+
+      // Citation link uses absolute https:// URL
+      const citeLink = screen.getByRole('link', { name: /Syllabus citation: Course Syllabus/i });
+      expect(citeLink.getAttribute('href')).toBe('https://classroom.sdi.edu/courses/sdi-ftt101/syllabus');
+
+      // Turn 2: typed crisis event DOES render crisis card
+      fireEvent.change(input, { target: { value: 'Need emergency help' } });
+      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert', { name: /Emergency Crisis Support/i })).toBeDefined();
+      });
+
+      // Resuming a persisted crisis conversation renders isCrisis banner from history
+      fireEvent.click(screen.getByRole('button', { name: /View previous chats/i }));
+      await waitFor(() => {
+        expect(screen.getByText(/Older crisis check/i)).toBeDefined();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Resume chat: Older crisis check/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Support is available\./i)).toBeDefined();
+        expect(screen.getByRole('alert', { name: /Emergency Crisis Support/i })).toBeDefined();
+      });
+    });
+
+    it('supports aborting active stream via Stop button and renders SSE error alerts', async () => {
+      const encoder = new TextEncoder();
+      const abortError = new DOMException('Aborted', 'AbortError');
+
+      // Hang stream until aborted for Stop button test
+      globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url === '/api/chat') {
+          const callNum = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.filter(
+            ([u]) => u === '/api/chat',
+          ).length;
+          if (callNum === 1) {
+            return Promise.resolve({
+              ok: true,
+              body: new ReadableStream({
+                start(controller) {
+                  controller.enqueue(encoder.encode('data: {"type":"text-delta","delta":"Partial..."}\n\n'));
+                  init?.signal?.addEventListener('abort', () => {
+                    controller.error(abortError);
+                  });
+                },
+              }),
+            });
+          }
+          // Second call emits explicit error event
+          return Promise.resolve({
+            ok: true,
+            body: new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode('data: {"type":"error","error":"Model temporarily unavailable"}\n\n'),
+                );
+                controller.close();
+              },
+            }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      });
+
+      render(
+        <ChatInterface
+          personaId="demo_student"
+          courseId="sdi-ftt101"
+          currentPageTitle="Assignment: Safety Lab 1"
+          highContrast={false}
+        />,
+      );
+
+      const input = screen.getByLabelText(/Ask the SDI AI Tutor/i);
+      fireEvent.change(input, { target: { value: 'Long answer' } });
+      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Stop generating response/i })).toBeDefined();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Stop generating response/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Send message to AI Tutor/i })).toBeDefined();
+      });
+
+      // Trigger SSE error event
+      fireEvent.change(input, { target: { value: 'Trigger error' } });
+      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Model temporarily unavailable/i)).toBeDefined();
+      });
+    });
   });
 
   describe('DemoShell', () => {
@@ -320,6 +574,23 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
 
       fireEvent.click(contrastBtn);
       expect(screen.getByRole('button', { name: /High Contrast: ON/i })).toBeDefined();
+
+      // Dispatch LTI pageContent postMessage and verify pageContext propagates into POST /api/chat
+      fireEvent(
+        window,
+        new MessageEvent('message', {
+          data: {
+            subject: 'lti.pageContent',
+            pageTitle: 'Wiki: Trigger Action',
+            pageUrl: 'https://classroom.sdi.edu/courses/sdi-ftt101/pages/trigger-action',
+            pageContent: 'Detailed trigger mechanism overview.',
+          },
+        }),
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Wiki: Trigger Action/i)).toBeDefined();
+      });
 
       // Persona selector
       const personaSelect = screen.getByLabelText(/Persona \(Masquerade\):/i);

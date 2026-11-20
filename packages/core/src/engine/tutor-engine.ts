@@ -9,18 +9,21 @@ import {
   CourseContentPort,
   CrisisAlertPort,
 } from '../ports/index.js';
-import { StreamEvent } from '../types/stream.js';
+import { StreamEvent, toClientStreamEvent } from '../types/stream.js';
 import { Citation, MessageRole } from '../types/message.js';
-import { ToolCall, ToolResult } from '../types/tool.js';
+import { ToolCall, ToolDefinition, ToolResult } from '../types/tool.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { ToolExecutionContext } from '../tools/tool.types.js';
-import { STUDENT_HARNESS_PROFILE } from '../profiles/student.profile.js';
+import { HarnessProfile, STUDENT_HARNESS_PROFILE } from '../profiles/student.profile.js';
 import { INSTRUCTOR_HARNESS_PROFILE } from '../profiles/instructor.profile.js';
 import { evaluateStudentPolicy, QuestionClassification } from '../policy/classifier.js';
 import { CollegeConfig } from '../config/schema.js';
+import { CourseSettingValue } from '../types/course.js';
+import { TutorRole } from '../types/role.js';
 
 export interface TutorEngineDependencies {
   llm: LlmPort;
+  instructorLlm?: LlmPort;
   classifierLlm?: LlmPort;
   lms: LmsPort;
   identity: IdentityPort;
@@ -30,8 +33,15 @@ export interface TutorEngineDependencies {
   telemetry: TelemetryPort;
   toolRegistry: ToolRegistry;
   collegeConfig: CollegeConfig;
+  canvasBaseUrl?: string;
   courseContent?: CourseContentPort;
   crisisAlert?: CrisisAlertPort;
+}
+
+export interface PageContext {
+  title?: string;
+  url?: string;
+  content?: string;
 }
 
 export interface TurnParameters {
@@ -39,7 +49,11 @@ export interface TurnParameters {
   courseId?: string;
   conversationId?: string;
   message: string;
+  pageContext?: PageContext;
 }
+
+const MAX_PAGE_CONTENT_CHARS = 4000;
+const PURE_CALCULATION_TOOLS = new Set(['calculate', 'date_math']);
 
 export class TutorEngine {
   constructor(private deps: TutorEngineDependencies) {}
@@ -117,6 +131,119 @@ export class TutorEngine {
     return 'course_material';
   }
 
+  private buildSystemPrompt(
+    profile: HarnessProfile,
+    role: TutorRole,
+    courseSetting: CourseSettingValue,
+    pageContext?: PageContext,
+  ): string {
+    if (!pageContext || (role === 'student' && courseSetting === 'logistics_only')) {
+      return profile.systemPrompt;
+    }
+
+    const parts: string[] = [];
+    if (pageContext.title) parts.push(`Title: ${pageContext.title}`);
+    if (pageContext.url) parts.push(`URL: ${pageContext.url}`);
+    if (pageContext.content) {
+      const truncated =
+        pageContext.content.length > MAX_PAGE_CONTENT_CHARS
+          ? `${pageContext.content.slice(0, MAX_PAGE_CONTENT_CHARS)}\n...[truncated]`
+          : pageContext.content;
+      parts.push(`Content:\n${truncated}`);
+    }
+
+    if (parts.length === 0) {
+      return profile.systemPrompt;
+    }
+
+    return `${profile.systemPrompt}\n\nThe user is currently viewing the following Canvas page:\n<untrusted_canvas_data source="current_page">\n${parts.join('\n')}\n</untrusted_canvas_data>`;
+  }
+
+  private getPermittedTools(
+    profile: HarnessProfile,
+    role: TutorRole,
+    courseSetting: CourseSettingValue,
+  ): ToolDefinition[] {
+    const allowedSet = new Set(profile.allowedToolNames);
+    let available = this.deps.toolRegistry
+      .getToolsForRole(role)
+      .filter((t) => allowedSet.has(t.name));
+
+    if (role === 'student' && courseSetting === 'logistics_only') {
+      available = available.filter(
+        (t) =>
+          t.name !== 'get_course_page' &&
+          t.name !== 'get_course_modules' &&
+          t.name !== 'get_assignment_details',
+      );
+    }
+
+    return available;
+  }
+
+  private wrapToolOutput(toolName: string, rawContent: string): string {
+    if (PURE_CALCULATION_TOOLS.has(toolName)) {
+      return rawContent;
+    }
+    return `<untrusted_canvas_data tool="${toolName}">\n${rawContent}\n</untrusted_canvas_data>`;
+  }
+
+  private buildCitationForTool(
+    call: ToolCall,
+    courseId: string,
+    isError: boolean,
+  ): Citation | null {
+    if (isError) return null;
+
+    const canvasBase = (
+      this.deps.canvasBaseUrl || `https://${this.deps.collegeConfig.domain}`
+    ).replace(/\/+$/, '');
+    const encodedCourseId = encodeURIComponent(courseId);
+
+    switch (call.name) {
+      case 'get_syllabus':
+        return {
+          title: 'Course Syllabus',
+          url: `${canvasBase}/courses/${encodedCourseId}/syllabus`,
+          type: 'syllabus',
+        };
+      case 'get_assignment_details':
+        if (typeof call.args.assignmentId === 'string' && call.args.assignmentId.length > 0) {
+          return {
+            title: 'Assignment Details',
+            url: `${canvasBase}/courses/${encodedCourseId}/assignments/${encodeURIComponent(call.args.assignmentId)}`,
+            canvasId: call.args.assignmentId,
+            type: 'assignment',
+          };
+        }
+        return null;
+      case 'get_course_page':
+        if (typeof call.args.pageUrl === 'string' && call.args.pageUrl.length > 0) {
+          return {
+            title: 'Course Page',
+            url: `${canvasBase}/courses/${encodedCourseId}/pages/${encodeURIComponent(call.args.pageUrl)}`,
+            canvasId: call.args.pageUrl,
+            type: 'page',
+          };
+        }
+        return null;
+      case 'get_announcements':
+        return {
+          title: 'Course Announcements',
+          url: `${canvasBase}/courses/${encodedCourseId}/announcements`,
+          type: 'announcement',
+        };
+      case 'get_course_modules':
+        return {
+          title: 'Course Modules',
+          url: `${canvasBase}/courses/${encodedCourseId}/modules`,
+          type: 'module',
+        };
+      default:
+        return null;
+    }
+  }
+
   /**
    * Executes a full tutoring turn, streaming typed SSE events to the caller.
    */
@@ -160,8 +287,17 @@ export class TutorEngine {
     // 3. Safety & Crisis check (critique §3.8, FERPA 34 CFR § 99.36)
     const moderation = await this.deps.moderation.checkContent(params.message, authContext.userId);
     if (moderation.crisisDetected) {
-      const crisisText =
-        moderation.crisisMessage || this.deps.collegeConfig.crisis.message;
+      const crisis = this.deps.collegeConfig.crisis;
+      const crisisText = moderation.crisisMessage || crisis.message;
+
+      yield {
+        type: 'crisis',
+        hotlineName: crisis.hotlineName,
+        phone: crisis.phone,
+        sms: crisis.sms,
+        url: crisis.url,
+        message: crisisText,
+      };
 
       yield {
         type: 'text-delta',
@@ -172,6 +308,7 @@ export class TutorEngine {
         conversationId: conversation.id,
         role: 'assistant',
         content: crisisText,
+        isCrisis: true,
       });
 
       yield {
@@ -205,62 +342,59 @@ export class TutorEngine {
       return;
     }
 
-    // 4. Role-based Profile and Policy check
+    // 4. Role-based Profile, Single Course Settings Lookup, and Policy check
     const isStudent = authContext.tutorRole === 'student';
     const profile = isStudent ? STUDENT_HARNESS_PROFILE : INSTRUCTOR_HARNESS_PROFILE;
+    const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
 
-    if (isStudent) {
-      // Enforce Course Setting (critique §3.4)
-      const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
+    if (isStudent && courseSettings.setting === 'logistics_only') {
+      const classification = await this.classifyQuestion(params.message);
+      const policy = evaluateStudentPolicy(classification, 'logistics_only');
 
-      if (courseSettings.setting === 'logistics_only') {
-        const classification = await this.classifyQuestion(params.message);
-        const policy = evaluateStudentPolicy(classification, 'logistics_only');
+      if (!policy.allowed) {
+        const refusal =
+          policy.refusalMessage ||
+          'Your instructor has configured this tutor for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.';
 
-        if (!policy.allowed) {
-          const refusal =
-            policy.refusalMessage ||
-            'Your instructor has configured this tutor for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.';
+        yield {
+          type: 'text-delta',
+          delta: refusal,
+        };
 
-          yield {
-            type: 'text-delta',
-            delta: refusal,
-          };
+        const savedMsg = await this.deps.persistence.saveMessage({
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: refusal,
+        });
 
-          const savedMsg = await this.deps.persistence.saveMessage({
-            conversationId: conversation.id,
-            role: 'assistant',
-            content: refusal,
-          });
+        yield {
+          type: 'done',
+          conversationId: conversation.id,
+          messageId: savedMsg.id,
+        };
 
-          yield {
-            type: 'done',
-            conversationId: conversation.id,
-            messageId: savedMsg.id,
-          };
-
-          this.deps.telemetry.recordEvent('policy_refusal_logistics_only', {
-            courseId: authContext.courseId,
-            userId: authContext.userId,
-          });
-          return;
-        }
+        this.deps.telemetry.recordEvent('policy_refusal_logistics_only', {
+          courseId: authContext.courseId,
+          userId: authContext.userId,
+        });
+        return;
       }
     }
 
-    // 5. Build tool list for session role (critique §3.14)
-    let availableTools = this.deps.toolRegistry.getToolsForRole(authContext.tutorRole);
+    // 5. Build tool list from profile allowlist + role boundary + logistics_only guard
+    const availableTools = this.getPermittedTools(
+      profile,
+      authContext.tutorRole,
+      courseSettings.setting,
+    );
 
-    // If logistics_only setting is active, strip course content tools as server-side guard
-    const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
-    if (courseSettings.setting === 'logistics_only') {
-      availableTools = availableTools.filter(
-        (t) =>
-          t.name !== 'get_course_page' &&
-          t.name !== 'get_course_modules' &&
-          t.name !== 'get_assignment_details',
-      );
-    }
+    const systemPrompt = this.buildSystemPrompt(
+      profile,
+      authContext.tutorRole,
+      courseSettings.setting,
+      params.pageContext,
+    );
+    const activeLlm = isStudent ? this.deps.llm : (this.deps.instructorLlm ?? this.deps.llm);
 
     // 6. Load conversation history
     const history = await this.deps.persistence.listMessages(conversation.id);
@@ -298,8 +432,8 @@ export class TutorEngine {
       let currentRoundText = '';
       const pendingToolCalls: ToolCall[] = [];
 
-      const stream = this.deps.llm.stream({
-        systemPrompt: profile.systemPrompt,
+      const stream = activeLlm.stream({
+        systemPrompt,
         messages: messagesForLlm,
         tools: availableTools,
         maxTokens: profile.maxTokens,
@@ -310,9 +444,8 @@ export class TutorEngine {
         if (event.type === 'text-delta') {
           currentRoundText += event.delta;
           fullAssistantResponse += event.delta;
-          yield event;
+          yield toClientStreamEvent(event);
         } else if (event.type === 'tool-status') {
-          yield event;
           if (event.status === 'calling') {
             pendingToolCalls.push({
               id: event.callId || `call_${Date.now()}_${pendingToolCalls.length}`,
@@ -321,9 +454,10 @@ export class TutorEngine {
               thoughtSignature: event.thoughtSignature,
             });
           }
+          yield toClientStreamEvent(event);
         } else if (event.type === 'citation') {
           accumulatedCitations.push(event.citation);
-          yield event;
+          yield toClientStreamEvent(event);
         }
       }
 
@@ -357,28 +491,21 @@ export class TutorEngine {
           message: result.isError ? String(result.result) : undefined,
         };
 
-        // Attach citation if tool returns Canvas page, assignment, or syllabus
-        if (call.name === 'get_syllabus') {
-          const cit: Citation = {
-            title: 'Course Syllabus',
-            url: `/courses/${authContext.courseId}/syllabus`,
-            type: 'syllabus',
-          };
-          accumulatedCitations.push(cit);
-          yield { type: 'citation', citation: cit };
-        } else if (call.name === 'get_assignment_details' && typeof call.args.assignmentId === 'string') {
-          const cit: Citation = {
-            title: 'Assignment Details',
-            url: `/courses/${authContext.courseId}/assignments/${call.args.assignmentId}`,
-            type: 'assignment',
-          };
-          accumulatedCitations.push(cit);
-          yield { type: 'citation', citation: cit };
+        const citation = this.buildCitationForTool(
+          call,
+          authContext.courseId,
+          Boolean(result.isError),
+        );
+        if (citation) {
+          accumulatedCitations.push(citation);
+          yield { type: 'citation', citation };
         }
 
+        const serialized =
+          typeof result.result === 'string' ? result.result : JSON.stringify(result.result);
         messagesForLlm.push({
           role: 'tool',
-          content: typeof result.result === 'string' ? result.result : JSON.stringify(result.result),
+          content: this.wrapToolOutput(call.name, serialized),
           toolResultId: call.id,
           toolName: call.name,
         });

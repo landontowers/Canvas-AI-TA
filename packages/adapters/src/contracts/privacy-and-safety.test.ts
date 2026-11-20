@@ -143,6 +143,71 @@ describe('Privacy-Preserving Telemetry & Crisis Escalation System', () => {
       expect(parsed.severity).toBe('EMERGENCY_HEALTH_SAFETY');
       expect(parsed.legalBasis).toContain('FERPA 34 CFR § 99.36');
     });
+
+    it('sends Authorization Bearer token and handles webhook failures gracefully', async () => {
+      let authHeader: string | undefined;
+      const authFetch: typeof fetch = async (_url, init) => {
+        authHeader = (init?.headers as Record<string, string>)?.Authorization;
+        return new Response('Server Error', { status: 502 });
+      };
+
+      const logs: string[] = [];
+      const adapter = new WebhookCrisisAlertAdapter({
+        webhookUrl: 'https://emergency.sdi.edu/api/crisis-alert',
+        bearerToken: 'secret-crisis-token',
+        fetchFn: authFetch,
+        logger: (m) => logs.push(m),
+      });
+
+      const incident: CrisisIncident = {
+        id: 'inc-502',
+        timestamp: new Date(),
+        collegeId: 'sdi',
+        courseId: 'sdi-ftt101',
+        studentId: '1001',
+        category: 'self-harm',
+        triggerSnippet: 'distress',
+        responseRendered: '988 info',
+      };
+
+      const res = await adapter.dispatchAlert(incident);
+      expect(authHeader).toBe('Bearer secret-crisis-token');
+      expect(res.success).toBe(false);
+      expect(res.error).toContain('502');
+      expect(logs.some((l) => l.includes('502'))).toBe(true);
+
+      const netFailAdapter = new WebhookCrisisAlertAdapter({
+        webhookUrl: 'https://emergency.sdi.edu/api/crisis-alert',
+        fetchFn: async () => {
+          throw new Error('ECONNREFUSED');
+        },
+        logger: (m) => logs.push(m),
+      });
+      const netRes = await netFailAdapter.dispatchAlert(incident);
+      expect(netRes.success).toBe(false);
+      expect(netRes.error).toContain('ECONNREFUSED');
+    });
+
+    it('rejects missing or default telemetry salt when NODE_ENV=production', () => {
+      const prevNodeEnv = process.env.NODE_ENV;
+      const prevSalt = process.env.TELEMETRY_SALT;
+      try {
+        process.env.NODE_ENV = 'production';
+        delete process.env.TELEMETRY_SALT;
+
+        expect(() => new PrivacyTelemetryAdapter()).toThrow('TELEMETRY_SALT must be explicitly configured');
+        expect(
+          () => new PrivacyTelemetryAdapter({ secretSalt: 'demo-telemetry-salt-change-in-production' }),
+        ).toThrow('TELEMETRY_SALT must be explicitly configured');
+
+        const valid = new PrivacyTelemetryAdapter({ secretSalt: 'unique-production-hmac-key-2026' });
+        expect(valid.pseudonymize('1001')).toMatch(/^anon_/);
+      } finally {
+        process.env.NODE_ENV = prevNodeEnv;
+        if (prevSalt !== undefined) process.env.TELEMETRY_SALT = prevSalt;
+        else delete process.env.TELEMETRY_SALT;
+      }
+    });
   });
 
   describe('TutorEngine Crisis Integration', () => {

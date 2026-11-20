@@ -12,9 +12,26 @@ import {
   TutorRole,
   CrisisIncident,
 } from '@ai-tutor/core';
-import { eq, and, desc } from 'drizzle-orm';
-import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
+import { eq, and, desc, sql } from 'drizzle-orm';
+import postgres from 'postgres';
+import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from './schema.js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function createDrizzlePersistence(databaseUrl: string): {
+  adapter: DrizzlePersistenceAdapter;
+  close: () => Promise<void>;
+} {
+  const client = postgres(databaseUrl);
+  const db = drizzle(client, { schema });
+  return {
+    adapter: new DrizzlePersistenceAdapter(db),
+    close: async () => {
+      await client.end();
+    },
+  };
+}
 
 export class DrizzlePersistenceAdapter implements PersistencePort {
   constructor(private db: PostgresJsDatabase<typeof schema>) {}
@@ -219,7 +236,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
-        target: schema.courseSettingsTable.id,
+        target: schema.courseSettingsTable.courseId,
         set: {
           setting,
           updatedAt: new Date(),
@@ -257,6 +274,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       courseId: inserted[0].courseId,
       userId: inserted[0].userId,
       role: inserted[0].role as TutorRole,
+      title: inserted[0].title || undefined,
+      messageCount: inserted[0].messageCount,
       createdAt: inserted[0].createdAt,
       updatedAt: inserted[0].updatedAt,
     };
@@ -276,6 +295,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       courseId: rows[0].courseId,
       userId: rows[0].userId,
       role: rows[0].role as TutorRole,
+      title: rows[0].title || undefined,
+      messageCount: rows[0].messageCount,
       createdAt: rows[0].createdAt,
       updatedAt: rows[0].updatedAt,
     };
@@ -299,6 +320,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       courseId: r.courseId,
       userId: r.userId,
       role: r.role as TutorRole,
+      title: r.title || undefined,
+      messageCount: r.messageCount,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));
@@ -309,6 +332,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     role: MessageRole;
     content: string;
     citations?: Citation[];
+    isCrisis?: boolean;
   }): Promise<Message> {
     const inserted = await this.db
       .insert(schema.messagesTable)
@@ -317,12 +341,24 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         role: params.role,
         content: params.content,
         citations: params.citations || [],
+        isCrisis: Boolean(params.isCrisis),
       })
       .returning();
 
+    const candidateTitle =
+      params.role === 'user'
+        ? params.content.slice(0, 50).trim() + (params.content.length > 50 ? '...' : '')
+        : undefined;
+
     await this.db
       .update(schema.conversationsTable)
-      .set({ updatedAt: new Date() })
+      .set({
+        updatedAt: new Date(),
+        messageCount: sql`${schema.conversationsTable.messageCount} + 1`,
+        ...(candidateTitle
+          ? { title: sql`COALESCE(${schema.conversationsTable.title}, ${candidateTitle})` }
+          : {}),
+      })
       .where(eq(schema.conversationsTable.id, params.conversationId));
 
     return {
@@ -331,6 +367,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       role: inserted[0].role as MessageRole,
       content: inserted[0].content,
       citations: (inserted[0].citations as Citation[]) || [],
+      isCrisis: inserted[0].isCrisis || undefined,
       createdAt: inserted[0].createdAt,
     };
   }
@@ -348,6 +385,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       role: r.role as MessageRole,
       content: r.content,
       citations: (r.citations as Citation[]) || [],
+      isCrisis: r.isCrisis || undefined,
       createdAt: r.createdAt,
     }));
   }
@@ -418,7 +456,14 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         .where(eq(schema.conversationsTable.id, c.id));
     }
 
-    await this.db.delete(schema.usersTable).where(eq(schema.usersTable.id, userId));
+    if (UUID_REGEX.test(userId)) {
+      await this.db.delete(schema.usersTable).where(eq(schema.usersTable.id, userId));
+    } else {
+      const canvasId = userId.startsWith('user-') ? userId.slice(5) : userId;
+      await this.db
+        .delete(schema.usersTable)
+        .where(eq(schema.usersTable.externalCanvasId, canvasId));
+    }
   }
 
   async resetDemo(courseId = 'sdi-ftt101'): Promise<void> {

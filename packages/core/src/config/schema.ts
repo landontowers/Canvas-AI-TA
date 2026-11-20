@@ -29,6 +29,8 @@ export const DemoAuthConfigSchema = z.object({
   enabled: z.boolean().default(false),
   password: z.string().optional(),
   invitedEmails: z.array(z.string()).default([]),
+  cfAccessTeamDomain: z.string().optional(),
+  cfAccessAud: z.string().optional(),
 });
 
 export const CollegeConfigSchema = z.object({
@@ -55,6 +57,7 @@ export const AppConfigSchema = z.object({
   }),
   database: z.object({
     url: z.string().url(),
+    persistenceMode: z.enum(['memory', 'postgres']).default('memory'),
   }),
   canvas: z.object({
     baseUrl: z.string().url(),
@@ -73,6 +76,12 @@ export const AppConfigSchema = z.object({
     enabled: false,
     invitedEmails: [],
   }),
+  crisisAlert: z
+    .object({
+      webhookUrl: z.string().url().optional(),
+      bearerToken: z.string().optional(),
+    })
+    .optional(),
   college: CollegeConfigSchema,
 });
 

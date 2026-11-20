@@ -1,5 +1,6 @@
 export interface CacheEntry<T> {
   data: T;
+  nextUrl?: string;
   expiresAt: number;
 }
 
@@ -58,8 +59,9 @@ export class CanvasClient {
     if (params.query) {
       for (const [key, value] of Object.entries(params.query)) {
         if (Array.isArray(value)) {
+          const paramKey = key.endsWith('[]') ? key : `${key}[]`;
           for (const item of value) {
-            url.searchParams.append(`${key}[]`, String(item));
+            url.searchParams.append(paramKey, String(item));
           }
         } else {
           url.searchParams.set(key, String(value));
@@ -72,7 +74,7 @@ export class CanvasClient {
     if (!params.skipCache) {
       const cached = this.cache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) {
-        return { data: cached.data as T };
+        return { data: cached.data as T, nextUrl: cached.nextUrl };
       }
     }
 
@@ -109,10 +111,11 @@ export class CanvasClient {
 
     const data = (await response.json()) as T;
 
-    // Cache successful GET responses
+    // Cache successful GET responses (including Link pagination nextUrl)
     if (!params.skipCache && this.cacheTtlMs > 0) {
       this.cache.set(cacheKey, {
         data,
+        nextUrl,
         expiresAt: Date.now() + this.cacheTtlMs,
       });
     }

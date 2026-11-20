@@ -12,7 +12,8 @@
 (function() {
     'use strict';
 
-    const TUTOR_HTTPS_URL = 'https://obviously-anybody-parents-waterproof.trycloudflare.com/?embedded=true';
+    const DEFAULT_TUTOR_URL = 'https://YOUR_TUTOR_HOST_URL/?embedded=true';
+    const TUTOR_HTTPS_URL = localStorage.getItem('sdi_tutor_url') || DEFAULT_TUTOR_URL;
     let drawerWidth = parseInt(localStorage.getItem('sdi_tutor_drawer_width') || '360', 10);
     if (isNaN(drawerWidth) || drawerWidth < 300) drawerWidth = 360;
 

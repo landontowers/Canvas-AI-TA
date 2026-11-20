@@ -206,11 +206,11 @@ describe('API Server', () => {
   });
 
   it('declines course material under logistics_only setting (Phase 3 exit criteria)', async () => {
-    // Set course to logistics_only
+    // Set course to logistics_only as instructor
     const putRes = await server.inject({
       method: 'PUT',
       url: '/api/courses/sdi-ftt101/settings',
-      payload: { setting: 'logistics_only' },
+      payload: { setting: 'logistics_only', personaId: 'demo_instructor' },
     });
     expect(putRes.statusCode).toBe(200);
     expect(putRes.json().setting).toBe('logistics_only');
@@ -233,18 +233,44 @@ describe('API Server', () => {
     await server.inject({
       method: 'PUT',
       url: '/api/courses/sdi-ftt101/settings',
-      payload: { setting: 'full' },
+      payload: { setting: 'full', personaId: 'demo_instructor' },
     });
   });
 
-  it('supports "clear my data" student opt-out endpoint', async () => {
-    const res = await server.inject({
-      method: 'DELETE',
-      url: '/api/users/user-1001/data',
+  it('supports "clear my data" student opt-out endpoint end-to-end', async () => {
+    // 1. Student starts a conversation
+    await server.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        personaId: 'demo_student',
+        courseId: 'sdi-ftt101',
+        message: 'Check my lab status',
+      },
     });
 
+    // 2. Delete using UI personaId parameter (resolves to user-1001)
+    const res = await server.inject({
+      method: 'DELETE',
+      url: '/api/users/demo_student/data?personaId=demo_student',
+    });
     expect(res.statusCode).toBe(200);
     expect(res.json().success).toBe(true);
+
+    // 3. Conversations list for student is now empty
+    const listAfter = await server.inject({
+      method: 'GET',
+      url: '/api/conversations?personaId=demo_student&courseId=sdi-ftt101',
+    });
+    expect(listAfter.statusCode).toBe(200);
+    expect(listAfter.json()).toEqual([]);
+
+    // 4. Attempting to delete another user's data is rejected with 403
+    const crossUserDelete = await server.inject({
+      method: 'DELETE',
+      url: '/api/users/user-2001/data?personaId=demo_student',
+    });
+    expect(crossUserDelete.statusCode).toBe(403);
   });
 
   it('supports one-command demo reset endpoint (plan Phase 5)', async () => {
@@ -252,7 +278,7 @@ describe('API Server', () => {
     await server.inject({
       method: 'PUT',
       url: '/api/courses/sdi-ftt101/settings',
-      payload: { setting: 'logistics_only' },
+      payload: { setting: 'logistics_only', personaId: 'demo_instructor' },
     });
 
     // 2. Call demo reset
@@ -287,13 +313,14 @@ describe('API Server', () => {
     });
 
     expect(chatRes.statusCode).toBe(200);
+    expect(chatRes.body).toContain('"type":"crisis"');
     expect(chatRes.body).toContain('988');
     expect(chatRes.body).toContain('SDI Student Support');
 
-    // 2. Verify incident is recorded in admin audit log
+    // 2. Verify incident is recorded in admin audit log (instructor/staff access required)
     const adminRes = await server.inject({
       method: 'GET',
-      url: '/api/admin/crisis-incidents',
+      url: '/api/admin/crisis-incidents?personaId=demo_instructor',
     });
 
     expect(adminRes.statusCode).toBe(200);
@@ -567,10 +594,10 @@ describe('API Server', () => {
       expect(instructorData.tools.some((t: any) => t.name === 'get_submission_summaries')).toBe(true);
     });
 
-    it('GET /api/admin/crisis-incidents enforces authorization and returns incidents', async () => {
+    it('GET /api/admin/crisis-incidents enforces authentication, instructor RBAC, and returns incidents', async () => {
       const unauthRes = await secureServer.inject({
         method: 'GET',
-        url: '/api/admin/crisis-incidents',
+        url: '/api/admin/crisis-incidents?personaId=demo_instructor',
       });
       expect(unauthRes.statusCode).toBe(401);
 
@@ -581,9 +608,17 @@ describe('API Server', () => {
       });
       const { token } = loginRes.json();
 
+      // Student persona is denied even when authenticated
+      const studentDenied = await secureServer.inject({
+        method: 'GET',
+        url: '/api/admin/crisis-incidents?personaId=demo_student',
+        headers: { authorization: `Bearer ${token}` },
+      });
+      expect(studentDenied.statusCode).toBe(403);
+
       const authRes = await secureServer.inject({
         method: 'GET',
-        url: '/api/admin/crisis-incidents',
+        url: '/api/admin/crisis-incidents?personaId=demo_instructor',
         headers: {
           authorization: `Bearer ${token}`,
         },
@@ -591,6 +626,180 @@ describe('API Server', () => {
       expect(authRes.statusCode).toBe(200);
       expect(authRes.json().collegeId).toBe('sdi');
       expect(Array.isArray(authRes.json().incidents)).toBe(true);
+    });
+
+    it('enforces student 403 RBAC on PUT /api/courses/:courseId/settings, mandatory message ownership checks, and Zod validation', async () => {
+      // Student cannot update course settings
+      const studentPut = await server.inject({
+        method: 'PUT',
+        url: '/api/courses/sdi-ftt101/settings',
+        payload: { setting: 'logistics_only', personaId: 'demo_student' },
+      });
+      expect(studentPut.statusCode).toBe(403);
+
+      // Invalid setting rejected with 400
+      const invalidSetting = await server.inject({
+        method: 'PUT',
+        url: '/api/courses/sdi-ftt101/settings',
+        payload: { setting: 'invalid_mode', personaId: 'demo_instructor' },
+      });
+      expect(invalidSetting.statusCode).toBe(400);
+
+      // Create a conversation then call GET /messages without caller query -> 400
+      const chatRes = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: { personaId: 'demo_student', courseId: 'sdi-ftt101', message: 'Hi there' },
+      });
+      const doneLine = chatRes.body.split('\n').find((l) => l.includes('"type":"done"'));
+      const convId = JSON.parse(doneLine!.replace(/^data:\s*/, '')).conversationId;
+
+      const noOwnerMsgRes = await server.inject({
+        method: 'GET',
+        url: `/api/conversations/${convId}/messages`,
+      });
+      expect(noOwnerMsgRes.statusCode).toBe(400);
+
+      // Empty or oversized chat message -> 400
+      const emptyChat = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: { personaId: 'demo_student', message: '   ' },
+      });
+      expect(emptyChat.statusCode).toBe(400);
+
+      const hugeChat = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: { personaId: 'demo_student', message: 'a'.repeat(4001) },
+      });
+      expect(hugeChat.statusCode).toBe(400);
+
+      // DELETE /api/users/me/data works properly
+      const deleteMe = await server.inject({
+        method: 'DELETE',
+        url: '/api/users/me/data?personaId=demo_student',
+      });
+      expect(deleteMe.statusCode).toBe(200);
+    });
+
+    it('wires shared LogStoragePort into PrivacyTelemetryAdapter, configures instructorLlm, sets security headers, and sanitizes SSE tool events', async () => {
+      const fakeStorage = new FakeLogStorageAdapter();
+      const recordedPrompts: string[] = [];
+      let instructorSawContext = false;
+
+      const geminiConfig = loadAppConfig({
+        ...process.env,
+        NODE_ENV: 'test',
+        MODEL_PROVIDER: 'gemini',
+        GEMINI_API_KEY: 'test-key',
+        STUDENT_MODEL: 'gemini-3.8-flash',
+        INSTRUCTOR_MODEL: 'gemini-3.8-pro',
+      });
+      const wiredServer = buildServer(geminiConfig) as unknown as { ports: PortsContainer };
+      expect(wiredServer.ports.instructorLlm?.providerName).toBe('gemini');
+      expect((wiredServer.ports.instructorLlm as { defaultModel?: string }).defaultModel).toBe(
+        'gemini-3.8-pro',
+      );
+
+      const customServer = buildServer(config, {
+        logStorage: fakeStorage,
+        llm: {
+          providerName: 'spy-llm',
+          getCapabilities: () =>
+            ({
+              streaming: true,
+              parallelToolCalls: true,
+              reasoning: false,
+              maxContextTokens: 8192,
+              structuredOutput: false,
+              supportsPromptCaching: false,
+            }) as const,
+          generate: async () => ({ text: 'logistics' }),
+          stream: async function* (opts) {
+            recordedPrompts.push(opts.systemPrompt);
+            if (opts.systemPrompt.includes('Canvas page content text')) {
+              instructorSawContext = true;
+            }
+            yield {
+              type: 'tool-status',
+              toolName: 'calculate',
+              status: 'calling',
+              callId: 'internal_call_1',
+              args: { expression: '2+2' },
+              thoughtSignature: 'internal_sig_xyz',
+              message: 'Calculating...',
+            };
+            yield { type: 'text-delta', delta: 'Result is 4.' };
+          },
+        },
+      });
+
+      const chatRes = await customServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'Check 2+2',
+          pageContext: {
+            title: 'Page 1',
+            content: 'Canvas page content text',
+          },
+        },
+      });
+
+      expect(chatRes.statusCode).toBe(200);
+      expect(chatRes.headers['x-content-type-options']).toBe('nosniff');
+      expect(chatRes.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+      expect(instructorSawContext).toBe(true);
+      expect(recordedPrompts[0]).toContain('<untrusted_canvas_data source="current_page">');
+
+      // Ensure raw thoughtSignature & internal args were stripped from SSE wire output
+      expect(chatRes.body).not.toContain('internal_sig_xyz');
+      expect(chatRes.body).not.toContain('internal_call_1');
+
+      // Single shared LogStorage received telemetry and flushes on close
+      expect(fakeStorage.entries.length).toBeGreaterThan(0);
+      await customServer.close();
+      expect(fakeStorage.flushCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('rejects unauthenticated email-only login when password is configured and rate-limits repeated login failures', async () => {
+      const isolatedServer = buildServer({
+        ...config,
+        demoAuth: {
+          enabled: true,
+          password: 'expected-pass',
+          invitedEmails: ['invited@sdi.edu'],
+        },
+      });
+
+      // Email-only login rejected when password is required
+      const emailOnlyRes = await isolatedServer.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { email: 'invited@sdi.edu' },
+      });
+      expect(emailOnlyRes.statusCode).toBe(401);
+
+      // Exhaust 10 allowed attempts in window, then 11th triggers 429
+      for (let i = 0; i < 9; i++) {
+        const res = await isolatedServer.inject({
+          method: 'POST',
+          url: '/api/auth/login',
+          payload: { password: 'wrong' },
+        });
+        expect(res.statusCode).toBe(401);
+      }
+
+      const throttled = await isolatedServer.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'wrong' },
+      });
+      expect(throttled.statusCode).toBe(429);
+      expect(throttled.headers['retry-after']).toBeDefined();
     });
 
     it('POST /api/chat emits error event if turn execution throws an unexpected error', async () => {

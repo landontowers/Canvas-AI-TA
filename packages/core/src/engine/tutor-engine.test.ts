@@ -25,6 +25,12 @@ import {
 class MockLlm implements LlmPort {
   readonly providerName = 'mock-llm';
   public streamResponses: StreamEvent[][] = [];
+  public generateResponses: string[] = [];
+  public recordedOptions: Array<{
+    systemPrompt: string;
+    messages: Array<{ role: string; content: string }>;
+    toolNames: string[];
+  }> = [];
   public currentStreamIndex = 0;
 
   getCapabilities() {
@@ -39,10 +45,20 @@ class MockLlm implements LlmPort {
   }
 
   async generate() {
-    return { text: 'Mock generate response' };
+    const nextText = this.generateResponses.shift() ?? 'course_material';
+    return { text: nextText };
   }
 
-  async *stream() {
+  async *stream(options: {
+    systemPrompt: string;
+    messages: Array<{ role: string; content: string }>;
+    tools?: Array<{ name: string }>;
+  }) {
+    this.recordedOptions.push({
+      systemPrompt: options.systemPrompt,
+      messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
+      toolNames: (options.tools || []).map((t) => t.name),
+    });
     const streamToYield = this.streamResponses[this.currentStreamIndex] || [
       { type: 'text-delta', delta: 'Default LLM answer' },
     ];
@@ -118,6 +134,7 @@ class MockPersistence implements PersistencePort {
       role: params.role,
       content: params.content,
       citations: params.citations || [],
+      isCrisis: params.isCrisis || undefined,
       createdAt: new Date(),
     };
     const list = this.messages.get(params.conversationId) || [];
@@ -303,15 +320,34 @@ describe('TutorEngine Comprehensive Suite', () => {
       events.push(ev);
     }
 
-    // Verify events sequence
+    // Verify events sequence & sanitized SSE tool-status output
     const textDeltas = events.filter((e) => e.type === 'text-delta').map((e) => (e as any).delta).join('');
     expect(textDeltas).toContain('Let me look that up.');
     expect(textDeltas).toContain('Safety Lab 1 is due Sunday');
 
+    const toolCallingEv = events.find(
+      (e) => e.type === 'tool-status' && (e as any).status === 'calling',
+    ) as any;
+    expect(toolCallingEv).toBeDefined();
+    expect(toolCallingEv.args).toBeUndefined();
+    expect(toolCallingEv.callId).toBeUndefined();
+    expect(toolCallingEv.thoughtSignature).toBeUndefined();
+
+    // Verify LMS tool results are wrapped in untrusted_canvas_data delimiters
+    const round2Messages = llm.recordedOptions[1].messages;
+    const toolMessages = round2Messages.filter((m) => m.role === 'tool');
+    expect(toolMessages[0].content).toContain('<untrusted_canvas_data tool="get_syllabus">');
+    expect(toolMessages[0].content).toContain('Syllabus content here');
+
+    // Verify absolute Canvas URLs on citations
     const citations = events.filter((e) => e.type === 'citation');
     expect(citations.length).toBe(2);
     expect((citations[0] as any).citation.type).toBe('syllabus');
+    expect((citations[0] as any).citation.url).toBe('https://sdi.edu/courses/sdi-ftt101/syllabus');
     expect((citations[1] as any).citation.type).toBe('assignment');
+    expect((citations[1] as any).citation.url).toBe(
+      'https://sdi.edu/courses/sdi-ftt101/assignments/lab-1',
+    );
 
     const doneEvent = events.find((e) => e.type === 'done');
     expect(doneEvent).toBeDefined();
@@ -321,7 +357,7 @@ describe('TutorEngine Comprehensive Suite', () => {
     expect(telemetry.loggedMetrics.length).toBeGreaterThan(0);
   });
 
-  it('handles safety crisis escalation immediately and logs emergency record', async () => {
+  it('handles safety crisis escalation with typed CrisisEvent, saves isCrisis, and logs emergency record', async () => {
     const llm = new MockLlm();
     const persistence = new MockPersistence();
     const identity = new MockIdentity();
@@ -349,35 +385,64 @@ describe('TutorEngine Comprehensive Suite', () => {
       events.push(ev);
     }
 
+    const crisisEvent = events.find((e) => e.type === 'crisis') as any;
+    expect(crisisEvent).toBeDefined();
+    expect(crisisEvent.phone).toBe('988');
+    expect(crisisEvent.url).toBe('https://988lifeline.org');
+
     const text = events.filter((e) => e.type === 'text-delta').map((e) => (e as any).delta).join('');
     expect(text).toContain('988 Suicide & Crisis Lifeline');
     expect(text).toContain('free, confidential support available 24/7');
+
+    const savedMsgs = Array.from(persistence.messages.values())[0];
+    expect(savedMsgs[1].isCrisis).toBe(true);
 
     expect(persistence.crisisIncidents.length).toBe(1);
     expect(persistence.crisisIncidents[0].triggerSnippet).toBe('end my life');
   });
 
-  it('executes instructor turn with direct response and logistics_only enforcement', async () => {
-    const llm = new MockLlm();
+  it('executes instructor turn using instructorLlm with direct response', async () => {
+    const studentLlm = new MockLlm();
+    const instructorLlm = new MockLlm();
     const persistence = new MockPersistence();
     const identity = new MockIdentity();
     const telemetry = new MockTelemetry();
     const toolRegistry = new ToolRegistry();
 
-    // Set course setting to logistics_only
+    // Register a tool allowed for instructor and an unlisted extra tool to verify profile allowlist filtering
+    toolRegistry.register({
+      name: 'get_assignments_without_due_dates',
+      description: 'Find assignments without due dates',
+      parameters: z.object({}),
+      requiredRole: 'instructor',
+      requiredScopes: [],
+      execute: async () => [],
+    });
+    toolRegistry.register({
+      name: 'unlisted_instructor_tool',
+      description: 'Not in harness profile allowlist',
+      parameters: z.object({}),
+      requiredRole: 'instructor',
+      requiredScopes: [],
+      execute: async () => 'blocked',
+    });
+
+    // Set course setting to logistics_only (instructor should still have full instructor tools & pageContext)
     await persistence.updateCourseSettings('sdi-ftt101', 'logistics_only');
 
-    llm.streamResponses = [
+    instructorLlm.streamResponses = [
       [{ type: 'text-delta', delta: 'Here is the summary of submissions for Lab 1.' }],
     ];
 
     const engine = new TutorEngine({
-      llm,
+      llm: studentLlm,
+      instructorLlm,
       persistence,
       toolRegistry,
       identity,
       telemetry,
       collegeConfig: mockCollege,
+      canvasBaseUrl: 'https://classroom.sdi.edu',
       moderation: new MockModeration() as any,
       lms: new MockLms() as any,
       calculator: new MockCalculator() as any,
@@ -388,12 +453,191 @@ describe('TutorEngine Comprehensive Suite', () => {
       personaId: 'demo_instructor',
       message: 'Summarize submissions for Lab 1',
       courseId: 'sdi-ftt101',
+      pageContext: {
+        title: 'Safety Lab 1',
+        url: 'https://classroom.sdi.edu/courses/101/assignments/1',
+        content: 'Inspect bench safety gear.',
+      },
     })) {
       events.push(ev);
     }
 
+    expect(studentLlm.recordedOptions).toHaveLength(0);
+    expect(instructorLlm.recordedOptions).toHaveLength(1);
+    expect(instructorLlm.recordedOptions[0].toolNames).toContain('get_assignments_without_due_dates');
+    expect(instructorLlm.recordedOptions[0].toolNames).not.toContain('unlisted_instructor_tool');
+    expect(instructorLlm.recordedOptions[0].systemPrompt).toContain('<untrusted_canvas_data source="current_page">');
+
     const text = events.filter((e) => e.type === 'text-delta').map((e) => (e as any).delta).join('');
     expect(text).toContain('Here is the summary of submissions for Lab 1.');
     expect(telemetry.loggedMetrics.length).toBeGreaterThan(0);
+  });
+
+  it('injects pageContext in full mode, strips it in logistics_only, and validates page/announcement/module citations', async () => {
+    const llm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+
+    for (const [name, schemaObj] of [
+      ['get_course_page', z.object({ pageUrl: z.string() })],
+      ['get_announcements', z.object({})],
+      ['get_course_modules', z.object({})],
+      ['calculate', z.object({ expression: z.string() })],
+    ] as Array<[string, z.ZodTypeAny]>) {
+      toolRegistry.register({
+        name,
+        description: name,
+        parameters: schemaObj,
+        requiredRole: 'both',
+        requiredScopes: [],
+        execute: async () => {
+          if (name === 'get_announcements') {
+            throw new Error('Canvas unavailable');
+          }
+          return `${name}_ok`;
+        },
+      });
+    }
+
+    llm.streamResponses = [
+      [
+        {
+          type: 'tool-status',
+          toolName: 'get_course_page',
+          status: 'calling',
+          callId: 'c_page',
+          args: { pageUrl: 'welcome-to-sdi' },
+        },
+        {
+          type: 'tool-status',
+          toolName: 'get_course_modules',
+          status: 'calling',
+          callId: 'c_mod',
+          args: {},
+        },
+        {
+          type: 'tool-status',
+          toolName: 'get_announcements',
+          status: 'calling',
+          callId: 'c_ann',
+          args: {},
+        },
+        {
+          type: 'tool-status',
+          toolName: 'calculate',
+          status: 'calling',
+          callId: 'c_calc',
+          args: { expression: '2+2' },
+        },
+      ],
+      [{ type: 'text-delta', delta: 'Done checking pages and modules.' }],
+      [{ type: 'text-delta', delta: 'Due Sunday.' }],
+    ];
+
+    const engine = new TutorEngine({
+      llm,
+      classifierLlm: llm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      canvasBaseUrl: 'https://classroom.sdi.edu/',
+      moderation: new MockModeration() as any,
+      lms: new MockLms() as any,
+      calculator: new MockCalculator() as any,
+    });
+
+    const events: StreamEvent[] = [];
+    for await (const ev of engine.executeTurn({
+      personaId: 'demo_student',
+      message: 'Help me with this page',
+      courseId: 'sdi-ftt101',
+      pageContext: {
+        title: 'Welcome to SDI',
+        content: 'Firearm safety basics page text.',
+      },
+    })) {
+      events.push(ev);
+    }
+
+    expect(llm.recordedOptions[0].systemPrompt).toContain('<untrusted_canvas_data source="current_page">');
+    expect(llm.recordedOptions[0].systemPrompt).toContain('Firearm safety basics page text.');
+
+    // Calculator tool output should NOT be wrapped as untrusted_canvas_data, whereas LMS tools ARE wrapped
+    const toolMsgs = llm.recordedOptions[1].messages.filter((m) => m.role === 'tool');
+    expect(toolMsgs[0].content).toContain('<untrusted_canvas_data tool="get_course_page">');
+    expect(toolMsgs[3].content).toBe('calculate_ok');
+
+    // Citations emitted for get_course_page and get_course_modules, suppressed for failed get_announcements
+    const citeUrls = events.filter((e) => e.type === 'citation').map((e) => (e as any).citation.url);
+    expect(citeUrls).toContain('https://classroom.sdi.edu/courses/sdi-ftt101/pages/welcome-to-sdi');
+    expect(citeUrls).toContain('https://classroom.sdi.edu/courses/sdi-ftt101/modules');
+    expect(citeUrls.some((u: string) => u.includes('announcements'))).toBe(false);
+
+    // Under logistics_only, pageContext MUST be stripped even on an allowed logistics turn
+    await persistence.updateCourseSettings('sdi-ftt101', 'logistics_only');
+    for await (const _ev of engine.executeTurn({
+      personaId: 'demo_student',
+      message: 'When is Lab 1 due?',
+      courseId: 'sdi-ftt101',
+      pageContext: {
+        title: 'Hidden Exam Page',
+        content: 'Secret course material content',
+      },
+    })) {
+      // consume
+    }
+    const logisticsPrompt = llm.recordedOptions[2].systemPrompt;
+    expect(logisticsPrompt).not.toContain('Secret course material content');
+    expect(logisticsPrompt).not.toContain('<untrusted_canvas_data source="current_page">');
+  });
+
+  it('rejects IDOR attempt when resuming another user conversation and handles blended queries', async () => {
+    const llm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+
+    const instructorConv = await persistence.createConversation({
+      collegeId: 'sdi',
+      courseId: 'sdi-ftt101',
+      userId: 'demo_instructor',
+      role: 'instructor',
+    });
+
+    const engine = new TutorEngine({
+      llm,
+      classifierLlm: llm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      moderation: new MockModeration() as any,
+      lms: new MockLms() as any,
+      calculator: new MockCalculator() as any,
+    });
+
+    const consume = async () => {
+      for await (const _ev of engine.executeTurn({
+        personaId: 'demo_student',
+        courseId: 'sdi-ftt101',
+        conversationId: instructorConv.id,
+        message: 'Show instructor conversation',
+      })) {
+        // no-op
+      }
+    };
+
+    await expect(consume()).rejects.toThrow('Unauthorized');
+
+    // Blended query (contains both logistics & course material) delegates to classifierLlm / fail-safes to course_material
+    llm.generateResponses.push('course_material');
+    const res = await engine.classifyQuestion('How do I solve problem 2 before the due date?');
+    expect(res).toBe('course_material');
   });
 });

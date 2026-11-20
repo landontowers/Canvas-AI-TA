@@ -16,9 +16,9 @@
     "build": "tsc",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "node --loader tsx src/persistence/migrate.ts",
-    "db:seed": "node --loader tsx src/persistence/seed.ts",
-    "demo:reset": "node --loader tsx src/persistence/reset.ts"
+    "db:migrate": "tsx src/persistence/migrate.ts",
+    "db:seed": "tsx src/persistence/seed.ts",
+    "demo:reset": "tsx src/persistence/reset.ts"
   },
   "dependencies": {
     "@ai-tutor/core": "workspace:*",
@@ -32,6 +32,7 @@
   "devDependencies": {
     "@types/mathjs": "^9.4.2",
     "drizzle-kit": "^0.31.8",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.2",
     "vitest": "^3.0.7"
   }

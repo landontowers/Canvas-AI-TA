@@ -48,6 +48,30 @@ describe('AppConfig Loader Suite', () => {
     expect(config.demoAuth.invitedEmails).toEqual(['evaluator@sdi.edu', 'tester@sdi.edu']);
   });
 
+  it('loads postgres persistenceMode, Cloudflare Access JWKS settings, and crisisAlert webhook config', () => {
+    const pgConfig = loadAppConfig({
+      NODE_ENV: 'test',
+      PERSISTENCE_MODE: 'postgres',
+      CF_ACCESS_TEAM_DOMAIN: 'sdi-demo.cloudflareaccess.com',
+      CF_ACCESS_AUD: 'aud-hex-123',
+      CRISIS_WEBHOOK_URL: 'https://alerts.sdi.edu/hook',
+      CRISIS_ALERT_BEARER_TOKEN: 'bearer-xyz',
+    });
+
+    expect(pgConfig.database.persistenceMode).toBe('postgres');
+    expect(pgConfig.demoAuth.cfAccessTeamDomain).toBe('sdi-demo.cloudflareaccess.com');
+    expect(pgConfig.demoAuth.cfAccessAud).toBe('aud-hex-123');
+    expect(pgConfig.crisisAlert?.webhookUrl).toBe('https://alerts.sdi.edu/hook');
+    expect(pgConfig.crisisAlert?.bearerToken).toBe('bearer-xyz');
+
+    const altConfig = loadAppConfig({
+      USE_POSTGRES: 'true',
+      CRISIS_ALERT_WEBHOOK_URL: 'https://primary-alerts.sdi.edu/hook',
+    });
+    expect(altConfig.database.persistenceMode).toBe('postgres');
+    expect(altConfig.crisisAlert?.webhookUrl).toBe('https://primary-alerts.sdi.edu/hook');
+  });
+
   it('throws fatal error when environment configuration fails schema validation', () => {
     expect(() => {
       loadAppConfig({

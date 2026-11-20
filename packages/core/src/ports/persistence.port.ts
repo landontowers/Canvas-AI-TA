@@ -46,6 +46,7 @@ export interface PersistencePort {
     role: MessageRole;
     content: string;
     citations?: Citation[];
+    isCrisis?: boolean;
   }): Promise<Message>;
   listMessages(conversationId: string): Promise<Message[]>;
 

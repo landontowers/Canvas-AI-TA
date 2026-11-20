@@ -7,6 +7,8 @@ export const ConversationSchema = z.object({
   courseId: z.string(),
   userId: z.string(),
   role: TutorRoleSchema,
+  title: z.string().optional(),
+  messageCount: z.number().int().nonnegative().optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

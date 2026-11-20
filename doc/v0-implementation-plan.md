@@ -115,7 +115,7 @@ _Status, 2026-11-19: Phase 1 is complete. Monorepo scaffolded with pnpm workspac
 - **Configuration:** one zod-validated config, loaded at startup from env plus an SDI config file. It covers model roles, theme, persona copy, crisis resources, the default course setting (`full`), and the demo personas. Invalid config stops startup.
 - **Ports with fakes:** define the interfaces for LLM, LMS, identity, course content, calculator and code execution, moderation, persistence, and telemetry, each with a fake. Build the shared contract-test harness that every adapter runs.
 - **Database:** pick a migrations tool and create the first schema (critique §3.6): colleges (seeded with SDI), users, courses, course settings, conversations, and messages.
-- **Mandatory CI & Comprehensive Test Suite:** a GitHub Actions workflow that enforces building packages, running lint and strict type checks, verifying architecture boundaries (`dep-check`), running the full Vitest suite with `@vitest/coverage-v8`, and requiring statement and line code coverage thresholds. Coverage reports are archived as build artifacts.
+- **Mandatory CI & Comprehensive Test Suite:** a GitHub Actions workflow that enforces building packages, running lint and strict type checks, verifying architecture boundaries (`dep-check`), running the full Vitest suite with `@vitest/coverage-v8` alongside a live `postgres:16-alpine` service container for DDL migration and `DrizzlePersistenceAdapter` contract tests, and requiring statement and line code coverage thresholds. Coverage reports are archived as build artifacts.
 
 **Suggested defaults.** The team can change these during this phase, but shouldn't later:
 

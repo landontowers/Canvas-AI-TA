@@ -11,6 +11,21 @@ jobs:
     name: Verification Checks
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: ai_tutor
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -38,7 +53,9 @@ jobs:
           pnpm lint
           pnpm dep-check
 
-      - name: Run test suite with coverage enforcement
+      - name: Run test suite with coverage & PostgreSQL integration enforcement
+        env:
+          TEST_POSTGRES_URL: postgresql://postgres:postgrespassword@localhost:5432/ai_tutor
         run: pnpm test:coverage
 
       - name: Upload test coverage report

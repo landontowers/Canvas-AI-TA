@@ -36,12 +36,22 @@ export const ErrorEventSchema = z.object({
   code: z.string().optional(),
 });
 
+export const CrisisEventSchema = z.object({
+  type: z.literal('crisis'),
+  hotlineName: z.string(),
+  phone: z.string(),
+  sms: z.string().optional(),
+  url: z.string().url(),
+  message: z.string(),
+});
+
 export const StreamEventSchema = z.discriminatedUnion('type', [
   TextDeltaEventSchema,
   ToolStatusEventSchema,
   CitationEventSchema,
   DoneEventSchema,
   ErrorEventSchema,
+  CrisisEventSchema,
 ]);
 
 export type StreamEvent = z.infer<typeof StreamEventSchema>;
@@ -50,3 +60,20 @@ export type ToolStatusEvent = z.infer<typeof ToolStatusEventSchema>;
 export type CitationEvent = z.infer<typeof CitationEventSchema>;
 export type DoneEvent = z.infer<typeof DoneEventSchema>;
 export type ErrorEvent = z.infer<typeof ErrorEventSchema>;
+export type CrisisEvent = z.infer<typeof CrisisEventSchema>;
+
+/**
+ * Strips internal LLM protocol fields (raw args, callId, thoughtSignature) before
+ * sending stream events to browser clients over SSE.
+ */
+export function toClientStreamEvent(event: StreamEvent): StreamEvent {
+  if (event.type === 'tool-status') {
+    return {
+      type: 'tool-status',
+      toolName: event.toolName,
+      status: event.status,
+      ...(event.message !== undefined ? { message: event.message } : {}),
+    };
+  }
+  return event;
+}

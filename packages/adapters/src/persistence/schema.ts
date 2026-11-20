@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, jsonb, integer, boolean } from 'drizzle-orm/pg-core';
 
 export const collegesTable = pgTable('colleges', {
   id: text('id').primaryKey(),
@@ -40,6 +40,8 @@ export const conversationsTable = pgTable('conversations', {
   courseId: text('course_id').notNull().references(() => coursesTable.id),
   userId: text('user_id').notNull(),
   role: text('role').notNull(), // 'student' | 'instructor'
+  title: text('title'),
+  messageCount: integer('message_count').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -50,6 +52,7 @@ export const messagesTable = pgTable('messages', {
   role: text('role').notNull(), // 'user' | 'assistant' | 'system' | 'tool'
   content: text('content').notNull(),
   citations: jsonb('citations').default([]).notNull(),
+  isCrisis: boolean('is_crisis').default(false).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

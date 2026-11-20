@@ -132,6 +132,85 @@ describe('Tool System & Role Boundaries (Phase 2 Verification)', () => {
   });
 
   describe('Tool Execution Accuracy', () => {
+    it('passes canvasUserId (not internal userId) to LmsPort for masqueraded Canvas lookups', async () => {
+      const recordedUserIds: Array<{ method: string; userId?: string }> = [];
+      const spyLms = {
+        getStudentGrades: async (_c: string, u: string) => {
+          recordedUserIds.push({ method: 'getStudentGrades', userId: u });
+          return [];
+        },
+        getUpcomingAssignments: async (_c: string, u: string) => {
+          recordedUserIds.push({ method: 'getUpcomingAssignments', userId: u });
+          return [];
+        },
+        getAssignmentDetails: async (_c: string, _a: string, u: string) => {
+          recordedUserIds.push({ method: 'getAssignmentDetails', userId: u });
+          return { id: 'a1', name: 'A1', dueAt: null, pointsPossible: 10, hasSubmitted: false, description: '' };
+        },
+        getSyllabus: async (_c: string, u: string) => {
+          recordedUserIds.push({ method: 'getSyllabus', userId: u });
+          return '';
+        },
+        getAnnouncements: async (_c: string, u: string) => {
+          recordedUserIds.push({ method: 'getAnnouncements', userId: u });
+          return [];
+        },
+        getCourseModules: async (_c: string, u: string) => {
+          recordedUserIds.push({ method: 'getCourseModules', userId: u });
+          return [];
+        },
+        getCoursePage: async (_c: string, _p: string, u: string) => {
+          recordedUserIds.push({ method: 'getCoursePage', userId: u });
+          return { url: 'u', title: 't', body: '', updatedAt: '', isPublished: true };
+        },
+        getEnrolledCourses: async (u: string) => {
+          recordedUserIds.push({ method: 'getEnrolledCourses', userId: u });
+          return [];
+        },
+        getCrossCourseUpcomingAssignments: async (u: string) => {
+          recordedUserIds.push({ method: 'getCrossCourseUpcomingAssignments', userId: u });
+          return [];
+        },
+        getSubmissionSummaries: async (_c: string, _a: string | undefined, u?: string) => {
+          recordedUserIds.push({ method: 'getSubmissionSummaries', userId: u });
+          return [];
+        },
+        getGradebookSummary: async (_c: string, u?: string) => {
+          recordedUserIds.push({ method: 'getGradebookSummary', userId: u });
+          return { courseId: '101', averageScorePercent: 0, medianScorePercent: 0, assignmentCount: 0 };
+        },
+      };
+
+      const studentCtx: ToolExecutionContext = {
+        userId: 'user-1001',
+        canvasUserId: '1001',
+        courseId: '101',
+        role: 'student',
+        ports: { lms: spyLms, calculator },
+      };
+      const instructorCtx: ToolExecutionContext = {
+        userId: 'user-2001',
+        canvasUserId: '2001',
+        courseId: '101',
+        role: 'instructor',
+        ports: { lms: spyLms, calculator },
+      };
+
+      await registry.execute({ id: '1', name: 'get_student_grades', args: {} }, studentCtx);
+      await registry.execute({ id: '2', name: 'get_syllabus', args: {} }, studentCtx);
+      await registry.execute({ id: '3', name: 'list_enrolled_courses', args: {} }, studentCtx);
+      await registry.execute({ id: '4', name: 'get_submission_summaries', args: {} }, instructorCtx);
+      await registry.execute({ id: '5', name: 'get_gradebook_summary', args: {} }, instructorCtx);
+
+      expect(recordedUserIds).toEqual([
+        { method: 'getStudentGrades', userId: '1001' },
+        { method: 'getSyllabus', userId: '1001' },
+        { method: 'getEnrolledCourses', userId: '1001' },
+        { method: 'getSubmissionSummaries', userId: '2001' },
+        { method: 'getGradebookSummary', userId: '2001' },
+      ]);
+    });
+
     it('executes get_student_grades for student correctly', async () => {
       const studentCtx = createStudentContext();
       const res = await registry.execute(

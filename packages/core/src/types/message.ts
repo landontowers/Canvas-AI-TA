@@ -18,6 +18,7 @@ export const MessageSchema = z.object({
   role: MessageRoleSchema,
   content: z.string(),
   citations: z.array(CitationSchema).default([]),
+  isCrisis: z.boolean().optional(),
   createdAt: z.date(),
 });
 

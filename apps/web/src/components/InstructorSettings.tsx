@@ -3,12 +3,14 @@ import React, { useEffect, useState } from 'react';
 interface InstructorSettingsProps {
   courseId: string;
   personaId: string;
+  authToken?: string | null;
   onClose: () => void;
 }
 
 export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
   courseId,
   personaId,
+  authToken,
   onClose,
 }) => {
   const [setting, setSetting] = useState<'full' | 'logistics_only'>('full');
@@ -20,7 +22,9 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    fetch(`/api/courses/${courseId}/settings`)
+    fetch(`/api/courses/${courseId}/settings`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -41,7 +45,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, authToken]);
 
   const handleSave = async (newSetting: 'full' | 'logistics_only') => {
     setSaving(true);
@@ -50,8 +54,11 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
     try {
       const res = await fetch(`/api/courses/${courseId}/settings`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ setting: newSetting }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({ setting: newSetting, personaId }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();

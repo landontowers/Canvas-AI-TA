@@ -20,6 +20,9 @@ export const DemoShell: React.FC = () => {
   const [persona, setPersona] = useState<string>('demo_student');
   const [courseId, setCourseId] = useState<string>('sdi-ftt101');
   const [activePage, setActivePage] = useState<string>('Assignment: Safety Lab 1');
+  const [activePageUrl, setActivePageUrl] = useState<string | undefined>(undefined);
+  const [activePageContent, setActivePageContent] = useState<string | undefined>(undefined);
+  const [chatResetKey, setChatResetKey] = useState<number>(0);
   const [highContrast, setHighContrast] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -58,6 +61,14 @@ export const DemoShell: React.FC = () => {
         }
         if (data.pageTitle || data.page_title) {
           setActivePage(String(data.pageTitle || data.page_title));
+        }
+        if (data.pageUrl || data.page_url || data.url) {
+          setActivePageUrl(String(data.pageUrl || data.page_url || data.url));
+        }
+        if (data.pageContent || data.page_content || data.content || data.body) {
+          setActivePageContent(
+            String(data.pageContent || data.page_content || data.content || data.body),
+          );
         }
         if (data.persona) {
           setPersona(String(data.persona));
@@ -189,7 +200,11 @@ export const DemoShell: React.FC = () => {
             <select
               id="current-page-select"
               value={activePage}
-              onChange={(e) => setActivePage(e.target.value)}
+              onChange={(e) => {
+                setActivePage(e.target.value);
+                setActivePageUrl(undefined);
+                setActivePageContent(undefined);
+              }}
             >
               <option value="Assignment: Safety Lab 1">Assignment: Safety Lab 1</option>
               <option value="Module 1: Firearm Safety & Nomenclature">Module 1: Firearm Safety & Nomenclature</option>
@@ -295,9 +310,15 @@ export const DemoShell: React.FC = () => {
         <div className="drawer-body">
           {currentView === 'chat' ? (
             <ChatInterface
+              key={chatResetKey}
               personaId={persona}
               courseId={courseId}
               currentPageTitle={activePage}
+              pageContext={{
+                title: activePage,
+                url: activePageUrl,
+                content: activePageContent,
+              }}
               highContrast={highContrast}
               authToken={authToken}
             />
@@ -305,12 +326,16 @@ export const DemoShell: React.FC = () => {
             <InstructorSettings
               courseId={courseId}
               personaId={persona}
+              authToken={authToken}
               onClose={() => setCurrentView('chat')}
             />
           ) : (
             <StudentSettings
               userId={persona}
+              personaId={persona}
               courseId={courseId}
+              authToken={authToken}
+              onDataCleared={() => setChatResetKey((k) => k + 1)}
               onClose={() => setCurrentView('chat')}
             />
           )}

@@ -93,12 +93,120 @@ describe('CanvasRestAdapter (Sandbox Course Fixtures)', () => {
     expect(lab1?.submittedCount).toBe(1);
   });
 
-  it('calculates gradebook metrics for instructor', async () => {
+  it('calculates gradebook metrics accurately across graded scores for instructor', async () => {
     const gradebook = await adapter.getGradebookSummary('101');
 
     expect(gradebook.courseId).toBe('101');
     expect(gradebook.assignmentCount).toBe(3);
-    expect(gradebook.averageScorePercent).toBeGreaterThan(0);
+    expect(gradebook.averageScorePercent).toBe(95);
+    expect(gradebook.medianScorePercent).toBe(95);
+  });
+
+  it('computes exact arithmetic mean and median for odd/even graded distributions and zero for ungraded courses', async () => {
+    // Even count of scores: [60, 80, 90, 100] -> mean 82.5, median (80+90)/2 = 85.0
+    const mockFetch: typeof fetch = async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/api/v1/courses/500/assignments') {
+        return new Response(
+          JSON.stringify([
+            { id: 1, name: 'A1', points_possible: 100 },
+            { id: 2, name: 'A2', points_possible: 50 },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.pathname === '/api/v1/courses/500/assignments/1/submissions') {
+        return new Response(
+          JSON.stringify([
+            { id: 1, assignment_id: 1, user_id: 1, score: 60 },
+            { id: 2, assignment_id: 1, user_id: 2, score: 100 },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.pathname === '/api/v1/courses/500/assignments/2/submissions') {
+        return new Response(
+          JSON.stringify([
+            { id: 3, assignment_id: 2, user_id: 1, score: 40 }, // 80%
+            { id: 4, assignment_id: 2, user_id: 2, score: 45 }, // 90%
+            { id: 5, assignment_id: 2, user_id: 3, score: null },
+          ]),
+          { status: 200 },
+        );
+      }
+      if (url.pathname === '/api/v1/courses/501/assignments') {
+        return new Response(JSON.stringify([{ id: 10, name: 'Empty', points_possible: 100 }]), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify([]), { status: 200 });
+    };
+
+    const customAdapter = new CanvasRestAdapter(
+      new CanvasClient({
+        baseUrl: 'https://classroom.sdi.edu',
+        accessToken: 'test-token',
+        fetchFn: mockFetch,
+        cacheTtlMs: 0,
+      }),
+    );
+
+    const summary = await customAdapter.getGradebookSummary('500', '2001');
+    expect(summary.averageScorePercent).toBe(82.5);
+    expect(summary.medianScorePercent).toBe(85);
+
+    const emptySummary = await customAdapter.getGradebookSummary('501', '2001');
+    expect(emptySummary.averageScorePercent).toBe(0);
+    expect(emptySummary.medianScorePercent).toBe(0);
+  });
+
+  it('prevents [] suffix duplication in query parameters and preserves pagination nextUrl across cache hits', async () => {
+    const requestedUrls: string[] = [];
+    const pagedFetch: typeof fetch = async (input) => {
+      const urlStr = String(input);
+      requestedUrls.push(urlStr);
+
+      if (urlStr.includes('page=2')) {
+        return new Response(
+          JSON.stringify([{ id: 2, name: 'Second Page Assignment', due_at: null, points_possible: 20 }]),
+          { status: 200 },
+        );
+      }
+
+      return new Response(
+        JSON.stringify([{ id: 1, name: 'First Page Assignment', due_at: null, points_possible: 10 }]),
+        {
+          status: 200,
+          headers: {
+            Link: '<https://classroom.sdi.edu/api/v1/courses/777/assignments?page=2&per_page=1>; rel="next"',
+          },
+        },
+      );
+    };
+
+    const cachedClient = new CanvasClient({
+      baseUrl: 'https://classroom.sdi.edu',
+      accessToken: 'test-token',
+      fetchFn: pagedFetch,
+      cacheTtlMs: 30_000,
+    });
+    const pagedAdapter = new CanvasRestAdapter(cachedClient);
+
+    // 1. Verify no include[][] / student_ids[][] duplication
+    await cachedClient.get('/api/v1/courses/777/students/submissions', {
+      query: { 'include[]': ['assignment'], 'student_ids[]': ['1001'] },
+    });
+    expect(requestedUrls[0]).not.toContain('%5B%5D%5B%5D');
+    expect(requestedUrls[0]).not.toContain('[][]');
+    expect(requestedUrls[0]).toContain('include%5B%5D=assignment');
+    expect(requestedUrls[0]).toContain('student_ids%5B%5D=1001');
+
+    // 2. First paginated fetch returns both page 1 and page 2; second fetch from cache must STILL return both pages!
+    const firstRun = await pagedAdapter.getUpcomingAssignments('777', '1001');
+    const secondRun = await pagedAdapter.getUpcomingAssignments('777', '1001');
+    expect(firstRun).toHaveLength(2);
+    expect(secondRun).toHaveLength(2);
+    expect(secondRun[1].name).toBe('Second Page Assignment');
   });
 
   it('retrieves student enrolled courses (cross-course, critique §2)', async () => {

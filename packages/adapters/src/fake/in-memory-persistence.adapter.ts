@@ -111,6 +111,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
       courseId: params.courseId,
       userId: params.userId,
       role: params.role,
+      messageCount: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -133,6 +134,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     role: MessageRole;
     content: string;
     citations?: Citation[];
+    isCrisis?: boolean;
   }): Promise<Message> {
     const msg: Message = {
       id: crypto.randomUUID(),
@@ -140,6 +142,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
       role: params.role,
       content: params.content,
       citations: params.citations || [],
+      isCrisis: params.isCrisis || undefined,
       createdAt: new Date(),
     };
     this.messages.push(msg);
@@ -147,6 +150,10 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     const conv = this.conversations.get(params.conversationId);
     if (conv) {
       conv.updatedAt = new Date();
+      conv.messageCount = (conv.messageCount ?? 0) + 1;
+      if (!conv.title && params.role === 'user') {
+        conv.title = params.content.slice(0, 50).trim() + (params.content.length > 50 ? '...' : '');
+      }
     }
 
     return msg;

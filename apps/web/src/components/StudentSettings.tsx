@@ -3,14 +3,18 @@ import { LockIcon, ShieldCheckIcon, LightbulbIcon } from './Icons.js';
 
 interface StudentSettingsProps {
   userId: string;
+  personaId?: string;
   courseId: string;
+  authToken?: string | null;
   onClose: () => void;
   onDataCleared?: () => void;
 }
 
 export const StudentSettings: React.FC<StudentSettingsProps> = ({
   userId,
+  personaId,
   courseId,
+  authToken,
   onClose,
   onDataCleared,
 }) => {
@@ -23,10 +27,15 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
     setClearing(true);
     setFeedback(null);
     setError(null);
+    const targetId = personaId || userId;
     try {
-      const res = await fetch(`/api/users/${userId}/data`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(
+        `/api/users/${encodeURIComponent(targetId)}/data?personaId=${encodeURIComponent(targetId)}`,
+        {
+          method: 'DELETE',
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        },
+      );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setFeedback(data.message || 'All conversation data cleared successfully.');

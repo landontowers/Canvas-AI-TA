@@ -2,6 +2,7 @@ import { CrisisAlertPort, CrisisAlertResult, CrisisIncident } from '@ai-tutor/co
 
 export interface WebhookCrisisAlertOptions {
   webhookUrl?: string;
+  bearerToken?: string;
   emergencyEmail?: string;
   logger?: (msg: string) => void;
   fetchFn?: typeof fetch;
@@ -14,11 +15,14 @@ export interface WebhookCrisisAlertOptions {
 export class WebhookCrisisAlertAdapter implements CrisisAlertPort {
   readonly channelName = 'webhook-crisis-alert';
   private webhookUrl?: string;
+  private bearerToken?: string;
   private logger: (msg: string) => void;
   private fetchFn: typeof fetch;
 
   constructor(options: WebhookCrisisAlertOptions = {}) {
-    this.webhookUrl = options.webhookUrl || process.env.CRISIS_ALERT_WEBHOOK_URL;
+    this.webhookUrl =
+      options.webhookUrl || process.env.CRISIS_ALERT_WEBHOOK_URL || process.env.CRISIS_WEBHOOK_URL;
+    this.bearerToken = options.bearerToken || process.env.CRISIS_ALERT_BEARER_TOKEN;
     this.logger = options.logger || console.error;
     this.fetchFn = options.fetchFn || fetch;
   }
@@ -39,9 +43,16 @@ export class WebhookCrisisAlertAdapter implements CrisisAlertPort {
 
     if (this.webhookUrl) {
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
+        if (this.bearerToken) {
+          headers.Authorization = `Bearer ${this.bearerToken}`;
+        }
+
         const res = await this.fetchFn(this.webhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify(alertPayload),
         });
 

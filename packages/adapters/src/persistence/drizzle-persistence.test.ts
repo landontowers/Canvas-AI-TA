@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DrizzlePersistenceAdapter } from './drizzle-persistence.adapter.js';
+import * as schema from './schema.js';
+import { MIGRATION_STATEMENTS, runMigrations } from './migrate.js';
 
 describe('DrizzlePersistenceAdapter Unit Tests', () => {
   it('manages colleges (get and upsert)', async () => {
@@ -116,6 +118,17 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
   });
 
   it('manages courses and course settings', async () => {
+    const onConflictSpy = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([
+        {
+          id: 'cs_1',
+          courseId: 'c1',
+          setting: 'logistics_only',
+          updatedAt: new Date(),
+        },
+      ]),
+    });
+
     const mockDb: any = {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -135,16 +148,7 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
       ),
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockReturnValue({
-          onConflictDoUpdate: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([
-              {
-                id: 'cs_1',
-                courseId: 'c1',
-                setting: 'logistics_only',
-                updatedAt: new Date(),
-              },
-            ]),
-          }),
+          onConflictDoUpdate: onConflictSpy,
         }),
       }),
     };
@@ -159,6 +163,11 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
 
     const saved = await adapter.updateCourseSettings('c1', 'logistics_only');
     expect(saved.setting).toBe('logistics_only');
+    expect(onConflictSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: schema.courseSettingsTable.courseId,
+      }),
+    );
 
     const upserted = await adapter.upsertCourse({
       id: 'c2',
@@ -172,6 +181,21 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
   });
 
   it('manages conversations, messages, and deletion', async () => {
+    const insertedValuesSpy = vi.fn().mockReturnValue({
+      returning: vi.fn().mockResolvedValue([
+        {
+          id: 'msg_1',
+          conversationId: 'conv_1',
+          role: 'user',
+          content: 'Help with lab 1',
+          citations: [],
+          isCrisis: true,
+          createdAt: new Date(),
+        },
+      ]),
+      onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+    });
+
     const mockDb: any = {
       select: vi.fn().mockReturnThis(),
       from: vi.fn().mockReturnThis(),
@@ -183,27 +207,17 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
             id: 'conv_1',
             collegeId: 'sdi',
             courseId: 'c1',
-            userId: 'u1',
+            userId: 'user-1001',
             role: 'student',
+            title: 'Help with lab 1',
+            messageCount: 1,
             createdAt: new Date(),
             updatedAt: new Date(),
           },
         ]),
       ),
       insert: vi.fn().mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([
-            {
-              id: 'msg_1',
-              conversationId: 'conv_1',
-              role: 'user',
-              content: 'Help with lab 1',
-              citations: [],
-              createdAt: new Date(),
-            },
-          ]),
-          onConflictDoUpdate: vi.fn().mockResolvedValue({}),
-        }),
+        values: insertedValuesSpy,
       }),
       update: vi.fn().mockReturnValue({
         set: vi.fn().mockReturnValue({
@@ -220,19 +234,41 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
 
     const conv = await adapter.getConversation('conv_1');
     expect(conv?.id).toBe('conv_1');
+    expect(conv?.title).toBe('Help with lab 1');
+    expect(conv?.messageCount).toBe(1);
 
     const msg = await adapter.saveMessage({
       conversationId: 'conv_1',
       role: 'user',
       content: 'Help with lab 1',
+      isCrisis: true,
     });
     expect(msg.id).toBe('msg_1');
+    expect(msg.isCrisis).toBe(true);
+    expect(insertedValuesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ isCrisis: true }),
+    );
 
-    await adapter.clearUserData('u1');
+    // Non-UUID Canvas-derived IDs (like 'user-1001') and valid UUIDs both execute cleanly
+    await adapter.clearUserData('user-1001');
+    await adapter.clearUserData('11111111-1111-4111-8111-111111111111');
     expect(mockDb.delete).toHaveBeenCalled();
 
     await adapter.resetDemo('sdi-ftt101');
     expect(mockDb.delete).toHaveBeenCalled();
+  });
+
+  it('executes idempotent DDL migration statements via runMigrations', async () => {
+    const executedSql: string[] = [];
+    await runMigrations('postgresql://postgres:postgrespassword@localhost:5432/ai_tutor', {
+      unsafe: async (stmt: string) => {
+        executedSql.push(stmt);
+      },
+    });
+
+    expect(executedSql).toEqual(MIGRATION_STATEMENTS);
+    expect(executedSql.some((s) => s.includes('course_id TEXT NOT NULL UNIQUE'))).toBe(true);
+    expect(executedSql.some((s) => s.includes('is_crisis BOOLEAN'))).toBe(true);
   });
 
   it('records and lists crisis incidents', async () => {

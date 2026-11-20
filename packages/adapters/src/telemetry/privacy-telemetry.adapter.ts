@@ -12,6 +12,11 @@ export interface PrivacyTelemetryOptions {
  * Privacy-preserving structured operational telemetry adapter.
  * Hashing student IDs via HMAC-SHA256 (FERPA de-identification) and scrubbing raw text.
  */
+const INSECURE_DEFAULT_SALTS = new Set([
+  'sdi-telemetry-salt-v0',
+  'demo-telemetry-salt-change-in-production',
+]);
+
 export class PrivacyTelemetryAdapter implements TelemetryPort {
   private secretSalt: string;
   private sink: (line: string) => void;
@@ -29,7 +34,17 @@ export class PrivacyTelemetryAdapter implements TelemetryPort {
   ]);
 
   constructor(options: PrivacyTelemetryOptions = {}) {
-    this.secretSalt = options.secretSalt || process.env.TELEMETRY_SALT || 'sdi-telemetry-salt-v0';
+    const resolvedSalt = options.secretSalt || process.env.TELEMETRY_SALT || '';
+    if (
+      process.env.NODE_ENV === 'production' &&
+      (!resolvedSalt || INSECURE_DEFAULT_SALTS.has(resolvedSalt))
+    ) {
+      throw new Error(
+        'Fatal: TELEMETRY_SALT must be explicitly configured with a non-default secret in production.',
+      );
+    }
+
+    this.secretSalt = resolvedSalt || 'sdi-telemetry-salt-v0';
     this.logStorage = options.logStorage;
     this.sink =
       options.sink ||
