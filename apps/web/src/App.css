@@ -111,6 +111,34 @@ body {
   width: 100%;
 }
 
+/* Embedded / Iframe / Canvas In-Page Mode */
+.demo-container.embedded {
+  max-width: 100%;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  justify-content: stretch;
+}
+
+.demo-container.embedded .canvas-frame {
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body:has(.demo-container.embedded) {
+  padding: 0;
+  margin: 0;
+  background-color: transparent;
+  overflow: hidden;
+}
+
 /* External Canvas Host Simulator Controls */
 .demo-host-controls {
   width: 100%;

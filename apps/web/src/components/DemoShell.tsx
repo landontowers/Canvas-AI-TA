@@ -33,6 +33,11 @@ export const DemoShell: React.FC = () => {
 
   const isStaff = persona === 'demo_instructor' || persona === 'demo_ta';
 
+  const isEmbedded =
+    typeof window !== 'undefined' &&
+    (new URLSearchParams(window.location.search).get('embedded') === 'true' ||
+      window.self !== window.top);
+
   useEffect(() => {
     fetch('/health')
       .then((res) => {
@@ -100,14 +105,19 @@ export const DemoShell: React.FC = () => {
   };
 
   return (
-    <div className={`demo-container ${highContrast ? 'high-contrast-mode' : ''}`}>
+    <div
+      className={`demo-container ${highContrast ? 'high-contrast-mode' : ''} ${
+        isEmbedded ? 'embedded' : ''
+      }`}
+    >
       {/* Sign-in gate if demo authentication is required and user is unauthenticated */}
       {authRequired && !authenticated && (
         <DemoAuthModal onSuccess={handleLoginSuccess} />
       )}
 
       {/* External Demo Controls Bar (Simulates Canvas Host Environment) */}
-      <aside className="demo-host-controls" aria-label="Demo Host Controls">
+      {!isEmbedded && (
+        <aside className="demo-host-controls" aria-label="Demo Host Controls">
         <div className="demo-controls-header">
           <h2>Canvas Host Simulation</h2>
           <span className="demo-subtext">LTI 1.3 Sidebar Simulator</span>
@@ -206,6 +216,7 @@ export const DemoShell: React.FC = () => {
           <span className="frame-size-chip">Drawer Width: 320px fixed</span>
         </div>
       </aside>
+      )}
 
       {/* Main 320px Canvas Sidebar Drawer Frame */}
       <main className="canvas-frame" aria-label="SDI AI Tutor Canvas Sidebar Drawer">
