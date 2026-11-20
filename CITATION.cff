@@ -6,7 +6,7 @@ authors:
   - family-names: Towers
     given-names: Landon
     alias: landontowers
-repository-code: "https://github.com/landontowers/ai-tutor"
+repository-code: "https://github.com/landontowers/canvas-ai-tutor"
 license: Apache-2.0
 abstract: >-
   A Socratic AI tutor that runs inside the Canvas LMS, with separate

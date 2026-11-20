@@ -43,7 +43,7 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
   - `_underscore_` emphasis;
   - tables with `| --- |` separators.
 - **Git:** work on a branch, then fast-forward `main`. Write commit subjects in the imperative, with a bulleted body for anything non-trivial.
-- **This repo is a fork of `spencer-thompson/ai-tutor`.** Pull requests must target `landontowers/ai-tutor`, not the upstream repo.
+- **This repo is a fork of `spencer-thompson/ai-tutor`.** Pull requests must target `landontowers/canvas-ai-tutor`, not the upstream repo.
 
 ## Open items
 
