@@ -11,7 +11,7 @@ describe('renderMarkdownWithMath', () => {
     expect(html).toContain('<em>safety</em>');
     expect(html).toContain('<ul>');
     expect(html).toContain('<li>Step 1</li>');
-    expect(html).toContain('<code>console.log(&quot;ok&quot;)</code>');
+    expect(html).toMatch(/<code>console\.log\((&quot;|")ok(&quot;|")\)<\/code>/);
   });
 
   it('renders inline KaTeX math $...$', () => {

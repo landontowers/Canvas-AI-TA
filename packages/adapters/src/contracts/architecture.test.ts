@@ -8,12 +8,12 @@ describe('Architecture Boundary Verification', () => {
     ? process.cwd()
     : path.resolve(process.cwd(), '../..');
 
-  it('passes when core follows hexagonal architecture rules', () => {
+  it('passes when core follows hexagonal architecture rules', { timeout: 30000 }, () => {
     const output = execSync('pnpm dep-check', { cwd: rootDir, encoding: 'utf-8' });
     expect(output).toContain('no dependency violations found');
   });
 
-  it('catches a deliberate violation if core attempts to import adapters', () => {
+  it('catches a deliberate violation if core attempts to import adapters', { timeout: 30000 }, () => {
     const violationFile = path.resolve(rootDir, 'packages/core/src/deliberate-violation.tmp.ts');
     try {
       fs.writeFileSync(

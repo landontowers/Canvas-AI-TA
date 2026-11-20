@@ -546,5 +546,88 @@ describe('API Server', () => {
       await instance.close();
       expect(fakeStorage.flushCount).toBeGreaterThanOrEqual(1);
     });
+
+    it('GET /api/tools returns filtered tools based on session role', async () => {
+      const studentRes = await server.inject({
+        method: 'GET',
+        url: '/api/tools?personaId=demo_student&courseId=sdi-ftt101',
+      });
+      expect(studentRes.statusCode).toBe(200);
+      const studentData = studentRes.json();
+      expect(studentData.role).toBe('student');
+      expect(studentData.tools.some((t: any) => t.requiredRole === 'instructor')).toBe(false);
+
+      const instructorRes = await server.inject({
+        method: 'GET',
+        url: '/api/tools?personaId=demo_instructor&courseId=sdi-ftt101',
+      });
+      expect(instructorRes.statusCode).toBe(200);
+      const instructorData = instructorRes.json();
+      expect(instructorData.role).toBe('instructor');
+      expect(instructorData.tools.some((t: any) => t.name === 'get_submission_summaries')).toBe(true);
+    });
+
+    it('GET /api/admin/crisis-incidents enforces authorization and returns incidents', async () => {
+      const unauthRes = await secureServer.inject({
+        method: 'GET',
+        url: '/api/admin/crisis-incidents',
+      });
+      expect(unauthRes.statusCode).toBe(401);
+
+      const loginRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/auth/login',
+        payload: { password: 'sdi-secure-demo-pass' },
+      });
+      const { token } = loginRes.json();
+
+      const authRes = await secureServer.inject({
+        method: 'GET',
+        url: '/api/admin/crisis-incidents',
+        headers: {
+          authorization: `Bearer ${token}`,
+        },
+      });
+      expect(authRes.statusCode).toBe(200);
+      expect(authRes.json().collegeId).toBe('sdi');
+      expect(Array.isArray(authRes.json().incidents)).toBe(true);
+    });
+
+    it('POST /api/chat emits error event if turn execution throws an unexpected error', async () => {
+      // Create a server with a faulty engine that throws
+      const throwingServer = buildServer(config, {
+        llm: {
+          providerName: 'faulty',
+          getCapabilities: () => ({ streaming: true } as any),
+          generate: async () => ({ text: '' }),
+          // eslint-disable-next-line require-yield
+          stream: async function* () {
+            throw new Error('Unexpected LLM engine explosion');
+          },
+        },
+      });
+
+      const res = await throwingServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          message: 'Trigger failure',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toContain('"type":"error"');
+      expect(res.body).toContain('Unexpected LLM engine explosion');
+    });
+
+    it('returns standard 404 for unknown endpoints', async () => {
+      const res = await server.inject({
+        method: 'GET',
+        url: '/api/unknown-endpoint-that-does-not-exist',
+      });
+      expect(res.statusCode).toBe(404);
+      expect(res.json().error).toBe('Not Found');
+    });
   });
 });

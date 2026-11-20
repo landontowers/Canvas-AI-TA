@@ -10,16 +10,16 @@ dev:
 dev-down:
   docker compose down
 
-# Run all verification checks: types, linter, architecture rules, and tests (plan §1)
+# Run all verification checks: types, linter, architecture rules, and tests with coverage (plan §1)
 check:
   pnpm typecheck
   pnpm lint
   pnpm dep-check
-  pnpm test
+  pnpm test:coverage
 
-# Run Vitest test suite across all packages and apps
+# Run Vitest test suite across all packages and apps with code coverage
 test:
-  pnpm test
+  pnpm test:coverage
 
 # Run the 60-case Socratic and instructor evaluation suite (plan Phase 3)
 eval:
