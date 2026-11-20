@@ -39,6 +39,27 @@ export const DemoShell: React.FC = () => {
       window.self !== window.top);
 
   useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.data || typeof event.data !== 'object') return;
+      const data = event.data as Record<string, unknown>;
+      if (data.type === 'canvas_context' || data.subject === 'lti.pageContent') {
+        if (data.courseId || data.course_id) {
+          setCourseId(String(data.courseId || data.course_id));
+        }
+        if (data.pageTitle || data.page_title) {
+          setActivePage(String(data.pageTitle || data.page_title));
+        }
+        if (data.persona) {
+          setPersona(String(data.persona));
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ subject: 'lti.getPageContent' }, '*');
+    }
+
     fetch('/health')
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -57,6 +78,8 @@ export const DemoShell: React.FC = () => {
         setAuthenticated(Boolean(data.authenticated));
       })
       .catch(() => {});
+
+    return () => window.removeEventListener('message', handleMessage);
   }, [authToken]);
 
   const handleLoginSuccess = (token: string) => {
