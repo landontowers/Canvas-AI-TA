@@ -101,7 +101,7 @@ export function buildServer(
       defaultLlm = new GeminiAdapter({
         apiKey: config.model.apiKey,
         defaultModel: config.model.studentModel,
-        fallbackModel: 'gemini-3.5-flash',
+        fallbackModel: 'gemini-3.5-flash-lite',
       });
       defaultClassifierLlm = new GeminiAdapter({
         apiKey: config.model.apiKey,

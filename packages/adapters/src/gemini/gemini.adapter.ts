@@ -32,7 +32,7 @@ export class GeminiAdapter implements LlmPort {
       });
     }
     this.defaultModel = options.defaultModel || 'gemini-3.8-flash';
-    this.fallbackModel = options.fallbackModel || 'gemini-3.5-flash';
+    this.fallbackModel = options.fallbackModel || 'gemini-3.5-flash-lite';
   }
 
   getCapabilities(): LlmCapabilities {
@@ -95,6 +95,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const callModel = async (model: string) => {
+      const isThinkingModel = model.includes('3.8');
       return this.client!.models.generateContent({
         model,
         contents,
@@ -102,9 +103,9 @@ export class GeminiAdapter implements LlmPort {
           systemInstruction: options.systemPrompt,
           maxOutputTokens: options.maxTokens,
           temperature: options.temperature,
-          thinkingConfig: {
-            thinkingLevel: ThinkingLevel.MINIMAL,
-          },
+          ...(isThinkingModel
+            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } }
+            : {}),
           ...(tools ? { tools } : {}),
         },
       });
@@ -158,6 +159,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const getStream = (model: string) => {
+      const isThinkingModel = model.includes('3.8');
       return this.client!.models.generateContentStream({
         model,
         contents,
@@ -165,9 +167,9 @@ export class GeminiAdapter implements LlmPort {
           systemInstruction: options.systemPrompt,
           maxOutputTokens: options.maxTokens,
           temperature: options.temperature,
-          thinkingConfig: {
-            thinkingLevel: ThinkingLevel.MINIMAL,
-          },
+          ...(isThinkingModel
+            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } }
+            : {}),
           ...(tools ? { tools } : {}),
         },
       });
