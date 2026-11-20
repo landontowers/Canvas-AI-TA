@@ -5,10 +5,10 @@ import fs from 'node:fs';
 
 describe('AI Tutor Evaluation Suite (Phase 3 Baseline)', () => {
   it('runs the 60-case evaluation suite and records baseline results (plan Phase 3)', async () => {
-    const outputPath = path.resolve(
-      process.cwd(),
-      'packages/adapters/src/evals/baseline-eval-results.json',
-    );
+    const isRoot = fs.existsSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'));
+    const outputPath = isRoot
+      ? path.resolve(process.cwd(), 'packages/adapters/src/evals/baseline-eval-results.json')
+      : path.resolve(process.cwd(), 'src/evals/baseline-eval-results.json');
 
     const result = await runEvalSuite({ saveResultsPath: outputPath });
 

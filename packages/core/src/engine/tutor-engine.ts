@@ -7,6 +7,7 @@ import {
   ModerationPort,
   TelemetryPort,
   CourseContentPort,
+  CrisisAlertPort,
 } from '../ports/index.js';
 import { StreamEvent } from '../types/stream.js';
 import { Citation, MessageRole } from '../types/message.js';
@@ -30,6 +31,7 @@ export interface TutorEngineDependencies {
   toolRegistry: ToolRegistry;
   collegeConfig: CollegeConfig;
   courseContent?: CourseContentPort;
+  crisisAlert?: CrisisAlertPort;
 }
 
 export interface TurnParameters {
@@ -155,7 +157,7 @@ export class TutorEngine {
       content: params.message,
     });
 
-    // 3. Safety & Crisis check (critique §3.8)
+    // 3. Safety & Crisis check (critique §3.8, FERPA 34 CFR § 99.36)
     const moderation = await this.deps.moderation.checkContent(params.message, authContext.userId);
     if (moderation.crisisDetected) {
       const crisisText =
@@ -178,9 +180,27 @@ export class TutorEngine {
         messageId: savedMsg.id,
       };
 
+      // Record emergency incident under FERPA Health & Safety exception (34 CFR § 99.36)
+      const incident = await this.deps.persistence.saveCrisisIncident({
+        collegeId: authContext.collegeId,
+        courseId: authContext.courseId,
+        studentId: authContext.userId,
+        category: moderation.categories.join(','),
+        triggerSnippet: moderation.triggerSnippet || moderation.reason || 'Safety filter triggered',
+        responseRendered: crisisText,
+      });
+
+      // Dispatch alert to designated institutional contacts if alert adapter is wired
+      if (this.deps.crisisAlert) {
+        await this.deps.crisisAlert.dispatchAlert(incident).catch(() => {
+          // Non-blocking catch to ensure student emergency assistance is never interrupted
+        });
+      }
+
       this.deps.telemetry.recordEvent('crisis_detected', {
         userId: authContext.userId,
         categories: moderation.categories.join(','),
+        incidentId: incident.id,
       });
       return;
     }
@@ -383,6 +403,17 @@ export class TutorEngine {
     this.deps.telemetry.recordMetric('turn_duration_ms', durationMs, {
       role: authContext.tutorRole,
       courseId: authContext.courseId,
+    });
+
+    this.deps.telemetry.recordEvent('turn_completed', {
+      userId: authContext.userId,
+      role: authContext.tutorRole,
+      courseId: authContext.courseId,
+      durationMs,
+      promptChars: params.message.length,
+      responseChars: fullAssistantResponse.length,
+      citationsCount: accumulatedCitations.length,
+      toolRounds: round - 1,
     });
   }
 }

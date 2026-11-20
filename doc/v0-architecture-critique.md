@@ -166,6 +166,30 @@ FERPA applies to student records, and an official integration will likely face a
 
 **Research is out of scope for v0.** "Research" here means a study of whether the tutor improves outcomes: comparing grades, completion, or retention between students who use it and students who don't. That links tutor usage to student records, so it typically needs IRB review, informed consent, and de-identified data handling, all designed before launch. Product analytics is different: usage counts, latency, thumbs up or down, and which tools get called. That's normal operation and needs privacy care, not an IRB. v0 collects product analytics only, with pseudonymous IDs and no chat text.
 
+**3-tier logging architecture:**
+
+To resolve the tension between deep observability and educational privacy regulations (FERPA), v0 separates logging into three distinct tiers:
+
+1. **Tier 1: Zero-PII operational telemetry (`PrivacyTelemetryAdapter`).**
+   - Implements `TelemetryPort`. Captures operational metrics: turn latency, prompt/response character counts, tool call counts, citation counts, and routing decisions.
+   - Automatically de-identified under FERPA 34 CFR § 99.31(b): student identifiers are salted and hashed via HMAC-SHA256 (`TELEMETRY_SALT`) into irreversible `anon_<16-hex>` handles.
+   - Raw free-text keys (`message`, `prompt`, `content`, `body`, `email`) are scrubbed before emission. Safe for export to standard observability infrastructure (Azure Monitor, Application Insights, or Datadog) without creating external FERPA education records.
+2. **Tier 2: Course-scoped ephemeral conversation storage.**
+   - Conversations and messages reside strictly in first-party persistence (`PersistencePort`), scoped by student, course, and persona.
+   - Never exported to shared telemetry sinks.
+   - Students have self-service data erasure via the "clear my data" control (`DELETE /api/conversations`).
+3. **Tier 3: Administrative and security audit logging.**
+   - Secure server-side logs recording administrative setting changes, developer masquerading events, and emergency incident disclosures.
+
+**Crisis incidents and safety escalation (FERPA 34 CFR § 99.36):**
+
+When a student conversation expresses thoughts of self-harm, suicide, or imminent physical violence, typical anonymization and silent refusal are insufficient. Under FERPA's Health and Safety Emergency Exception (34 CFR § 99.36), an educational institution may disclose personally identifiable information from education records to appropriate parties (school officials, crisis counselors, campus safety) in connection with an emergency if knowledge of the information is necessary to protect the health or safety of the student or other individuals.
+
+- **In-flight crisis detection:** The moderation layer intercepts self-harm or violence triggers before the LLM generates a response.
+- **Isolated incident persistence:** `TutorEngine` logs a structured `CrisisIncident` via `PersistencePort.saveCrisisIncident` to an isolated database table (`crisis_incidents`), retaining the user identifier, course, timestamp, and a masked trigger snippet.
+- **Urgent alert dispatch:** `TutorEngine` dispatches the incident to a dedicated institution webhook or escalation service via `CrisisAlertPort` (`WebhookCrisisAlertAdapter`).
+- **Immediate student support:** The tutor halts normal generation and delivers a prominent, accessible crisis action card featuring the 988 Suicide & Crisis Lifeline with click-to-call (`tel:988`), click-to-text (`sms:988`), and live chat (`https://988lifeline.org`) links.
+
 **Other rules:**
 
 - **Basics:** classify and minimize data, set retention windows, and keep audit logs of who accessed what.
@@ -178,7 +202,7 @@ FERPA applies to student records, and an official integration will likely face a
 - **Treat everything fed into the context as untrusted.** Announcements, other students' discussion posts, course pages, fetched web pages, and the student's own bio all reach the model, so assume any of them can carry prompt injection. Keep tools read-only and scoped to the student asking. The prototype's `read_webpages` fetched arbitrary URLs from inside the Docker network, which made it an SSRF path to internal services. Any URL fetching in v0 needs an egress policy.
 - **Keep the loop short.** The prototype ran an extra router call before every answer and allowed only one round of tool calls. For a quick helper, make one small classifier call (§3.4), then one main call with tools. Measure whether the classifier is worth its latency.
 - **Replace the streaming protocol.** The prototype's server wrote JSON objects back to back with no delimiter, and the client had to guess where each one ended. Use typed events over SSE (text delta, tool status, citation, done, error). Do LaTeX-delimiter normalization in the renderer.
-- **Rewrite moderation and crisis copy.** It should come from configuration (SDI's crisis resources in v0), look at more than the last message, and sound humane. "That is not cool bro" won't survive a college's review.
+- **Rewrite moderation and crisis copy.** It should come from configuration (SDI's crisis resources in v0), look at more than the last message, and sound humane. "That is not cool bro" won't survive a college's review. In v0, in-flight self-harm or violence triggers halt LLM generation, store an isolated incident record, alert a dedicated webhook under FERPA § 99.36 via `CrisisAlertPort`, and present an immediate accessible crisis assistance card linking directly to 988 Lifeline (call, text, and chat).
 
 ### 3.9 Model choice: fast, cheap, accurate enough
 
@@ -556,6 +580,7 @@ The full prototype is preserved at the [`prototype-final`](https://github.com/la
 13. **Two tutors.** A student tutor and an instructor tutor on one engine, separated in access and instruction harness. The instructor tutor gives direct, read-only help (§3.14).
 14. **Current phase.** A functional demo, not a production implementation. It runs locally in Docker Compose, uses Gemini on a personal Google account for the model, and is shared through a tunnel on a personal domain until SDI can provide one (§4).
 15. **License and ownership.** Apache 2.0, copyright Landon Towers, with a `NOTICE` that acknowledges the original prototype led by Spencer Thompson. v0 is a personal open-source project, and only the SDI integration happens on company time (implementation plan, step 0.6).
+16. **Privacy telemetry and crisis escalation.** Operational telemetry is de-identified under FERPA 34 CFR § 99.31(b) using HMAC-SHA256 pseudonymized identifiers and strict free-text scrubbing (`PrivacyTelemetryAdapter`). In-flight crisis detection (self-harm, suicide, imminent violence) invokes the FERPA 34 CFR § 99.36 Health & Safety Emergency Exception, storing isolated incident records and dispatching alerts to student welfare webhooks via `CrisisAlertPort` while presenting immediate 988 Lifeline resources in the UI (§3.7, §3.8).
 
 **Before the student pilot:**
 

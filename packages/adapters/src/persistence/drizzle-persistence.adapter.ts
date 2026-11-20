@@ -10,6 +10,7 @@ import {
   MessageRole,
   Citation,
   TutorRole,
+  CrisisIncident,
 } from '@ai-tutor/core';
 import { eq, and, desc } from 'drizzle-orm';
 import { PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -348,6 +349,57 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       content: r.content,
       citations: (r.citations as Citation[]) || [],
       createdAt: r.createdAt,
+    }));
+  }
+
+  async saveCrisisIncident(incident: {
+    collegeId: string;
+    courseId: string;
+    studentId: string;
+    category: string;
+    triggerSnippet: string;
+    responseRendered: string;
+  }): Promise<CrisisIncident> {
+    const inserted = await this.db
+      .insert(schema.crisisIncidentsTable)
+      .values({
+        collegeId: incident.collegeId,
+        courseId: incident.courseId,
+        studentId: incident.studentId,
+        category: incident.category,
+        triggerSnippet: incident.triggerSnippet,
+        responseRendered: incident.responseRendered,
+      })
+      .returning();
+
+    return {
+      id: inserted[0].id,
+      collegeId: inserted[0].collegeId,
+      courseId: inserted[0].courseId,
+      studentId: inserted[0].studentId,
+      category: inserted[0].category,
+      triggerSnippet: inserted[0].triggerSnippet,
+      responseRendered: inserted[0].responseRendered,
+      timestamp: inserted[0].createdAt,
+    };
+  }
+
+  async listCrisisIncidents(collegeId: string): Promise<CrisisIncident[]> {
+    const rows = await this.db
+      .select()
+      .from(schema.crisisIncidentsTable)
+      .where(eq(schema.crisisIncidentsTable.collegeId, collegeId))
+      .orderBy(desc(schema.crisisIncidentsTable.createdAt));
+
+    return rows.map((r) => ({
+      id: r.id,
+      collegeId: r.collegeId,
+      courseId: r.courseId,
+      studentId: r.studentId,
+      category: r.category,
+      triggerSnippet: r.triggerSnippet,
+      responseRendered: r.responseRendered,
+      timestamp: r.createdAt,
     }));
   }
 

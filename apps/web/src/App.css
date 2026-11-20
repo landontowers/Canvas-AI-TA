@@ -856,6 +856,105 @@ body:has(.demo-container.embedded) #root {
   color: var(--color-primary);
 }
 
+/* Crisis Action Card (Immediate emergency assistance under FERPA § 99.36) */
+.crisis-action-card {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background-color: #FFF5F5;
+  border: 1px solid #E53E3E;
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.crisis-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #C53030;
+}
+
+.crisis-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.crisis-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  min-height: 32px;
+  transition: background-color 0.15s ease;
+}
+
+.crisis-btn-call {
+  background-color: #C53030;
+  color: #FFFFFF;
+}
+
+.crisis-btn-call:hover {
+  background-color: #9B2C2C;
+  color: #FFFFFF;
+}
+
+.crisis-btn-sms {
+  background-color: #2D3748;
+  color: #FFFFFF;
+}
+
+.crisis-btn-sms:hover {
+  background-color: #1A202C;
+  color: #FFFFFF;
+}
+
+.crisis-btn-chat {
+  background-color: #FFFFFF;
+  color: #2D3748;
+  border: 1px solid #CBD5E0;
+}
+
+.crisis-btn-chat:hover {
+  background-color: #F7FAFC;
+  border-color: #A0AEC0;
+}
+
+/* High Contrast mode for Crisis Card */
+.high-contrast .crisis-action-card {
+  background-color: #FFFFFF;
+  border: 2px solid #000000;
+}
+
+.high-contrast .crisis-card-header {
+  color: #000000;
+  font-weight: 800;
+}
+
+.high-contrast .crisis-btn-call {
+  background-color: #000000;
+  color: #FFFFFF;
+  border: 2px solid #000000;
+}
+
+.high-contrast .crisis-btn-sms {
+  background-color: #000000;
+  color: #FFFFFF;
+  border: 2px solid #000000;
+}
+
+.high-contrast .crisis-btn-chat {
+  background-color: #FFFFFF;
+  color: #000000;
+  border: 2px solid #000000;
+}
+
 /* Tool Status Pill */
 .tool-status-pill {
   display: inline-flex;

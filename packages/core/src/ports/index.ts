@@ -6,3 +6,4 @@ export * from './course-content.port.js';
 export * from './moderation.port.js';
 export * from './persistence.port.js';
 export * from './telemetry.port.js';
+export * from './crisis-alert.port.js';

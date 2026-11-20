@@ -174,7 +174,7 @@ _Status, 2026-11-19: Phase 2 is complete. Typed Canvas REST adapter with rate-li
 
 ## Phase 3: Tutor engine
 
-_Status, 2026-11-19: Phase 3 is complete. TutorEngine coordinates Socratic guidance, GeminiAdapter provides @google/genai streaming and tool-calling, question classifier enforces full vs logistics_only course setting on the server, SSE streaming API tested for both personas, and the 60-case eval suite baseline is recorded._
+_Status, 2026-11-20: Phase 3 is complete. TutorEngine coordinates Socratic guidance, GeminiAdapter provides @google/genai streaming and tool-calling, question classifier enforces full vs logistics_only course setting on the server, SSE streaming API tested for both personas, PrivacyTelemetryAdapter implements de-identified telemetry (FERPA § 99.31(b)), CrisisAlertPort dispatches emergency notifications (FERPA § 99.36), and the 60-case eval suite baseline is recorded._
 
 **Goal:** both tutors answer correctly, the student tutor stays Socratic on course material, and the course setting is enforced.
 
@@ -190,7 +190,8 @@ _Status, 2026-11-19: Phase 3 is complete. TutorEngine coordinates Socratic guida
 - **Agent loop:** the classifier, then one main call with tools, a bounded number of tool rounds, and time limits.
 - **Safety** (critique §3.8):
   - Gemini's safety settings.
-  - Crisis routing with SDI's resources, taken from config.
+  - Crisis routing with SDI's resources, 988 Lifeline UI integration, and `CrisisAlertPort` emergency webhook dispatch under FERPA 34 CFR § 99.36.
+  - De-identified operational telemetry via `PrivacyTelemetryAdapter` with HMAC-SHA256 salted pseudonymization under FERPA 34 CFR § 99.31(b).
   - All Canvas and tool content treated as untrusted input.
 - **Streaming:** SSE with typed events: text delta, tool status, citation, done, and error.
 - **Persistence:** conversations and messages tagged with persona, role, and course, plus a "clear my data" endpoint.
@@ -254,7 +255,7 @@ _Status, 2026-11-19: Phase 4 is complete. The 320px Canvas sidebar drawer interf
 
 ## Phase 5: Demo hosting and hardening
 
-_Status, 2026-11-19: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full._
+_Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); PrivacyTelemetryAdapter provides HMAC-SHA256 pseudonymized telemetry with full free-text scrubbing (FERPA § 99.31(b)); WebhookCrisisAlertAdapter provides emergency incident alerting (FERPA § 99.36); a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full._
 
 **Goal:** invited viewers can use the demo safely over the internet.
 

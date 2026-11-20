@@ -10,6 +10,7 @@ import {
   MessageRole,
   Citation,
   TutorRole,
+  CrisisIncident,
 } from '@ai-tutor/core';
 import crypto from 'node:crypto';
 
@@ -20,6 +21,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
   private courseSettings = new Map<string, CourseSettings>();
   private conversations = new Map<string, Conversation>();
   private messages: Message[] = [];
+  private crisisIncidents: CrisisIncident[] = [];
 
   async getCollege(collegeId: string): Promise<CollegeRecord | null> {
     return this.colleges.get(collegeId) || null;
@@ -154,6 +156,29 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     return this.messages
       .filter((m) => m.conversationId === conversationId)
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  }
+
+  async saveCrisisIncident(incident: {
+    collegeId: string;
+    courseId: string;
+    studentId: string;
+    category: string;
+    triggerSnippet: string;
+    responseRendered: string;
+  }): Promise<CrisisIncident> {
+    const record: CrisisIncident = {
+      id: crypto.randomUUID(),
+      timestamp: new Date(),
+      ...incident,
+    };
+    this.crisisIncidents.push(record);
+    return record;
+  }
+
+  async listCrisisIncidents(collegeId: string): Promise<CrisisIncident[]> {
+    return this.crisisIncidents
+      .filter((i) => i.collegeId === collegeId)
+      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   }
 
   async clearUserData(userId: string): Promise<void> {

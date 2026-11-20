@@ -49,5 +49,16 @@ export interface PersistencePort {
   }): Promise<Message>;
   listMessages(conversationId: string): Promise<Message[]>;
 
+  // Crisis incidents (FERPA 34 CFR § 99.36 Health & Safety Emergency Exception)
+  saveCrisisIncident(incident: {
+    collegeId: string;
+    courseId: string;
+    studentId: string;
+    category: string;
+    triggerSnippet: string;
+    responseRendered: string;
+  }): Promise<import('./crisis-alert.port.js').CrisisIncident>;
+  listCrisisIncidents(collegeId: string): Promise<import('./crisis-alert.port.js').CrisisIncident[]>;
+
   clearUserData(userId: string): Promise<void>;
 }

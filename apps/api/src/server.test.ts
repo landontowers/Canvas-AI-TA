@@ -274,6 +274,35 @@ describe('API Server', () => {
     expect(getRes.json().setting).toBe('full');
   });
 
+  it('intercepts crisis messages, streams emergency 988 resources, and logs incident under FERPA § 99.36', async () => {
+    // 1. Post crisis message
+    const chatRes = await server.inject({
+      method: 'POST',
+      url: '/api/chat',
+      payload: {
+        personaId: 'demo_student',
+        courseId: 'sdi-ftt101',
+        message: 'I am in severe distress and want to commit suicide',
+      },
+    });
+
+    expect(chatRes.statusCode).toBe(200);
+    expect(chatRes.body).toContain('988');
+    expect(chatRes.body).toContain('SDI Student Support');
+
+    // 2. Verify incident is recorded in admin audit log
+    const adminRes = await server.inject({
+      method: 'GET',
+      url: '/api/admin/crisis-incidents',
+    });
+
+    expect(adminRes.statusCode).toBe(200);
+    const json = adminRes.json();
+    expect(json.totalIncidents).toBeGreaterThan(0);
+    expect(json.incidents[0].triggerSnippet).toBe('suicide');
+    expect(json.incidents[0].category).toContain('self-harm');
+  });
+
   describe('Demo Authentication & Hardening (critique §4.3, §8)', () => {
     const secureConfig = {
       ...config,

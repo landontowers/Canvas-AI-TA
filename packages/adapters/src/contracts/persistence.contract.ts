@@ -83,5 +83,25 @@ export function runPersistenceContractTests(
       const msgs = await adapter.listMessages(conv.id);
       expect(msgs.length).toBe(0);
     });
+
+    it('records and lists crisis incidents independently from conversations (FERPA §99.36)', async () => {
+      const adapter = await createAdapter();
+      const incident = await adapter.saveCrisisIncident({
+        collegeId: 'sdi-test',
+        courseId: 'course-abc',
+        studentId: 'student-999',
+        category: 'self_harm',
+        triggerSnippet: 'suicide',
+        responseRendered: 'Emergency support resources provided.',
+      });
+
+      expect(incident.id).toBeDefined();
+      expect(incident.studentId).toBe('student-999');
+      expect(incident.triggerSnippet).toBe('suicide');
+
+      const incidents = await adapter.listCrisisIncidents('sdi-test');
+      expect(incidents.length).toBeGreaterThan(0);
+      expect(incidents.some((i) => i.id === incident.id)).toBe(true);
+    });
   });
 }

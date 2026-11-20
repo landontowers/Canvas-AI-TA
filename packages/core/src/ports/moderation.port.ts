@@ -4,6 +4,7 @@ export interface ModerationResult {
   crisisDetected: boolean;
   crisisMessage?: string;
   reason?: string;
+  triggerSnippet?: string;
 }
 
 export interface ModerationPort {

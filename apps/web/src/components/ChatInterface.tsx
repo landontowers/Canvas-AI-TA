@@ -334,6 +334,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   </div>
                 </div>
               )}
+
+              {msg.role === 'assistant' && msg.content.includes('988') && (
+                <div className="crisis-action-card" role="alert" aria-label="Emergency Crisis Support">
+                  <div className="crisis-card-header">
+                    <span className="crisis-icon" aria-hidden="true">🆘</span>
+                    <strong>Immediate Confidential Support (24/7)</strong>
+                  </div>
+                  <div className="crisis-card-actions">
+                    <a href="tel:988" className="crisis-btn crisis-btn-call">
+                      📞 Call 988
+                    </a>
+                    <a href="sms:988" className="crisis-btn crisis-btn-sms">
+                      💬 Text 988
+                    </a>
+                    <a
+                      href="https://988lifeline.org"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="crisis-btn crisis-btn-chat"
+                    >
+                      🌐 988 Online Chat
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}

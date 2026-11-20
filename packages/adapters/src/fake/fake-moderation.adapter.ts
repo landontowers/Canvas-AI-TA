@@ -1,7 +1,15 @@
 import { ModerationPort, ModerationResult } from '@ai-tutor/core';
 
 export class FakeModerationAdapter implements ModerationPort {
-  private crisisKeywords = ['suicide', 'kill myself', 'self-harm', 'end my life'];
+  private crisisKeywords = [
+    'suicide',
+    'kill myself',
+    'self-harm',
+    'end my life',
+    'want to die',
+    'cutting myself',
+    'harm others',
+  ];
 
   constructor(
     private crisisMessage = 'If you are experiencing a mental health emergency, please dial 988 or reach out to SDI Student Support.',
@@ -9,15 +17,16 @@ export class FakeModerationAdapter implements ModerationPort {
 
   async checkContent(content: string, _userId?: string): Promise<ModerationResult> {
     const lower = content.toLowerCase();
-    const hasCrisis = this.crisisKeywords.some((kw) => lower.includes(kw));
+    const matched = this.crisisKeywords.find((kw) => lower.includes(kw));
 
-    if (hasCrisis) {
+    if (matched) {
       return {
         flagged: true,
         categories: ['self-harm'],
         crisisDetected: true,
         crisisMessage: this.crisisMessage,
-        reason: 'Self-harm signals detected',
+        reason: 'Self-harm or crisis signals detected',
+        triggerSnippet: matched,
       };
     }
 

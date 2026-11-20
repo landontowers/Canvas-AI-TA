@@ -29,7 +29,7 @@ export const coursesTable = pgTable('courses', {
 
 export const courseSettingsTable = pgTable('course_settings', {
   id: uuid('id').defaultRandom().primaryKey(),
-  courseId: text('course_id').notNull().references(() => coursesTable.id),
+  courseId: text('course_id').notNull().unique().references(() => coursesTable.id),
   setting: text('setting').notNull().default('full'), // 'full' | 'logistics_only'
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -50,5 +50,20 @@ export const messagesTable = pgTable('messages', {
   role: text('role').notNull(), // 'user' | 'assistant' | 'system' | 'tool'
   content: text('content').notNull(),
   citations: jsonb('citations').default([]).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+/**
+ * Isolated crisis incidents log under the FERPA Health & Safety Emergency Exception (34 CFR § 99.36).
+ * Segregated from regular chat conversations and restricted to authorized student care authorities.
+ */
+export const crisisIncidentsTable = pgTable('crisis_incidents', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  collegeId: text('college_id').notNull().references(() => collegesTable.id),
+  courseId: text('course_id').notNull().references(() => coursesTable.id),
+  studentId: text('student_id').notNull(),
+  category: text('category').notNull(),
+  triggerSnippet: text('trigger_snippet').notNull(),
+  responseRendered: text('response_rendered').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

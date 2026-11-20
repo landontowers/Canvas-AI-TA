@@ -11,9 +11,9 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
 - `doc/v0-architecture-critique.md`: the decisions and the reasoning behind them. §7 is the decision list.
 - `doc/v0-implementation-plan.md`: the phases and their exit criteria.
 
-## Where things stand (2026-11-19)
+## Where things stand (2026-11-20)
 
-- **Phases 0 through 5 (cleanup, foundation, Canvas integration, tutor engine, interface, demo hosting & hardening) are complete.** Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
+- **Phases 0 through 5 (cleanup, foundation, Canvas integration, tutor engine, interface, demo hosting & hardening) are complete**, including FERPA § 99.31(b) privacy-preserving structured telemetry and FERPA § 99.36 crisis escalation. Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
 - **The current goal is a functional demo hosted locally** (critique §4), not production.
 - **The old prototype is preserved at the `prototype-final` tag.** It's reference only: don't copy its code back in, and link to it only at the tag.
 

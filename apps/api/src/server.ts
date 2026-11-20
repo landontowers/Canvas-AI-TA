@@ -10,6 +10,7 @@ import {
   CalculatorPort,
   ModerationPort,
   TelemetryPort,
+  CrisisAlertPort,
   createStandardToolRegistry,
   ToolRegistry,
   UnauthorizedToolError,
@@ -23,6 +24,8 @@ import {
   InProcessCalculatorAdapter,
   FakeModerationAdapter,
   NoopTelemetryAdapter,
+  PrivacyTelemetryAdapter,
+  WebhookCrisisAlertAdapter,
   CanvasClient,
   CanvasRestAdapter,
   CanvasDemoIdentityAdapter,
@@ -38,6 +41,7 @@ export interface PortsContainer {
   calculator: CalculatorPort;
   moderation: ModerationPort;
   telemetry: TelemetryPort;
+  crisisAlert?: CrisisAlertPort;
 }
 
 export function buildServer(
@@ -136,7 +140,17 @@ export function buildServer(
     persistence: portsOverride?.persistence ?? new InMemoryPersistenceAdapter(),
     calculator: portsOverride?.calculator ?? new InProcessCalculatorAdapter(),
     moderation: portsOverride?.moderation ?? new FakeModerationAdapter(config.college.crisis.message),
-    telemetry: portsOverride?.telemetry ?? new NoopTelemetryAdapter(),
+    telemetry:
+      portsOverride?.telemetry ??
+      (config.env === 'test'
+        ? new NoopTelemetryAdapter()
+        : new PrivacyTelemetryAdapter({ secretSalt: process.env.TELEMETRY_SALT })),
+    crisisAlert:
+      portsOverride?.crisisAlert ??
+      new WebhookCrisisAlertAdapter({
+        webhookUrl: process.env.CRISIS_ALERT_WEBHOOK_URL,
+        logger: (msg) => server.log.error(msg),
+      }),
   };
 
   (server as unknown as { ports: PortsContainer }).ports = ports;
@@ -187,6 +201,7 @@ export function buildServer(
     calculator: ports.calculator,
     moderation: ports.moderation,
     telemetry: ports.telemetry,
+    crisisAlert: ports.crisisAlert,
     toolRegistry,
     collegeConfig: config.college,
   });
@@ -429,6 +444,21 @@ export function buildServer(
       courseId,
       setting: 'full',
       message: `Demo state reset: conversations cleared and course ${courseId} setting restored to 'full'.`,
+    };
+  });
+
+  // Admin crisis incidents audit endpoint (FERPA 34 CFR § 99.36 Health & Safety emergency review)
+  server.get('/api/admin/crisis-incidents', async (request, reply) => {
+    if (!isAuthorized(request)) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
+
+    const incidents = await ports.persistence.listCrisisIncidents(config.college.id);
+    return {
+      collegeId: config.college.id,
+      totalIncidents: incidents.length,
+      incidents,
     };
   });
 
