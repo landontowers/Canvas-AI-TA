@@ -84,6 +84,33 @@ export class GeminiAdapter implements LlmPort {
     return [{ functionDeclarations }];
   }
 
+  private getThinkingConfig(model: string) {
+    if (model.includes('3.8')) {
+      return { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
+    }
+    if (model.includes('3.5') || model.includes('3.6')) {
+      return { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } };
+    }
+    return {};
+  }
+
+  private isRecoverableError(err: unknown): boolean {
+    if (!(err instanceof Error)) return false;
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('quota') ||
+      msg.includes('429') ||
+      msg.includes('resource_exhausted') ||
+      msg.includes('rate') ||
+      msg.includes('limit') ||
+      msg.includes('aborted') ||
+      msg.includes('timeout') ||
+      msg.includes('503') ||
+      msg.includes('unavailable') ||
+      msg.includes('overloaded')
+    );
+  }
+
   async generate(options: LlmGenerateOptions): Promise<LlmResponse> {
     if (!this.client) {
       throw new Error(
@@ -95,7 +122,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const callModel = async (model: string) => {
-      const isThinkingModel = model.includes('3.8');
+      const thinking = this.getThinkingConfig(model);
       return this.client!.models.generateContent({
         model,
         contents,
@@ -103,9 +130,7 @@ export class GeminiAdapter implements LlmPort {
           systemInstruction: options.systemPrompt,
           maxOutputTokens: options.maxTokens,
           temperature: options.temperature,
-          ...(isThinkingModel
-            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } }
-            : {}),
+          ...thinking,
           ...(tools ? { tools } : {}),
         },
       });
@@ -115,13 +140,7 @@ export class GeminiAdapter implements LlmPort {
     try {
       response = await callModel(this.defaultModel);
     } catch (err: unknown) {
-      const isQuotaOrTimeout =
-        err instanceof Error &&
-        (err.message.includes('quota') ||
-          err.message.includes('429') ||
-          err.message.includes('aborted') ||
-          err.message.includes('503'));
-      if (isQuotaOrTimeout && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+      if (this.isRecoverableError(err) && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
         response = await callModel(this.fallbackModel);
       } else {
         throw err;
@@ -159,7 +178,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const getStream = (model: string) => {
-      const isThinkingModel = model.includes('3.8');
+      const thinking = this.getThinkingConfig(model);
       return this.client!.models.generateContentStream({
         model,
         contents,
@@ -167,9 +186,7 @@ export class GeminiAdapter implements LlmPort {
           systemInstruction: options.systemPrompt,
           maxOutputTokens: options.maxTokens,
           temperature: options.temperature,
-          ...(isThinkingModel
-            ? { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } }
-            : {}),
+          ...thinking,
           ...(tools ? { tools } : {}),
         },
       });
@@ -181,13 +198,7 @@ export class GeminiAdapter implements LlmPort {
     try {
       activeStream = await getStream(this.defaultModel);
     } catch (err: unknown) {
-      const isQuotaOrTimeout =
-        err instanceof Error &&
-        (err.message.includes('quota') ||
-          err.message.includes('429') ||
-          err.message.includes('aborted') ||
-          err.message.includes('503'));
-      if (isQuotaOrTimeout && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+      if (this.isRecoverableError(err) && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
         modelUsed = this.fallbackModel;
         activeStream = await getStream(this.fallbackModel);
       } else {
@@ -216,13 +227,7 @@ export class GeminiAdapter implements LlmPort {
         }
       }
     } catch (streamErr: unknown) {
-      const isQuotaOrTimeout =
-        streamErr instanceof Error &&
-        (streamErr.message.includes('quota') ||
-          streamErr.message.includes('429') ||
-          streamErr.message.includes('aborted') ||
-          streamErr.message.includes('503'));
-      if (isQuotaOrTimeout && modelUsed === this.defaultModel && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+      if (this.isRecoverableError(streamErr) && modelUsed === this.defaultModel && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
         const fallbackStream = await getStream(this.fallbackModel);
         for await (const chunk of fallbackStream) {
           if (chunk.text) {
