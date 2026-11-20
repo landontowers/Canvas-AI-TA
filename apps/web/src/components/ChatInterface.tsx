@@ -444,10 +444,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
+  const practiceSuggestion = 'Quiz me with practice cards on this topic.';
+
   const suggestions = isStudent
     ? [
         'When is Safety Lab 1 due?',
         'Plan my study week across all classes.',
+        practiceSuggestion,
+        'Help me check my Safety Lab 1 draft against the rubric.',
         'I am stuck on firearm nomenclature and barrel twist.',
         'What does the syllabus say about late submissions?',
         'Calculate bullet energy for a 55gr bullet at 3100 fps',
@@ -505,7 +509,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         practiceTopic={practiceTopic}
         isLoadingPractice={isLoadingPractice}
         onClosePractice={() => setPracticeCards(null)}
-        onSelectSuggestion={(prompt) => void sendMessage(prompt)}
+        onSelectSuggestion={(prompt) => {
+          if (prompt === practiceSuggestion) {
+            void handleOpenPracticeCheck();
+            return;
+          }
+          void sendMessage(prompt);
+        }}
         onRateMessage={(msgId, rating) => void handleRateMessage(msgId, rating)}
       />
 

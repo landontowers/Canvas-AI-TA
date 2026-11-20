@@ -900,5 +900,53 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         );
       });
     });
+
+    it('ChatInterface student suggested prompts cover implemented features and launch practice cards on click', async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/practice-check') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                topic: 'Safety Lab 1',
+                cards: [
+                  {
+                    question: 'What is the first safety check?',
+                    options: ['Verify chamber empty', 'Skip check'],
+                    correctIndex: 0,
+                    explanation: 'Always verify the chamber is clear first.',
+                  },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      });
+      globalThis.fetch = fetchMock;
+
+      render(
+        <ChatInterface
+          personaId="demo_student"
+          courseId="sdi-ftt101"
+          currentPageTitle="Safety Lab 1"
+          highContrast={false}
+        />,
+      );
+
+      expect(screen.getByRole('button', { name: /Plan my study week across all classes/i })).toBeDefined();
+      expect(screen.getByRole('button', { name: /Help me check my Safety Lab 1 draft against the rubric/i })).toBeDefined();
+      const practiceSuggestionBtn = screen.getByRole('button', {
+        name: /Quiz me with practice cards on this topic/i,
+      });
+      fireEvent.click(practiceSuggestionBtn);
+
+      await waitFor(() => {
+        expect(screen.getByText(/What is the first safety check\?/i)).toBeDefined();
+      });
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/practice-check',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
   });
 });
