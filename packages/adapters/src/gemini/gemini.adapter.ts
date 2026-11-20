@@ -95,13 +95,41 @@ export class GeminiAdapter implements LlmPort {
     });
   }
 
+  private sanitizeSchemaForGemini(schema: Record<string, unknown>): Record<string, unknown> {
+    const clean: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(schema)) {
+      if (key === '$schema' || key === 'additionalProperties') continue;
+      if (key === 'exclusiveMinimum' && typeof val === 'boolean') {
+        if (typeof schema.minimum === 'number') {
+          clean.minimum = schema.minimum;
+        }
+        continue;
+      }
+      if (key === 'exclusiveMaximum' && typeof val === 'boolean') {
+        if (typeof schema.maximum === 'number') {
+          clean.maximum = schema.maximum;
+        }
+        continue;
+      }
+      if (val && typeof val === 'object' && !Array.isArray(val)) {
+        clean[key] = this.sanitizeSchemaForGemini(val as Record<string, unknown>);
+      } else if (Array.isArray(val)) {
+        clean[key] = val.map((item) =>
+          item && typeof item === 'object' ? this.sanitizeSchemaForGemini(item as Record<string, unknown>) : item,
+        );
+      } else {
+        clean[key] = val;
+      }
+    }
+    return clean;
+  }
+
   private mapToolsToGemini(options: LlmGenerateOptions) {
     if (!options.tools || options.tools.length === 0) return undefined;
 
     const functionDeclarations = options.tools.map((t) => {
       const jsonSchema = zodToJsonSchema(t.parameters, { target: 'openApi3' });
-      // Remove $schema for clean Gemini compatibility
-      const { $schema: _schema, ...cleanSchema } = jsonSchema as Record<string, unknown>;
+      const cleanSchema = this.sanitizeSchemaForGemini(jsonSchema as Record<string, unknown>);
 
       return {
         name: t.name,
