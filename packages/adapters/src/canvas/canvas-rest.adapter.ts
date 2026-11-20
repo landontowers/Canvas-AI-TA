@@ -8,6 +8,8 @@ import {
   PageDetail,
   SubmissionSummary,
   GradebookSummary,
+  EnrolledCourse,
+  CrossCourseAssignment,
 } from '@ai-tutor/core';
 import { CanvasClient } from './canvas-client.js';
 import { htmlToMarkdown } from './html-to-markdown.js';
@@ -22,6 +24,60 @@ import {
 
 export class CanvasRestAdapter implements LmsPort {
   constructor(private client: CanvasClient) {}
+
+  async getEnrolledCourses(userId: string): Promise<EnrolledCourse[]> {
+    const res = await this.client.getAllPages<unknown>(
+      `/api/v1/courses`,
+      {
+        asUserId: userId,
+        query: {
+          enrollment_state: 'active',
+          'include[]': ['term'],
+        },
+      },
+    );
+
+    const courses: EnrolledCourse[] = [];
+    for (const item of res) {
+      const parsed = CanvasCourseSchema.safeParse(item);
+      if (parsed.success) {
+        courses.push({
+          id: parsed.data.id,
+          name: parsed.data.name,
+          courseCode: parsed.data.course_code || parsed.data.name,
+        });
+      }
+    }
+    return courses;
+  }
+
+  async getCrossCourseUpcomingAssignments(userId: string): Promise<CrossCourseAssignment[]> {
+    const courses = await this.getEnrolledCourses(userId);
+    const crossAssignments: CrossCourseAssignment[] = [];
+
+    for (const course of courses) {
+      try {
+        const assignments = await this.getUpcomingAssignments(course.id, userId);
+        for (const a of assignments) {
+          crossAssignments.push({
+            ...a,
+            courseId: course.id,
+            courseName: course.name,
+          });
+        }
+      } catch {
+        // If student cannot access a specific course's assignments, continue
+      }
+    }
+
+    crossAssignments.sort((a, b) => {
+      if (!a.dueAt) return 1;
+      if (!b.dueAt) return -1;
+      return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
+    });
+
+    return crossAssignments;
+  }
 
   async getStudentGrades(courseId: string, userId: string): Promise<GradeRecord[]> {
     // Canvas endpoint: /api/v1/courses/:id/students/submissions

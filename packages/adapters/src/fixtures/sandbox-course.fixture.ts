@@ -179,6 +179,18 @@ export function createSandboxFetch(): typeof fetch {
       });
     };
 
+    // 0. Enrolled courses list (cross-course support, critique §2)
+    if (pathname === '/api/v1/courses') {
+      return createResponse([
+        SANDBOX_COURSE,
+        {
+          id: '104',
+          name: 'FTT-104: Modern Sporting Rifles',
+          course_code: 'FTT-104',
+        },
+      ]);
+    }
+
     // 1. Course details & syllabus
     if (pathname.match(/^\/api\/v1\/courses\/\d+$/)) {
       return createResponse(SANDBOX_COURSE);
@@ -203,7 +215,20 @@ export function createSandboxFetch(): typeof fetch {
     }
 
     // 4. Assignments list
-    if (pathname.match(/\/api\/v1\/courses\/\d+\/assignments$/)) {
+    const assignmentsMatch = pathname.match(/\/api\/v1\/courses\/(\d+)\/assignments$/);
+    if (assignmentsMatch) {
+      if (assignmentsMatch[1] === '104') {
+        return createResponse([
+          {
+            id: 1041,
+            name: 'Upper Receiver Assembly Practical',
+            due_at: '2026-11-24T23:59:00Z',
+            points_possible: 100,
+            has_submitted_submissions: false,
+            description: '<p>Complete the assembly and inspection.</p>',
+          },
+        ]);
+      }
       return createResponse(SANDBOX_ASSIGNMENTS);
     }
 

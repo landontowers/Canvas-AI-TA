@@ -66,6 +66,18 @@ export interface GradebookSummary {
   assignmentCount: number;
 }
 
+export interface EnrolledCourse {
+  id: string;
+  name: string;
+  courseCode: string;
+  enrollmentRole?: string;
+}
+
+export interface CrossCourseAssignment extends AssignmentSummary {
+  courseId: string;
+  courseName: string;
+}
+
 export interface LmsPort {
   // Student-accessible methods
   getStudentGrades(courseId: string, userId: string): Promise<GradeRecord[]>;
@@ -75,6 +87,10 @@ export interface LmsPort {
   getAnnouncements(courseId: string, userId: string): Promise<Announcement[]>;
   getCourseModules(courseId: string, userId: string): Promise<ModuleSummary[]>;
   getCoursePage(courseId: string, pageUrl: string, userId: string): Promise<PageDetail>;
+
+  // Cross-course student-accessible methods (critique §2)
+  getEnrolledCourses(userId: string): Promise<EnrolledCourse[]>;
+  getCrossCourseUpcomingAssignments(userId: string): Promise<CrossCourseAssignment[]>;
 
   // Instructor-only methods
   getSubmissionSummaries(courseId: string, assignmentId?: string): Promise<SubmissionSummary[]>;

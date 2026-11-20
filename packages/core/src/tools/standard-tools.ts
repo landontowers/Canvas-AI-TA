@@ -85,6 +85,28 @@ export const getCoursePageTool: CoreTool<{ pageUrl: string }> = {
   },
 };
 
+export const listEnrolledCoursesTool: CoreTool<Record<string, never>> = {
+  name: 'list_enrolled_courses',
+  description: 'List all active courses the student is currently enrolled in across the college (critique §2).',
+  parameters: z.object({}),
+  requiredRole: 'student',
+  requiredScopes: ['url:GET|/api/v1/courses'],
+  async execute(_args, context) {
+    return context.ports.lms.getEnrolledCourses(context.userId);
+  },
+};
+
+export const getCrossCourseDeadlinesTool: CoreTool<Record<string, never>> = {
+  name: 'get_cross_course_deadlines',
+  description: 'Retrieve all upcoming assignments, due dates, points, and submission statuses across all courses the student is enrolled in (critique §2).',
+  parameters: z.object({}),
+  requiredRole: 'student',
+  requiredScopes: ['url:GET|/api/v1/users/self/upcoming_events'],
+  async execute(_args, context) {
+    return context.ports.lms.getCrossCourseUpcomingAssignments(context.userId);
+  },
+};
+
 export const calculateTool: CoreTool<{ expression: string }> = {
   name: 'calculate',
   description: 'Perform deterministic math calculations or unit conversions (e.g., "50 mm to inch", "(25 * 4) + 10").',
@@ -167,6 +189,8 @@ export function createStandardToolRegistry(): ToolRegistry {
   registry.register(getAnnouncementsTool);
   registry.register(getCourseModulesTool);
   registry.register(getCoursePageTool);
+  registry.register(listEnrolledCoursesTool);
+  registry.register(getCrossCourseDeadlinesTool);
   registry.register(calculateTool);
   registry.register(dateMathTool);
 

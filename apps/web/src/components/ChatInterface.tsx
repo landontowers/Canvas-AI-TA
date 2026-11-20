@@ -242,6 +242,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (isStudent) {
       return [
         'When is Safety Lab 1 due?',
+        'What assignments do I have due across all my classes this week?',
         'I am stuck on firearm nomenclature and barrel twist.',
         'What does the syllabus say about late submissions?',
         'Calculate bullet energy for a 55gr bullet at 3100 fps',

@@ -51,5 +51,24 @@ export function runLmsContractTests(name: string, createAdapter: () => LmsPort |
       expect(gradebook).toHaveProperty('averageScorePercent');
       expect(gradebook).toHaveProperty('medianScorePercent');
     });
+
+    it('retrieves cross-course enrolled courses for the student (critique §2)', async () => {
+      const adapter = await createAdapter();
+      const courses = await adapter.getEnrolledCourses('user-1');
+      expect(Array.isArray(courses)).toBe(true);
+      expect(courses.length).toBeGreaterThan(0);
+      expect(courses[0]).toHaveProperty('id');
+      expect(courses[0]).toHaveProperty('name');
+    });
+
+    it('retrieves cross-course upcoming assignments aggregated across enrolled classes', async () => {
+      const adapter = await createAdapter();
+      const crossAssignments = await adapter.getCrossCourseUpcomingAssignments('user-1');
+      expect(Array.isArray(crossAssignments)).toBe(true);
+      expect(crossAssignments.length).toBeGreaterThan(0);
+      expect(crossAssignments[0]).toHaveProperty('courseId');
+      expect(crossAssignments[0]).toHaveProperty('courseName');
+      expect(crossAssignments[0]).toHaveProperty('name');
+    });
   });
 }

@@ -101,6 +101,22 @@ describe('CanvasRestAdapter (Sandbox Course Fixtures)', () => {
     expect(gradebook.averageScorePercent).toBeGreaterThan(0);
   });
 
+  it('retrieves student enrolled courses (cross-course, critique §2)', async () => {
+    const courses = await adapter.getEnrolledCourses('1001');
+    expect(courses.length).toBe(2);
+    expect(courses[0].id).toBe('101');
+    expect(courses[1].id).toBe('104');
+  });
+
+  it('aggregates upcoming assignments across enrolled courses', async () => {
+    const crossAssignments = await adapter.getCrossCourseUpcomingAssignments('1001');
+    expect(crossAssignments.length).toBe(4); // 3 from 101, 1 from 104
+    expect(crossAssignments.some((a) => a.courseId === '101')).toBe(true);
+    expect(crossAssignments.some((a) => a.courseId === '104')).toBe(true);
+    const upperRec = crossAssignments.find((a) => a.courseId === '104');
+    expect(upperRec?.name).toBe('Upper Receiver Assembly Practical');
+  });
+
   it('tracks Canvas rate limit headers', async () => {
     await adapter.getSyllabus('101', '1001');
     const remaining = client.getRateLimitRemaining();

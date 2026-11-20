@@ -8,6 +8,8 @@ import {
   PageDetail,
   SubmissionSummary,
   GradebookSummary,
+  EnrolledCourse,
+  CrossCourseAssignment,
 } from '@ai-tutor/core';
 
 export class FakeLmsAdapter implements LmsPort {
@@ -84,6 +86,74 @@ export class FakeLmsAdapter implements LmsPort {
       isPublished: false,
     },
   ];
+
+  private enrolledCourses: EnrolledCourse[] = [
+    {
+      id: 'sdi-ftt101',
+      name: 'FTT 101: Firearms Industry Fundamentals',
+      courseCode: 'FTT 101',
+      enrollmentRole: 'student',
+    },
+    {
+      id: 'sdi-ftt104',
+      name: 'FTT 104: Modern Sporting Rifles',
+      courseCode: 'FTT 104',
+      enrollmentRole: 'student',
+    },
+    {
+      id: 'sdi-fbs201',
+      name: 'FBS 201: Firearms Basic Ballistics',
+      courseCode: 'FBS 201',
+      enrollmentRole: 'student',
+    },
+  ];
+
+  private crossCourseAssignments: CrossCourseAssignment[] = [
+    {
+      id: 'assign-101',
+      name: 'Week 1 Lab: Safety & Tooling',
+      courseId: 'sdi-ftt101',
+      courseName: 'FTT 101: Firearms Industry Fundamentals',
+      dueAt: '2026-11-22T23:59:00Z',
+      pointsPossible: 100,
+      hasSubmitted: true,
+    },
+    {
+      id: 'assign-104-1',
+      name: 'Upper Receiver Assembly Practical',
+      courseId: 'sdi-ftt104',
+      courseName: 'FTT 104: Modern Sporting Rifles',
+      dueAt: '2026-11-24T23:59:00Z',
+      pointsPossible: 100,
+      hasSubmitted: false,
+    },
+    {
+      id: 'assign-102',
+      name: 'Week 2 Blueprint Analysis',
+      courseId: 'sdi-ftt101',
+      courseName: 'FTT 101: Firearms Industry Fundamentals',
+      dueAt: '2026-11-26T23:59:00Z',
+      pointsPossible: 50,
+      hasSubmitted: false,
+    },
+    {
+      id: 'assign-201-1',
+      name: 'Internal Ballistics Calculation Set 1',
+      courseId: 'sdi-fbs201',
+      courseName: 'FBS 201: Firearms Basic Ballistics',
+      dueAt: '2026-11-28T23:59:00Z',
+      pointsPossible: 75,
+      hasSubmitted: false,
+    },
+  ];
+
+  async getEnrolledCourses(_userId: string): Promise<EnrolledCourse[]> {
+    return this.enrolledCourses;
+  }
+
+  async getCrossCourseUpcomingAssignments(_userId: string): Promise<CrossCourseAssignment[]> {
+    return this.crossCourseAssignments;
+  }
 
   async getStudentGrades(_courseId: string, _userId: string): Promise<GradeRecord[]> {
     return this.grades;

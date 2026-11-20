@@ -60,6 +60,8 @@ describe('Tool System & Role Boundaries (Phase 2 Verification)', () => {
       expect(studentTools).toContain('get_announcements');
       expect(studentTools).toContain('get_course_modules');
       expect(studentTools).toContain('get_course_page');
+      expect(studentTools).toContain('list_enrolled_courses');
+      expect(studentTools).toContain('get_cross_course_deadlines');
       expect(studentTools).toContain('calculate');
       expect(studentTools).toContain('date_math');
 
@@ -86,6 +88,8 @@ describe('Tool System & Role Boundaries (Phase 2 Verification)', () => {
       expect(instructorTools).not.toContain('get_student_grades');
       expect(instructorTools).not.toContain('get_course_modules');
       expect(instructorTools).not.toContain('get_course_page');
+      expect(instructorTools).not.toContain('list_enrolled_courses');
+      expect(instructorTools).not.toContain('get_cross_course_deadlines');
     });
   });
 
@@ -139,6 +143,35 @@ describe('Tool System & Role Boundaries (Phase 2 Verification)', () => {
       const grades = res.result as Array<{ assignmentId: string; score: number }>;
       expect(grades[0].assignmentId).toBe('101');
       expect(grades[0].score).toBe(95);
+    });
+
+    it('executes list_enrolled_courses for student correctly (critique §2)', async () => {
+      const studentCtx = createStudentContext();
+      const res = await registry.execute(
+        { id: 'call_courses', name: 'list_enrolled_courses', args: {} },
+        studentCtx,
+      );
+
+      expect(res.isError).toBe(false);
+      const courses = res.result as Array<{ id: string; name: string }>;
+      expect(Array.isArray(courses)).toBe(true);
+      expect(courses.length).toBeGreaterThan(0);
+      expect(courses[0].id).toBe('101');
+    });
+
+    it('executes get_cross_course_deadlines across enrolled classes', async () => {
+      const studentCtx = createStudentContext();
+      const res = await registry.execute(
+        { id: 'call_deadlines', name: 'get_cross_course_deadlines', args: {} },
+        studentCtx,
+      );
+
+      expect(res.isError).toBe(false);
+      const deadlines = res.result as Array<{ id: string; courseId: string; courseName: string }>;
+      expect(Array.isArray(deadlines)).toBe(true);
+      expect(deadlines.length).toBeGreaterThan(0);
+      expect(deadlines.some((d) => d.courseId === '101')).toBe(true);
+      expect(deadlines.some((d) => d.courseId === '104')).toBe(true);
     });
 
     it('executes get_assignments_without_due_dates for instructor correctly', async () => {
