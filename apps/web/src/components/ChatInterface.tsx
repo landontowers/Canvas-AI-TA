@@ -13,6 +13,19 @@ export interface ChatMessage {
   createdAt: Date;
 }
 
+export interface ConversationItem {
+  id: string;
+  collegeId: string;
+  courseId: string;
+  userId: string;
+  role: string;
+  title?: string;
+  messageCount?: number;
+  lastMessageAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface ChatInterfaceProps {
   personaId: string;
   courseId: string;
@@ -39,6 +52,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState('');
 
+  // Conversation history & resume state
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [conversationList, setConversationList] = useState<ConversationItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
+  const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -53,13 +72,119 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     scrollToBottom();
   }, [messages, activeTool, scrollToBottom]);
 
-  // Reset conversation when switching persona or course
+  const loadConversationList = useCallback(async () => {
+    setIsLoadingHistory(true);
+    try {
+      const res = await fetch(
+        `/api/conversations?personaId=${encodeURIComponent(personaId)}&courseId=${encodeURIComponent(courseId)}`,
+        {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        },
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setConversationList(data);
+        }
+      }
+    } catch {
+      // ignore history load error
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, [personaId, courseId, authToken]);
+
+  // Reset conversation and reload history when switching persona or course
   useEffect(() => {
     setMessages([]);
     setConversationId(null);
     setError(null);
     setActiveTool(null);
-  }, [personaId, courseId]);
+    setShowHistory(false);
+    void loadConversationList();
+  }, [personaId, courseId, loadConversationList]);
+
+  const handleNewChat = () => {
+    if (isStreaming) {
+      handleStop();
+    }
+    setMessages([]);
+    setConversationId(null);
+    setError(null);
+    setActiveTool(null);
+    setShowHistory(false);
+    setScreenReaderAnnouncement('Started a new conversation.');
+    textareaRef.current?.focus();
+  };
+
+  const handleSelectConversation = async (selectedId: string) => {
+    if (selectedId === conversationId && messages.length > 0) {
+      setShowHistory(false);
+      return;
+    }
+
+    if (isStreaming) {
+      handleStop();
+    }
+
+    setIsLoadingChat(true);
+    setError(null);
+    setActiveTool(null);
+
+    try {
+      const res = await fetch(
+        `/api/conversations/${encodeURIComponent(selectedId)}/messages?personaId=${encodeURIComponent(personaId)}`,
+        {
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        },
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to load chat history (HTTP ${res.status})`);
+      }
+
+      const rawMsgs = await res.json();
+      const loadedMsgs: ChatMessage[] = rawMsgs.map((m: {
+        id: string;
+        role: string;
+        content: string;
+        citations?: Citation[];
+        createdAt: string | Date;
+      }) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        citations: m.citations || [],
+        toolsUsed: [],
+        createdAt: new Date(m.createdAt),
+      }));
+
+      setMessages(loadedMsgs);
+      setConversationId(selectedId);
+      setShowHistory(false);
+      setScreenReaderAnnouncement(
+        `Resumed conversation with ${loadedMsgs.length} messages. You can review earlier answers or continue asking questions.`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg);
+      setScreenReaderAnnouncement(`Error resuming conversation: ${msg}`);
+    } finally {
+      setIsLoadingChat(false);
+      textareaRef.current?.focus();
+    }
+  };
+
+  const formatTimeOrDate = (isoStr?: string) => {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    if (isToday) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  };
 
   const handleStop = () => {
     if (abortControllerRef.current) {
@@ -198,6 +323,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               case 'done':
                 setConversationId(event.conversationId);
                 setActiveTool(null);
+                void loadConversationList();
                 setScreenReaderAnnouncement(
                   accumulatedAssistantText
                     ? `AI Tutor finished responding: ${accumulatedAssistantText.slice(0, 150)}...`
@@ -263,6 +389,131 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <div aria-live="polite" aria-atomic="false" className="visually-hidden">
         {screenReaderAnnouncement}
       </div>
+
+      {/* Top Controls Toolbar: New Chat & History */}
+      <div className="chat-toolbar" role="toolbar" aria-label="Conversation tools">
+        <button
+          type="button"
+          className="toolbar-btn new-chat-btn"
+          onClick={handleNewChat}
+          aria-label="Start a new chat"
+          title="Start a new chat"
+        >
+          <span className="btn-icon" aria-hidden="true">➕</span>
+          <span>New Chat</span>
+        </button>
+
+        <button
+          type="button"
+          className={`toolbar-btn history-toggle-btn ${showHistory ? 'active' : ''}`}
+          onClick={() => {
+            setShowHistory((prev) => !prev);
+            if (!showHistory) {
+              void loadConversationList();
+            }
+          }}
+          aria-expanded={showHistory}
+          aria-label={showHistory ? 'Close previous chats' : 'View previous chats'}
+          title="Previous chats"
+        >
+          <span className="btn-icon" aria-hidden="true">📜</span>
+          <span>Previous Chats</span>
+          {conversationList.length > 0 && (
+            <span className="history-badge" aria-label={`${conversationList.length} previous chats`}>
+              {conversationList.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Previous Chats Drawer / Slide-over Panel */}
+      {showHistory && (
+        <div className="history-panel" role="region" aria-label="Previous chats list">
+          <div className="history-header">
+            <div className="history-title-wrap">
+              <span className="history-header-icon" aria-hidden="true">📜</span>
+              <h4>Previous Chats ({conversationList.length})</h4>
+            </div>
+            <div className="history-header-actions">
+              <button
+                type="button"
+                className="history-icon-btn"
+                onClick={() => void loadConversationList()}
+                disabled={isLoadingHistory}
+                aria-label="Refresh previous chats"
+                title="Refresh list"
+              >
+                🔄
+              </button>
+              <button
+                type="button"
+                className="history-icon-btn"
+                onClick={() => setShowHistory(false)}
+                aria-label="Close previous chats panel"
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <div className="history-list" tabIndex={0} aria-label="List of previous chats">
+            {isLoadingHistory ? (
+              <div className="history-loading">
+                <span className="history-spinner" aria-hidden="true"></span>
+                <span>Loading your chats...</span>
+              </div>
+            ) : conversationList.length === 0 ? (
+              <div className="history-empty">
+                <p>No previous chats for this course.</p>
+                <span>Ask a question to start your first chat!</span>
+              </div>
+            ) : (
+              conversationList.map((conv) => {
+                const isActive = conv.id === conversationId;
+                return (
+                  <div
+                    key={conv.id}
+                    className={`history-card ${isActive ? 'active-chat' : ''}`}
+                    onClick={() => void handleSelectConversation(conv.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        void handleSelectConversation(conv.id);
+                      }
+                    }}
+                    aria-label={`Resume chat: ${conv.title || 'Chat'}, ${conv.messageCount ?? 0} messages, ${formatTimeOrDate(conv.lastMessageAt || conv.updatedAt)}`}
+                  >
+                    <div className="history-card-main">
+                      <span className="history-card-title">{conv.title || 'Conversation'}</span>
+                      <span className="history-card-date">
+                        {formatTimeOrDate(conv.lastMessageAt || conv.updatedAt)}
+                      </span>
+                    </div>
+                    <div className="history-card-meta">
+                      {isActive ? (
+                        <span className="current-chat-pill">Active</span>
+                      ) : (
+                        <span className="msg-count-pill">{conv.messageCount ?? 0} msgs</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Loading overlay when switching/resuming conversation */}
+      {isLoadingChat && (
+        <div className="chat-loading-banner" role="status">
+          <span className="history-spinner" aria-hidden="true"></span>
+          <span>Loading chat log...</span>
+        </div>
+      )}
 
       {/* Messages Scroll Area */}
       <div className="messages-container" tabIndex={0} aria-label="Chat messages history">

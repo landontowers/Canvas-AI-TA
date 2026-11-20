@@ -98,4 +98,54 @@ describe('UI Component and Stream Processing Logic', () => {
       expect(validSettings).toContain('logistics_only');
     });
   });
+
+  describe('Conversation History & Resumption State Logic', () => {
+    it('maps retrieved database messages to ChatMessage representation', () => {
+      const rawApiMessages = [
+        {
+          id: 'msg-1',
+          role: 'user',
+          content: 'What is the due date for Safety Lab 1?',
+          citations: [],
+          createdAt: '2026-11-20T12:00:00.000Z',
+        },
+        {
+          id: 'msg-2',
+          role: 'assistant',
+          content: 'Safety Lab 1 is due Sunday at 11:59 PM.',
+          citations: [
+            {
+              title: 'Safety Lab 1',
+              url: 'https://classroom.sdi.edu/courses/101/assignments/1',
+              type: 'assignment',
+            },
+          ],
+          createdAt: '2026-11-20T12:00:02.000Z',
+        },
+      ];
+
+      const chatMessages = rawApiMessages.map((m) => ({
+        id: m.id,
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+        citations: m.citations || [],
+        toolsUsed: [],
+        createdAt: new Date(m.createdAt),
+      }));
+
+      expect(chatMessages.length).toBe(2);
+      expect(chatMessages[0].role).toBe('user');
+      expect(chatMessages[1].citations.length).toBe(1);
+      expect(chatMessages[0].createdAt).toBeInstanceOf(Date);
+    });
+
+    it('generates clean truncated titles for previous chat cards', () => {
+      const longQuery = 'Can you please explain how to calculate the chamber pressure and muzzle velocity for a 55gr projectile?';
+      const snippet = longQuery.slice(0, 50).trim() + (longQuery.length > 50 ? '...' : '');
+
+      expect(snippet.length).toBeLessThanOrEqual(53);
+      expect(snippet.endsWith('...')).toBe(true);
+      expect(snippet).toContain('how to calculate');
+    });
+  });
 });

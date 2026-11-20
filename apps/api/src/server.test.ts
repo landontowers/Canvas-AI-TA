@@ -303,6 +303,111 @@ describe('API Server', () => {
     expect(json.incidents[0].category).toContain('self-harm');
   });
 
+  describe('Conversation History & Resumption (Student Access & IDOR defense)', () => {
+    it('allows a student to create a chat, list previous chats with previews, and resume it', async () => {
+      // 1. Initial chat turn
+      const chat1 = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'When is Safety Lab 1 due?',
+        },
+      });
+
+      expect(chat1.statusCode).toBe(200);
+      const doneLine = chat1.body
+        .split('\n')
+        .find((l) => l.includes('"type":"done"'));
+      expect(doneLine).toBeDefined();
+      const doneEvent = JSON.parse(doneLine!.replace(/^data:\s*/, ''));
+      const convId = doneEvent.conversationId;
+      expect(convId).toBeDefined();
+
+      // 2. Student lists previous conversations by personaId
+      const listRes = await server.inject({
+        method: 'GET',
+        url: `/api/conversations?personaId=demo_student&courseId=sdi-ftt101`,
+      });
+
+      expect(listRes.statusCode).toBe(200);
+      const convs = listRes.json();
+      expect(Array.isArray(convs)).toBe(true);
+      const found = convs.find((c: { id: string }) => c.id === convId);
+      expect(found).toBeDefined();
+      expect(found.title).toContain('When is Safety Lab 1 due');
+      expect(found.messageCount).toBe(2); // user + assistant
+
+      // 3. Student views full chat log for that conversation
+      const msgRes = await server.inject({
+        method: 'GET',
+        url: `/api/conversations/${convId}/messages?personaId=demo_student`,
+      });
+
+      expect(msgRes.statusCode).toBe(200);
+      const msgs = msgRes.json();
+      expect(msgs.length).toBe(2);
+      expect(msgs[0].role).toBe('user');
+      expect(msgs[0].content).toBe('When is Safety Lab 1 due?');
+      expect(msgs[1].role).toBe('assistant');
+
+      // 4. Student resumes previous chat by sending conversationId
+      const chat2 = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          conversationId: convId,
+          message: 'Thank you! Can you clarify the submission format?',
+        },
+      });
+
+      expect(chat2.statusCode).toBe(200);
+      const doneLine2 = chat2.body
+        .split('\n')
+        .find((l) => l.includes('"type":"done"'));
+      expect(doneLine2).toBeDefined();
+      const doneEvent2 = JSON.parse(doneLine2!.replace(/^data:\s*/, ''));
+      expect(doneEvent2.conversationId).toBe(convId);
+
+      // Verify thread length increased to 4
+      const msgRes2 = await server.inject({
+        method: 'GET',
+        url: `/api/conversations/${convId}/messages?personaId=demo_student`,
+      });
+      expect(msgRes2.json().length).toBe(4);
+    });
+
+    it('rejects viewing another user\'s conversation log (IDOR defense)', async () => {
+      // 1. Create conversation as instructor
+      const instChat = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_instructor',
+          courseId: 'sdi-ftt101',
+          message: 'Draft an announcement regarding the exam.',
+        },
+      });
+
+      const doneLine = instChat.body
+        .split('\n')
+        .find((l) => l.includes('"type":"done"'));
+      const convId = JSON.parse(doneLine!.replace(/^data:\s*/, '')).conversationId;
+
+      // 2. Student attempts to access instructor conversation
+      const studentAttempt = await server.inject({
+        method: 'GET',
+        url: `/api/conversations/${convId}/messages?personaId=demo_student`,
+      });
+
+      expect(studentAttempt.statusCode).toBe(403);
+      expect(studentAttempt.json().error).toBe('Forbidden');
+    });
+  });
+
   describe('Demo Authentication & Hardening (critique §4.3, §8)', () => {
     const secureConfig = {
       ...config,

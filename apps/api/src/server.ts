@@ -430,12 +430,43 @@ export function buildServer(
       reply.status(401);
       return { error: 'Unauthorized', message: 'Demo authentication required.' };
     }
-    const query = request.query as { userId: string; courseId: string };
-    if (!query.userId) {
-      reply.status(400);
-      return { error: 'Bad Request', message: 'userId query parameter is required.' };
+    const query = request.query as { userId?: string; personaId?: string; courseId?: string };
+    let resolvedUserId = query.userId;
+    const resolvedCourseId = query.courseId || 'sdi-ftt101';
+
+    if (!resolvedUserId && query.personaId) {
+      const auth = await ports.identity.resolveIdentity({
+        personaId: query.personaId,
+        courseId: resolvedCourseId,
+      });
+      resolvedUserId = auth.userId;
     }
-    return ports.persistence.listConversations(query.userId, query.courseId);
+
+    if (!resolvedUserId) {
+      reply.status(400);
+      return { error: 'Bad Request', message: 'userId or personaId query parameter is required.' };
+    }
+
+    const conversations = await ports.persistence.listConversations(resolvedUserId, resolvedCourseId);
+
+    // Enrich conversations with first message snippet for easy preview and message counts
+    const enriched = await Promise.all(
+      conversations.map(async (conv) => {
+        const msgs = await ports.persistence.listMessages(conv.id);
+        const firstUserMsg = msgs.find((m) => m.role === 'user');
+        const snippet = firstUserMsg
+          ? firstUserMsg.content.slice(0, 50).trim() + (firstUserMsg.content.length > 50 ? '...' : '')
+          : 'New conversation';
+        return {
+          ...conv,
+          title: snippet,
+          messageCount: msgs.length,
+          lastMessageAt: msgs.length > 0 ? msgs[msgs.length - 1].createdAt : conv.updatedAt,
+        };
+      }),
+    );
+
+    return enriched;
   });
 
   server.get('/api/conversations/:id/messages', async (request, reply) => {
@@ -449,6 +480,19 @@ export function buildServer(
       reply.status(404);
       return { error: 'Not Found', message: 'Conversation not found.' };
     }
+
+    const query = request.query as { userId?: string; personaId?: string };
+    if (query.personaId) {
+      const auth = await ports.identity.resolveIdentity({ personaId: query.personaId });
+      if (conversation.userId !== auth.userId) {
+        reply.status(403);
+        return { error: 'Forbidden', message: 'You do not have permission to view this conversation.' };
+      }
+    } else if (query.userId && conversation.userId !== query.userId) {
+      reply.status(403);
+      return { error: 'Forbidden', message: 'You do not have permission to view this conversation.' };
+    }
+
     return ports.persistence.listMessages(id);
   });
 
