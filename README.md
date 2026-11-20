@@ -1,5 +1,7 @@
 # Virtual TA
 
+[![Virtual TA logo](assets/virtual-ta-logo-transparent-128.png)](assets/virtual-ta-logo-transparent.png)
+
 A Socratic Virtual TA that lives inside Canvas, starting with Sonoran Desert Institute (SDI).
 
 - **Students** get a quick-response helper in Canvas's sidebar. It knows their courses, deadlines, and grades, and it guides them through course material with questions instead of handing over answers.
