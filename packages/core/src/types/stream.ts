@@ -13,6 +13,8 @@ export const ToolStatusEventSchema = z.object({
   type: z.literal('tool-status'),
   toolName: z.string(),
   status: z.enum(['calling', 'executing', 'complete', 'error']),
+  args: z.record(z.unknown()).optional(),
+  callId: z.string().optional(),
   message: z.string().optional(),
 });
 

@@ -1,5 +1,6 @@
 import { marked } from 'marked';
 import katex from 'katex';
+import DOMPurify from 'dompurify';
 
 /**
  * Configure marked renderer for clean accessible HTML.
@@ -64,5 +65,14 @@ export function renderMarkdownWithMath(content: string): string {
 
   // 5. Parse markdown to HTML
   const parsed = marked.parse(text, { async: false });
-  return typeof parsed === 'string' ? parsed : '';
+  const rawHtml = typeof parsed === 'string' ? parsed : '';
+
+  // 6. Sanitize HTML to prevent Stored / DOM-based XSS (CRIT-4 / SEC-01)
+  if (typeof window !== 'undefined' && typeof DOMPurify?.sanitize === 'function') {
+    return DOMPurify.sanitize(rawHtml, {
+      USE_PROFILES: { html: true, mathMl: true, svg: true },
+    });
+  }
+
+  return rawHtml;
 }

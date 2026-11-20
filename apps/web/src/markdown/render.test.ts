@@ -45,4 +45,16 @@ describe('renderMarkdownWithMath', () => {
     expect(renderMarkdownWithMath('')).toBe('');
     expect(renderMarkdownWithMath('   ')).toContain('');
   });
+
+  it('sanitizes malicious scripts and XSS payloads in browser environments', () => {
+    // When window and DOMPurify are present, raw scripts must be neutralized
+    const xssPayload = '<script>alert("xss")</script><img src=x onerror=alert(1)>Hello safe text';
+    const output = renderMarkdownWithMath(xssPayload);
+    // If running in environment with window, scripts are stripped
+    if (typeof window !== 'undefined') {
+      expect(output).not.toContain('<script>');
+      expect(output).not.toContain('onerror=');
+    }
+    expect(output).toContain('Hello safe text');
+  });
 });

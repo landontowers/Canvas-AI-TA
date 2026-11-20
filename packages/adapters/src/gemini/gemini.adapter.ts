@@ -6,7 +6,8 @@ import {
   StreamEvent,
   ToolCall,
 } from '@ai-tutor/core';
-import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
 export interface GeminiAdapterOptions {
   apiKey?: string;
@@ -54,7 +55,7 @@ export class GeminiAdapter implements LlmPort {
           parts: [
             {
               functionResponse: {
-                name: m.toolResultId || 'tool_response',
+                name: m.toolName || m.toolResultId || 'tool_response',
                 response: { output: m.content },
               },
             },
@@ -62,8 +63,33 @@ export class GeminiAdapter implements LlmPort {
         };
       }
 
+      if (m.role === 'assistant') {
+        const parts: Array<Record<string, unknown>> = [];
+        if (m.content) {
+          parts.push({ text: m.content });
+        }
+        if (m.toolCalls && m.toolCalls.length > 0) {
+          for (const tc of m.toolCalls) {
+            parts.push({
+              functionCall: {
+                id: tc.id,
+                name: tc.name,
+                args: tc.args || {},
+              },
+            });
+          }
+        }
+        if (parts.length === 0) {
+          parts.push({ text: '' });
+        }
+        return {
+          role: 'model' as const,
+          parts,
+        };
+      }
+
       return {
-        role: m.role === 'assistant' ? ('model' as const) : ('user' as const),
+        role: 'user' as const,
         parts: [{ text: m.content }],
       };
     });
@@ -72,14 +98,17 @@ export class GeminiAdapter implements LlmPort {
   private mapToolsToGemini(options: LlmGenerateOptions) {
     if (!options.tools || options.tools.length === 0) return undefined;
 
-    const functionDeclarations = options.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: {
-        type: Type.OBJECT,
-        properties: {},
-      },
-    }));
+    const functionDeclarations = options.tools.map((t) => {
+      const jsonSchema = zodToJsonSchema(t.parameters, { target: 'openApi3' });
+      // Remove $schema for clean Gemini compatibility
+      const { $schema: _schema, ...cleanSchema } = jsonSchema as Record<string, unknown>;
+
+      return {
+        name: t.name,
+        description: t.description,
+        parametersJsonSchema: cleanSchema,
+      };
+    });
 
     return [{ functionDeclarations }];
   }
@@ -221,6 +250,8 @@ export class GeminiAdapter implements LlmPort {
               type: 'tool-status',
               toolName: fc.name || 'unknown_tool',
               status: 'calling',
+              args: (fc.args as Record<string, unknown>) || {},
+              callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
               message: `Invoking ${fc.name || 'tool'}...`,
             };
           }
@@ -243,6 +274,8 @@ export class GeminiAdapter implements LlmPort {
                 type: 'tool-status',
                 toolName: fc.name || 'unknown_tool',
                 status: 'calling',
+                args: (fc.args as Record<string, unknown>) || {},
+                callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
                 message: `Invoking ${fc.name || 'tool'}...`,
               };
             }

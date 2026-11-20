@@ -82,7 +82,7 @@ export class CanvasRestAdapter implements LmsPort {
   async getStudentGrades(courseId: string, userId: string): Promise<GradeRecord[]> {
     // Canvas endpoint: /api/v1/courses/:id/students/submissions
     const res = await this.client.getAllPages<unknown>(
-      `/api/v1/courses/${courseId}/students/submissions`,
+      `/api/v1/courses/${encodeURIComponent(courseId)}/students/submissions`,
       {
         asUserId: userId,
         query: {
@@ -115,7 +115,7 @@ export class CanvasRestAdapter implements LmsPort {
 
   async getUpcomingAssignments(courseId: string, userId: string): Promise<AssignmentSummary[]> {
     const res = await this.client.getAllPages<unknown>(
-      `/api/v1/courses/${courseId}/assignments`,
+      `/api/v1/courses/${encodeURIComponent(courseId)}/assignments`,
       {
         asUserId: userId,
         query: {
@@ -148,7 +148,7 @@ export class CanvasRestAdapter implements LmsPort {
     userId: string,
   ): Promise<AssignmentDetail> {
     const res = await this.client.get<unknown>(
-      `/api/v1/courses/${courseId}/assignments/${assignmentId}`,
+      `/api/v1/courses/${encodeURIComponent(courseId)}/assignments/${encodeURIComponent(assignmentId)}`,
       { asUserId: userId },
     );
 
@@ -171,7 +171,7 @@ export class CanvasRestAdapter implements LmsPort {
   }
 
   async getSyllabus(courseId: string, userId: string): Promise<string> {
-    const res = await this.client.get<unknown>(`/api/v1/courses/${courseId}`, {
+    const res = await this.client.get<unknown>(`/api/v1/courses/${encodeURIComponent(courseId)}`, {
       asUserId: userId,
       query: {
         'include[]': ['syllabus_body'],
@@ -186,7 +186,7 @@ export class CanvasRestAdapter implements LmsPort {
     const res = await this.client.getAllPages<unknown>(`/api/v1/announcements`, {
       asUserId: userId,
       query: {
-        'context_codes[]': [`course_${courseId}`],
+        'context_codes[]': [`course_${encodeURIComponent(courseId)}`],
       },
     });
 
@@ -209,7 +209,7 @@ export class CanvasRestAdapter implements LmsPort {
 
   async getCourseModules(courseId: string, userId: string): Promise<ModuleSummary[]> {
     const res = await this.client.getAllPages<unknown>(
-      `/api/v1/courses/${courseId}/modules`,
+      `/api/v1/courses/${encodeURIComponent(courseId)}/modules`,
       {
         asUserId: userId,
         query: {
@@ -243,7 +243,7 @@ export class CanvasRestAdapter implements LmsPort {
 
   async getCoursePage(courseId: string, pageUrl: string, userId: string): Promise<PageDetail> {
     const res = await this.client.get<unknown>(
-      `/api/v1/courses/${courseId}/pages/${pageUrl}`,
+      `/api/v1/courses/${encodeURIComponent(courseId)}/pages/${encodeURIComponent(pageUrl)}`,
       { asUserId: userId },
     );
 
@@ -263,10 +263,12 @@ export class CanvasRestAdapter implements LmsPort {
     };
   }
 
-  async getSubmissionSummaries(courseId: string, assignmentId?: string): Promise<SubmissionSummary[]> {
+  async getSubmissionSummaries(courseId: string, assignmentId?: string, asUserId?: string): Promise<SubmissionSummary[]> {
     // Instructor tool (critique §3.14): Minimal student disclosure
+    const encodedCourse = encodeURIComponent(courseId);
     const assignmentsRes = await this.client.getAllPages<unknown>(
-      `/api/v1/courses/${courseId}/assignments`,
+      `/api/v1/courses/${encodedCourse}/assignments`,
+      asUserId ? { asUserId } : undefined,
     );
 
     const summaries: SubmissionSummary[] = [];
@@ -275,7 +277,8 @@ export class CanvasRestAdapter implements LmsPort {
       if (assignmentId && a.id !== assignmentId) continue;
 
       const submissions = await this.client.getAllPages<unknown>(
-        `/api/v1/courses/${courseId}/assignments/${a.id}/submissions`,
+        `/api/v1/courses/${encodedCourse}/assignments/${encodeURIComponent(a.id)}/submissions`,
+        asUserId ? { asUserId } : undefined,
       );
 
       let submitted = 0;
@@ -305,9 +308,9 @@ export class CanvasRestAdapter implements LmsPort {
     return summaries;
   }
 
-  async getGradebookSummary(courseId: string): Promise<GradebookSummary> {
-    const assignments = await this.getUpcomingAssignments(courseId, '');
-    const summaries = await this.getSubmissionSummaries(courseId);
+  async getGradebookSummary(courseId: string, asUserId?: string): Promise<GradebookSummary> {
+    const assignments = await this.getUpcomingAssignments(courseId, asUserId || '');
+    const summaries = await this.getSubmissionSummaries(courseId, undefined, asUserId);
 
     let totalScore = 0;
     let gradedCount = 0;

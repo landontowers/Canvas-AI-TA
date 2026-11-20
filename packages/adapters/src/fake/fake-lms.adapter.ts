@@ -212,7 +212,7 @@ export class FakeLmsAdapter implements LmsPort {
     return page;
   }
 
-  async getSubmissionSummaries(_courseId: string, _assignmentId?: string): Promise<SubmissionSummary[]> {
+  async getSubmissionSummaries(_courseId: string, _assignmentId?: string, _asUserId?: string): Promise<SubmissionSummary[]> {
     return [
       {
         assignmentId: 'assign-101',
@@ -233,7 +233,7 @@ export class FakeLmsAdapter implements LmsPort {
     ];
   }
 
-  async getGradebookSummary(courseId: string): Promise<GradebookSummary> {
+  async getGradebookSummary(courseId: string, _asUserId?: string): Promise<GradebookSummary> {
     return {
       courseId,
       averageScorePercent: 88.5,

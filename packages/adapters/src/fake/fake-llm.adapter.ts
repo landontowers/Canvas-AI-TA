@@ -28,8 +28,10 @@ export class FakeLlmAdapter implements LlmPort {
     const lastUserMessage = [...options.messages].reverse().find((m) => m.role === 'user');
     const content = lastUserMessage?.content || '';
 
-    // Simulate tool call if user asks about grades or assignments
-    if (content.toLowerCase().includes('grade') && options.tools?.some((t: { name: string }) => t.name === 'get_student_grades')) {
+    const hasToolResult = options.messages.some((m) => m.role === 'tool');
+
+    // Simulate tool call if user asks about grades and no tool result has been returned yet
+    if (!hasToolResult && content.toLowerCase().includes('grade') && options.tools?.some((t: { name: string }) => t.name === 'get_student_grades')) {
       return {
         text: 'Checking your grades...',
         toolCalls: [
@@ -39,6 +41,12 @@ export class FakeLlmAdapter implements LlmPort {
             args: {},
           },
         ],
+      };
+    }
+
+    if (hasToolResult) {
+      return {
+        text: 'Based on your grade records, you have an A (95/100) on Week 1 Lab: Safety & Tooling.',
       };
     }
 
@@ -56,6 +64,8 @@ export class FakeLlmAdapter implements LlmPort {
           type: 'tool-status',
           toolName: call.name,
           status: 'calling',
+          args: call.args,
+          callId: call.id,
           message: `Invoking tool ${call.name}...`,
         };
       }

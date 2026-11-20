@@ -164,7 +164,7 @@ export const getSubmissionSummariesTool: CoreTool<{ assignmentId?: string }> = {
   requiredRole: 'instructor',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments/:assignment_id/submissions'],
   async execute(args, context) {
-    return context.ports.lms.getSubmissionSummaries(context.courseId, args.assignmentId);
+    return context.ports.lms.getSubmissionSummaries(context.courseId, args.assignmentId, context.userId);
   },
 };
 
@@ -175,7 +175,7 @@ export const getGradebookSummaryTool: CoreTool<Record<string, never>> = {
   requiredRole: 'instructor',
   requiredScopes: ['url:GET|/api/v1/courses/:course_id/gradebook'],
   async execute(_args, context) {
-    return context.ports.lms.getGradebookSummary(context.courseId);
+    return context.ports.lms.getGradebookSummary(context.courseId, context.userId);
   },
 };
 

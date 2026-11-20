@@ -148,9 +148,15 @@ export function buildServer(
   function isAuthorized(request: FastifyRequest): boolean {
     if (!config.demoAuth?.enabled) return true;
 
-    // 1. Check Cloudflare Access header (critique §4.3)
+    // 1. Check Cloudflare Access header (critique §4.3, requires JWT assertion to prevent plain header spoofing)
     const cfEmail = request.headers['cf-access-authenticated-user-email'];
-    if (typeof cfEmail === 'string' && cfEmail.trim().length > 0) {
+    const cfJwt = request.headers['cf-access-jwt-assertion'];
+    if (
+      typeof cfEmail === 'string' &&
+      cfEmail.trim().length > 0 &&
+      typeof cfJwt === 'string' &&
+      cfJwt.trim().length > 0
+    ) {
       const emailLower = cfEmail.trim().toLowerCase();
       if (
         config.demoAuth.invitedEmails.length === 0 ||
@@ -360,14 +366,31 @@ export function buildServer(
     return ports.persistence.updateCourseSettings(courseId, body.setting);
   });
 
-  // Conversation history endpoints
-  server.get('/api/conversations', async (request) => {
+  // Conversation history endpoints (protected by authentication & caller verification)
+  server.get('/api/conversations', async (request, reply) => {
+    if (!isAuthorized(request)) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
     const query = request.query as { userId: string; courseId: string };
+    if (!query.userId) {
+      reply.status(400);
+      return { error: 'Bad Request', message: 'userId query parameter is required.' };
+    }
     return ports.persistence.listConversations(query.userId, query.courseId);
   });
 
-  server.get('/api/conversations/:id/messages', async (request) => {
+  server.get('/api/conversations/:id/messages', async (request, reply) => {
+    if (!isAuthorized(request)) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
     const { id } = request.params as { id: string };
+    const conversation = await ports.persistence.getConversation(id);
+    if (!conversation) {
+      reply.status(404);
+      return { error: 'Not Found', message: 'Conversation not found.' };
+    }
     return ports.persistence.listMessages(id);
   });
 

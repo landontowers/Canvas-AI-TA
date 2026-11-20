@@ -11,7 +11,13 @@ export interface LlmCapabilities {
 
 export interface LlmGenerateOptions {
   systemPrompt: string;
-  messages: Array<Pick<Message, 'role' | 'content'> & { toolCalls?: ToolCall[]; toolResultId?: string }>;
+  messages: Array<
+    Pick<Message, 'role' | 'content'> & {
+      toolCalls?: ToolCall[];
+      toolResultId?: string;
+      toolName?: string;
+    }
+  >;
   tools?: ToolDefinition[];
   maxTokens?: number;
   temperature?: number;

@@ -85,20 +85,21 @@ export class TutorEngine {
 
     const isCourseMaterial = courseMaterialKeywords.some((kw) => lower.includes(kw));
 
+    // Clear single-category matches
     if (isCourseMaterial && !isLogistics) {
       return 'course_material';
     }
 
-    if (isLogistics) {
+    if (isLogistics && !isCourseMaterial) {
       return 'logistics';
     }
 
-    // If classifier LLM is provided, use it for grey-zone queries
+    // If both match (blended query) or neither matches (grey zone), invoke classifier LLM if available
     if (this.deps.classifierLlm) {
       try {
         const response = await this.deps.classifierLlm.generate({
           systemPrompt:
-            'You are a fast classifier. Classify the user question as either "logistics" (deadlines, grades, policies, requirements) or "course_material" (problem solving, subject theory, homework answers). Respond with only "logistics" or "course_material".',
+            'You are a strict academic policy classifier. Classify the user question as either "logistics" (deadlines, grades, policies, submission requirements, syllabus) or "course_material" (problem solving, subject theory, homework answers, concept explanations). If the user asks how to solve or answer a question—even if they mention a deadline or submission—classify it as "course_material". Respond with only "logistics" or "course_material".',
           messages: [{ role: 'user', content: message }],
           maxTokens: 10,
         });
@@ -110,6 +111,7 @@ export class TutorEngine {
       }
     }
 
+    // Fail-safe default under conflict or unknown: protect course material
     return 'course_material';
   }
 
@@ -125,10 +127,17 @@ export class TutorEngine {
       courseId: params.courseId,
     });
 
-    // 2. Resolve or create conversation
-    let conversation = params.conversationId
-      ? await this.deps.persistence.getConversation(params.conversationId)
-      : null;
+    // 2. Resolve or create conversation with strict ownership check (FERPA & IDOR defense)
+    let conversation = null;
+    if (params.conversationId) {
+      const existing = await this.deps.persistence.getConversation(params.conversationId);
+      if (existing) {
+        if (existing.userId !== authContext.userId || existing.courseId !== authContext.courseId) {
+          throw new Error('Unauthorized: Conversation does not belong to the authenticated user and course.');
+        }
+        conversation = existing;
+      }
+    }
 
     if (!conversation) {
       conversation = await this.deps.persistence.createConversation({
@@ -226,7 +235,10 @@ export class TutorEngine {
     const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
     if (courseSettings.setting === 'logistics_only') {
       availableTools = availableTools.filter(
-        (t) => t.name !== 'get_course_page' && t.name !== 'get_course_modules',
+        (t) =>
+          t.name !== 'get_course_page' &&
+          t.name !== 'get_course_modules' &&
+          t.name !== 'get_assignment_details',
       );
     }
 
@@ -237,6 +249,7 @@ export class TutorEngine {
       content: string;
       toolCalls?: ToolCall[];
       toolResultId?: string;
+      toolName?: string;
     }> = history.map((m) => ({
       role: m.role,
       content: m.content,
@@ -262,6 +275,7 @@ export class TutorEngine {
 
     while (round < maxToolRounds) {
       round++;
+      let currentRoundText = '';
       const pendingToolCalls: ToolCall[] = [];
 
       const stream = this.deps.llm.stream({
@@ -274,15 +288,16 @@ export class TutorEngine {
 
       for await (const event of stream) {
         if (event.type === 'text-delta') {
+          currentRoundText += event.delta;
           fullAssistantResponse += event.delta;
           yield event;
         } else if (event.type === 'tool-status') {
           yield event;
           if (event.status === 'calling') {
             pendingToolCalls.push({
-              id: `call_${Date.now()}`,
+              id: event.callId || `call_${Date.now()}_${pendingToolCalls.length}`,
               name: event.toolName,
-              args: {},
+              args: (event.args as Record<string, unknown>) || {},
             });
           }
         } else if (event.type === 'citation') {
@@ -295,6 +310,13 @@ export class TutorEngine {
       if (pendingToolCalls.length === 0) {
         break;
       }
+
+      // Record assistant model turn with tool calls before feeding tool responses
+      messagesForLlm.push({
+        role: 'assistant',
+        content: currentRoundText,
+        toolCalls: pendingToolCalls,
+      });
 
       // Execute each tool and feed result back to messagesForLlm
       for (const call of pendingToolCalls) {
@@ -337,6 +359,7 @@ export class TutorEngine {
           role: 'tool',
           content: typeof result.result === 'string' ? result.result : JSON.stringify(result.result),
           toolResultId: call.id,
+          toolName: call.name,
         });
       }
     }

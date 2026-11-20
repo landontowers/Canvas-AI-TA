@@ -345,6 +345,7 @@ describe('API Server', () => {
         url: '/api/chat',
         headers: {
           'cf-access-authenticated-user-email': 'evaluator@sdi.edu',
+          'cf-access-jwt-assertion': 'valid-test-assertion-jwt',
         },
         payload: {
           personaId: 'demo_instructor',
@@ -354,6 +355,23 @@ describe('API Server', () => {
       });
 
       expect(cfRes.statusCode).toBe(200);
+    });
+
+    it('rejects access via Cloudflare Access header when jwt assertion is missing', async () => {
+      const cfRes = await secureServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: {
+          'cf-access-authenticated-user-email': 'evaluator@sdi.edu',
+        },
+        payload: {
+          personaId: 'demo_instructor',
+          courseId: 'sdi-ftt101',
+          message: 'Draft an announcement.',
+        },
+      });
+
+      expect(cfRes.statusCode).toBe(401);
     });
 
     it('rejects access via Cloudflare Access header for uninvited email', async () => {

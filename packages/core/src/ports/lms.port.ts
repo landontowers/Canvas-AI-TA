@@ -93,6 +93,6 @@ export interface LmsPort {
   getCrossCourseUpcomingAssignments(userId: string): Promise<CrossCourseAssignment[]>;
 
   // Instructor-only methods
-  getSubmissionSummaries(courseId: string, assignmentId?: string): Promise<SubmissionSummary[]>;
-  getGradebookSummary(courseId: string): Promise<GradebookSummary>;
+  getSubmissionSummaries(courseId: string, assignmentId?: string, asUserId?: string): Promise<SubmissionSummary[]>;
+  getGradebookSummary(courseId: string, asUserId?: string): Promise<GradebookSummary>;
 }
