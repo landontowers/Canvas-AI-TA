@@ -2,6 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Citation, StreamEvent } from '@virtual-ta/core';
 import { ChatHistoryPanel, ConversationItem } from './ChatHistoryPanel.js';
 import {
+  extractTextFromFile,
+  ExtractedDraftResult,
+  MAX_DRAFT_CHARS,
+} from '../utils/extractDraftText.js';
+import {
   ChatMessageList,
   ChatMessage,
   ActiveToolStatus,
@@ -49,9 +54,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [practiceCards, setPracticeCards] = useState<PracticeCardItem[] | null>(null);
   const [practiceTopic, setPracticeTopic] = useState<string>('');
   const [isLoadingPractice, setIsLoadingPractice] = useState<boolean>(false);
+  const [attachedDraft, setAttachedDraft] = useState<ExtractedDraftResult | null>(null);
+  const [isExtractingDraft, setIsExtractingDraft] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const draftInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const isStudent = personaId === 'demo_student';
@@ -257,11 +265,42 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   };
 
+  const handleAttachDraft = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setIsExtractingDraft(true);
+    setError(null);
+    try {
+      const extracted = await extractTextFromFile(file);
+      setAttachedDraft(extracted);
+      if (!input.trim()) {
+        setInput('Please check my attached draft against the rubric.');
+      }
+      setScreenReaderAnnouncement(
+        `Attached draft ${extracted.name} (${extracted.charCount} characters).`,
+      );
+      textareaRef.current?.focus();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsExtractingDraft(false);
+    }
+  };
+
   const sendMessage = async (textToSend?: string) => {
-    const messageContent = (textToSend !== undefined ? textToSend : input).trim();
-    if (!messageContent || isStreaming) return;
+    const rawPrompt = (textToSend !== undefined ? textToSend : input).trim();
+    const draftToAttach = textToSend === undefined ? attachedDraft : null;
+    if (!rawPrompt && !draftToAttach) return;
+    if (isStreaming) return;
+
+    const messageContent = draftToAttach
+      ? `${rawPrompt || 'Please check my attached draft against the rubric.'}\n\n<attached_draft filename="${draftToAttach.name}">\n${draftToAttach.text}\n</attached_draft>`
+      : rawPrompt;
 
     setInput('');
+    if (draftToAttach) setAttachedDraft(null);
     setError(null);
 
     const userMsgId = `msg_${Date.now()}`;
@@ -531,6 +570,27 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             Ask the SDI Virtual TA
           </label>
           <div className="input-wrapper">
+            {attachedDraft && (
+              <div className="attached-draft-chip" role="status" aria-label="Attached draft">
+                <div className="attached-draft-meta">
+                  <strong>{attachedDraft.name}</strong>
+                  <span>({attachedDraft.charCount} chars)</span>
+                  {attachedDraft.truncated && (
+                    <span className="attached-draft-warn">
+                      Truncated to {MAX_DRAFT_CHARS} chars
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="attached-draft-remove"
+                  onClick={() => setAttachedDraft(null)}
+                  aria-label="Remove attached draft"
+                >
+                  Remove
+                </button>
+              </div>
+            )}
             <textarea
               id="virtual-ta-chat-input"
               ref={textareaRef}
@@ -552,6 +612,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </span>
 
               <div className="button-group">
+                {isStudent && !isStreaming && (
+                  <>
+                    <input
+                      ref={draftInputRef}
+                      type="file"
+                      accept=".txt,.md,.markdown,.csv,.docx,.pdf"
+                      onChange={(e) => void handleAttachDraft(e)}
+                      aria-label="Upload draft file"
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      type="button"
+                      className="attach-draft-btn"
+                      onClick={() => draftInputRef.current?.click()}
+                      disabled={isExtractingDraft}
+                      aria-label="Attach draft document"
+                      title="Extract text from .txt, .md, .docx, or .pdf for rubric review"
+                    >
+                      {isExtractingDraft ? 'Reading...' : 'Attach Draft'}
+                    </button>
+                  </>
+                )}
                 {isStreaming ? (
                   <button
                     type="button"
@@ -568,7 +650,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                   <button
                     type="submit"
                     className="send-button"
-                    disabled={!input.trim()}
+                    disabled={!input.trim() && !attachedDraft}
                     aria-label="Send message to Virtual TA"
                   >
                     Send

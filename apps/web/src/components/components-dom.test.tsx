@@ -948,5 +948,61 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         expect.objectContaining({ method: 'POST' }),
       );
     });
+
+    it('ChatInterface attaches a .txt draft client-side, displays chip, and sends draft text in chat payload', async () => {
+      const encoder = new TextEncoder();
+      const sse = new ReadableStream({
+        start(controller) {
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ type: 'text-delta', delta: 'Looks good.' })}\n\n`),
+          );
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: 'done', conversationId: 'conv-draft', messageId: 'm-draft' })}\n\n`,
+            ),
+          );
+          controller.close();
+        },
+      });
+
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/chat') {
+          return Promise.resolve({ ok: true, body: sse });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      });
+      globalThis.fetch = fetchMock;
+
+      render(
+        <ChatInterface
+          personaId="demo_student"
+          courseId="sdi-ftt101"
+          currentPageTitle="Safety Lab 1"
+          highContrast={false}
+        />,
+      );
+
+      const fileInput = screen.getByLabelText(/Upload draft file/i) as HTMLInputElement;
+      const draftFile = new File(['My chamber clearance checklist'], 'lab1-draft.txt', {
+        type: 'text/plain',
+      });
+      fireEvent.change(fileInput, { target: { files: [draftFile] } });
+
+      await waitFor(() => {
+        expect(screen.getByText('lab1-draft.txt')).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Send message to Virtual TA/i }));
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/chat',
+          expect.objectContaining({
+            method: 'POST',
+            body: expect.stringContaining('<attached_draft filename=\\"lab1-draft.txt\\">'),
+          }),
+        );
+      });
+    });
   });
 });

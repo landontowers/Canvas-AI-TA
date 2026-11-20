@@ -677,7 +677,7 @@ describe('API Server', () => {
       const hugeChat = await server.inject({
         method: 'POST',
         url: '/api/chat',
-        payload: { personaId: 'demo_student', message: 'a'.repeat(4001) },
+        payload: { personaId: 'demo_student', message: 'a'.repeat(8001) },
       });
       expect(hugeChat.statusCode).toBe(400);
 

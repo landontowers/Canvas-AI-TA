@@ -50,7 +50,7 @@ export const ChatBodySchema = z.object({
     .string()
     .trim()
     .min(1, 'message is required')
-    .max(4000, 'message exceeds maximum length of 4000 characters'),
+    .max(8000, 'message exceeds maximum length of 8000 characters'),
   pageContext: z
     .object({
       title: z.string().max(500).optional(),
