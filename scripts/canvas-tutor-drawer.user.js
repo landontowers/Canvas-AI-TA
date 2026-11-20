@@ -7,6 +7,7 @@
 // @match        https://*.instructure.com/*
 // @grant        none
 // ==/UserScript==
+/* global window, document, localStorage, setTimeout */
 
 (function() {
     'use strict';
@@ -88,11 +89,14 @@
     document.body.appendChild(drawer);
 
     // 4. Create the Bottom-Right Floating Action Button
+    const SPARK_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>`;
+    const CLOSE_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+
     const btn = document.createElement('button');
     btn.id = 'ai-tutor-fab';
     btn.type = 'button';
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = `<span style="font-size: 16px;">🤖</span> AI Tutor`;
+    btn.innerHTML = `${SPARK_ICON}<span>AI Tutor</span>`;
     btn.title = 'Toggle SDI AI Tutor';
     btn.style.cssText = `
         position: fixed;
@@ -144,7 +148,7 @@
         // Move button adjacent to drawer when open, or back to bottom-right when closed
         btn.style.right = isOpen ? `${drawerWidth + 18}px` : '24px';
         btn.style.background = isOpen ? '#101820' : '#D50032';
-        btn.innerHTML = isOpen ? `<span style="font-size: 14px;">✕</span> Close Tutor` : `<span style="font-size: 16px;">🤖</span> AI Tutor`;
+        btn.innerHTML = isOpen ? `${CLOSE_ICON}<span>Close Tutor</span>` : `${SPARK_ICON}<span>AI Tutor</span>`;
         btn.setAttribute('aria-expanded', String(isOpen));
 
         if (!animate) {

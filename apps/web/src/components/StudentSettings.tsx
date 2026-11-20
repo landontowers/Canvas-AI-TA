@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LockIcon, ShieldCheckIcon, LightbulbIcon } from './Icons.js';
 
 interface StudentSettingsProps {
   userId: string;
@@ -58,21 +59,27 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
           <h3>Your Privacy at SDI</h3>
           <ul className="privacy-list">
             <li>
-              <span className="bullet-icon" aria-hidden="true">🔒</span>
+              <span className="bullet-icon" aria-hidden="true">
+                <LockIcon size={18} />
+              </span>
               <div>
                 <strong>Private Conversations</strong>
                 <p>Your tutor chats are completely private and never visible to other students or instructors.</p>
               </div>
             </li>
             <li>
-              <span className="bullet-icon" aria-hidden="true">🛡️</span>
+              <span className="bullet-icon" aria-hidden="true">
+                <ShieldCheckIcon size={18} />
+              </span>
               <div>
                 <strong>FERPA & Data Protection</strong>
                 <p>Only synthetic course test data and sandbox content are used. No personal records are stored.</p>
               </div>
             </li>
             <li>
-              <span className="bullet-icon" aria-hidden="true">💡</span>
+              <span className="bullet-icon" aria-hidden="true">
+                <LightbulbIcon size={18} />
+              </span>
               <div>
                 <strong>Socratic Guidance</strong>
                 <p>The AI tutor asks questions and provides step-by-step hints to help you master concepts.</p>

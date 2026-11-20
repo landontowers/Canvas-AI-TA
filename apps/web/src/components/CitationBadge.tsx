@@ -1,5 +1,13 @@
 import React from 'react';
 import { Citation } from '@ai-tutor/core';
+import {
+  AssignmentIcon,
+  PageIcon,
+  SyllabusIcon,
+  AnnouncementIcon,
+  ModuleIcon,
+  LinkIcon,
+} from './Icons.js';
 
 interface CitationBadgeProps {
   citation: Citation;
@@ -9,17 +17,17 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({ citation }) => {
   const getIcon = (type: Citation['type']) => {
     switch (type) {
       case 'assignment':
-        return '📝';
+        return <AssignmentIcon size={13} />;
       case 'page':
-        return '📄';
+        return <PageIcon size={13} />;
       case 'syllabus':
-        return '📋';
+        return <SyllabusIcon size={13} />;
       case 'announcement':
-        return '📢';
+        return <AnnouncementIcon size={13} />;
       case 'module':
-        return '📦';
+        return <ModuleIcon size={13} />;
       default:
-        return '🔗';
+        return <LinkIcon size={13} />;
     }
   };
 

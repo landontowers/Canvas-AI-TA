@@ -3,6 +3,19 @@ import { Citation, StreamEvent } from '@ai-tutor/core';
 import { CitationBadge } from './CitationBadge.js';
 import { ToolStatusPill } from './ToolStatusPill.js';
 import { renderMarkdownWithMath } from '../markdown/render.js';
+import {
+  PlusIcon,
+  HistoryIcon,
+  RefreshIcon,
+  CloseIcon,
+  AcademicCapIcon,
+  BookOpenIcon,
+  PhoneIcon,
+  ChatBubbleIcon,
+  GlobeIcon,
+  ShieldAlertIcon,
+  AlertTriangleIcon,
+} from './Icons.js';
 
 export interface ChatMessage {
   id: string;
@@ -399,7 +412,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           aria-label="Start a new chat"
           title="Start a new chat"
         >
-          <span className="btn-icon" aria-hidden="true">➕</span>
+          <PlusIcon size={14} className="btn-icon" />
           <span>New Chat</span>
         </button>
 
@@ -416,7 +429,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           aria-label={showHistory ? 'Close previous chats' : 'View previous chats'}
           title="Previous chats"
         >
-          <span className="btn-icon" aria-hidden="true">📜</span>
+          <HistoryIcon size={14} className="btn-icon" />
           <span>Previous Chats</span>
           {conversationList.length > 0 && (
             <span className="history-badge" aria-label={`${conversationList.length} previous chats`}>
@@ -431,7 +444,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         <div className="history-panel" role="region" aria-label="Previous chats list">
           <div className="history-header">
             <div className="history-title-wrap">
-              <span className="history-header-icon" aria-hidden="true">📜</span>
+              <HistoryIcon size={15} className="history-header-icon" />
               <h4>Previous Chats ({conversationList.length})</h4>
             </div>
             <div className="history-header-actions">
@@ -443,7 +456,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 aria-label="Refresh previous chats"
                 title="Refresh list"
               >
-                🔄
+                <RefreshIcon size={14} />
               </button>
               <button
                 type="button"
@@ -452,7 +465,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 aria-label="Close previous chats panel"
                 title="Close"
               >
-                ✕
+                <CloseIcon size={14} />
               </button>
             </div>
           </div>
@@ -520,7 +533,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon" aria-hidden="true">
-              {isStudent ? '🎓' : '📚'}
+              {isStudent ? <AcademicCapIcon size={44} /> : <BookOpenIcon size={44} />}
             </div>
             <h3 className="empty-title">
               {isStudent ? 'SDI Student AI Tutor' : 'SDI Instructor Assistant'}
@@ -589,15 +602,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               {msg.role === 'assistant' && msg.content.includes('988') && (
                 <div className="crisis-action-card" role="alert" aria-label="Emergency Crisis Support">
                   <div className="crisis-card-header">
-                    <span className="crisis-icon" aria-hidden="true">🆘</span>
+                    <ShieldAlertIcon size={18} className="crisis-icon" />
                     <strong>Immediate Confidential Support (24/7)</strong>
                   </div>
                   <div className="crisis-card-actions">
                     <a href="tel:988" className="crisis-btn crisis-btn-call">
-                      📞 Call 988
+                      <PhoneIcon size={14} className="crisis-btn-icon" />
+                      <span>Call 988</span>
                     </a>
                     <a href="sms:988" className="crisis-btn crisis-btn-sms">
-                      💬 Text 988
+                      <ChatBubbleIcon size={14} className="crisis-btn-icon" />
+                      <span>Text 988</span>
                     </a>
                     <a
                       href="https://988lifeline.org"
@@ -605,7 +620,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       rel="noopener noreferrer"
                       className="crisis-btn crisis-btn-chat"
                     >
-                      🌐 988 Online Chat
+                      <GlobeIcon size={14} className="crisis-btn-icon" />
+                      <span>988 Online Chat</span>
                     </a>
                   </div>
                 </div>
@@ -626,7 +642,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {/* Error notification */}
         {error && (
           <div className="feedback-alert error" role="alert">
-            <span aria-hidden="true">⚠ </span>
+            <AlertTriangleIcon size={16} className="feedback-icon" />
             <span>{error}</span>
           </div>
         )}

@@ -381,6 +381,15 @@ body:has(.demo-container.embedded) #root {
   color: var(--color-text-primary);
   cursor: pointer;
   min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.demo-reset-btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
 }
 
 .demo-reset-btn:hover:not(:disabled) {
@@ -630,7 +639,7 @@ body:has(.demo-container.embedded) #root {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 12px;
+  padding: 8px 12px;
   background: var(--color-surface-warm);
   border-bottom: 1px solid var(--color-border-subtle);
   gap: 8px;
@@ -641,20 +650,27 @@ body:has(.demo-container.embedded) #root {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-canvas);
-  color: var(--color-text-primary);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  background: #101820; /* Darkened similar to Close Tutor button */
+  color: #FFFFFF;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .toolbar-btn:hover {
-  background: #EFECE6;
-  border-color: var(--color-primary);
+  background: #222E3A;
+  border-color: rgba(0, 0, 0, 0.35);
+  color: #FFFFFF;
+}
+
+.toolbar-btn:active {
+  background: #0B1015;
+  transform: translateY(1px);
 }
 
 .toolbar-btn:focus-visible {
@@ -663,23 +679,39 @@ body:has(.demo-container.embedded) #root {
 }
 
 .toolbar-btn .btn-icon {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
 }
 
 .new-chat-btn {
-  color: var(--color-primary);
-  border-color: rgba(142, 35, 35, 0.3);
+  background: #101820;
+  color: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.25);
 }
 
 .new-chat-btn:hover {
-  background: rgba(142, 35, 35, 0.08);
-  border-color: var(--color-primary);
+  background: #222E3A;
+  color: #FFFFFF;
+}
+
+.history-toggle-btn {
+  background: #101820;
+  color: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.history-toggle-btn:hover {
+  background: #222E3A;
+  color: #FFFFFF;
 }
 
 .history-toggle-btn.active {
-  background: var(--color-primary);
+  background: #1B2631;
   color: #FFFFFF;
   border-color: var(--color-primary);
+  box-shadow: inset 0 0 0 1px var(--color-primary);
 }
 
 .history-badge {
@@ -724,6 +756,12 @@ body:has(.demo-container.embedded) #root {
   gap: 6px;
 }
 
+.history-header-icon {
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+}
+
 .history-title-wrap h4 {
   margin: 0;
   font-size: 12px;
@@ -742,10 +780,14 @@ body:has(.demo-container.embedded) #root {
   background: transparent;
   border: none;
   cursor: pointer;
-  padding: 3px 6px;
+  padding: 4px 6px;
   font-size: 12px;
   border-radius: 4px;
   color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .history-icon-btn:hover {
@@ -880,9 +922,14 @@ body:has(.demo-container.embedded) #root {
 }
 
 .high-contrast-mode .toolbar-btn {
-  border: 2px solid #000000;
-  color: #000000;
+  border: 2px solid #FFFFFF;
+  background: #000000;
+  color: #FFFFFF;
   font-weight: 700;
+}
+
+.high-contrast-mode .toolbar-btn:hover {
+  background: #202020;
 }
 
 .high-contrast-mode .history-panel {
@@ -920,7 +967,11 @@ body:has(.demo-container.embedded) #root {
 }
 
 .empty-icon {
-  font-size: 32px;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
 }
 
 .empty-title {
@@ -1131,6 +1182,12 @@ body:has(.demo-container.embedded) #root {
   color: var(--color-primary);
 }
 
+.citation-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-primary);
+}
+
 /* Crisis Action Card (Immediate emergency assistance under FERPA § 99.36) */
 .crisis-action-card {
   margin-top: 12px;
@@ -1161,6 +1218,7 @@ body:has(.demo-container.embedded) #root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 6px 12px;
   border-radius: 4px;
   font-size: 12px;
@@ -1168,6 +1226,11 @@ body:has(.demo-container.embedded) #root {
   text-decoration: none;
   min-height: 32px;
   transition: background-color 0.15s ease;
+}
+
+.crisis-btn-icon {
+  display: inline-flex;
+  align-items: center;
 }
 
 .crisis-btn-call {

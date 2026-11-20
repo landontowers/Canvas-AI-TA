@@ -3,6 +3,7 @@ import { ChatInterface } from './ChatInterface.js';
 import { InstructorSettings } from './InstructorSettings.js';
 import { StudentSettings } from './StudentSettings.js';
 import { DemoAuthModal } from './DemoAuthModal.js';
+import { GearIcon, ChatBubbleIcon, EyeIcon, RefreshIcon } from './Icons.js';
 
 interface HealthStatus {
   status: string;
@@ -204,7 +205,7 @@ export const DemoShell: React.FC = () => {
               onClick={handleToggleHighContrast}
               aria-pressed={highContrast}
             >
-              <span className="contrast-icon" aria-hidden="true">👁</span>
+              <EyeIcon size={15} className="contrast-icon" />
               <span>{highContrast ? 'High Contrast: ON' : 'High Contrast: OFF'}</span>
             </button>
           </div>
@@ -218,7 +219,14 @@ export const DemoShell: React.FC = () => {
             disabled={resetting}
             aria-label="Reset demo state and clear conversations"
           >
-            {resetting ? 'Resetting...' : '🔄 Reset Demo State'}
+            {resetting ? (
+              'Resetting...'
+            ) : (
+              <>
+                <RefreshIcon size={12} className="btn-icon" />
+                <span>Reset Demo State</span>
+              </>
+            )}
           </button>
 
           {resetFeedback && (
@@ -270,7 +278,7 @@ export const DemoShell: React.FC = () => {
               aria-label={currentView === 'chat' ? 'Open Settings' : 'Return to Chat'}
               title={currentView === 'chat' ? 'Settings' : 'Chat'}
             >
-              {currentView === 'chat' ? '⚙️' : '💬'}
+              {currentView === 'chat' ? <GearIcon size={16} /> : <ChatBubbleIcon size={16} />}
             </button>
           </div>
         </header>
