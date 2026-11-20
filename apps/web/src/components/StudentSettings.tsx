@@ -55,7 +55,7 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
           type="button"
           className="back-btn"
           onClick={onClose}
-          aria-label="Back to Tutor Drawer"
+          aria-label="Back to Virtual TA Drawer"
         >
           ← Back to Drawer
         </button>
@@ -73,7 +73,7 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
               </span>
               <div>
                 <strong>Private Conversations</strong>
-                <p>Your tutor chats are completely private and never visible to other students or instructors.</p>
+                <p>Your Virtual TA chats are completely private and never visible to other students or instructors.</p>
               </div>
             </li>
             <li>
@@ -91,7 +91,7 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
               </span>
               <div>
                 <strong>Socratic Guidance</strong>
-                <p>The AI tutor asks questions and provides step-by-step hints to help you master concepts.</p>
+                <p>The Virtual TA asks questions and provides step-by-step hints to help you master concepts.</p>
               </div>
             </li>
           </ul>

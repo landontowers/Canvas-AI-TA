@@ -14,9 +14,9 @@ COPY packages/core ./packages/core
 COPY packages/adapters ./packages/adapters
 COPY apps/api ./apps/api
 
-RUN pnpm --filter @ai-tutor/core run build && \
-    pnpm --filter @ai-tutor/adapters run build && \
-    pnpm --filter @ai-tutor/api run build
+RUN pnpm --filter @virtual-ta/core run build && \
+    pnpm --filter @virtual-ta/adapters run build && \
+    pnpm --filter @virtual-ta/api run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -26,4 +26,4 @@ RUN npm install -g pnpm
 COPY --from=builder /app ./
 
 EXPOSE 3000
-CMD ["pnpm", "--filter", "@ai-tutor/api", "start"]
+CMD ["pnpm", "--filter", "@virtual-ta/api", "start"]

@@ -1,11 +1,11 @@
-name: Create task for AI tutor
+name: Create task for Virtual TA
 description: Fill in details of the task.
 title: "[Task]: "
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for hard work on the AI Tutor!
+        Thanks for hard work on the Virtual TA!
   - type: input
     id: task-title
     attributes:

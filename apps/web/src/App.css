@@ -669,7 +669,7 @@ body:has(.demo-container.embedded) #root {
   font-weight: 700;
   cursor: pointer;
   border: 1px solid rgba(0, 0, 0, 0.25);
-  background: #101820; /* Darkened similar to Close Tutor button */
+  background: #101820; /* Darkened similar to Close Virtual TA button */
   color: #FFFFFF;
   transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);

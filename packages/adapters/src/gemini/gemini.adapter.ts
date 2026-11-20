@@ -6,7 +6,7 @@ import {
   LlmUsage,
   StreamEvent,
   ToolCall,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 

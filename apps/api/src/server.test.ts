@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { loadAppConfig, FakeLogStorageAdapter } from '@ai-tutor/adapters';
+import { loadAppConfig, FakeLogStorageAdapter } from '@virtual-ta/adapters';
 import { buildServer, PortsContainer } from '../src/server.js';
 
 describe('API Server', () => {
@@ -227,7 +227,7 @@ describe('API Server', () => {
     });
 
     expect(chatRes.statusCode).toBe(200);
-    expect(chatRes.body).toContain('configured this tutor for course logistics only');
+    expect(chatRes.body).toContain('configured this Virtual TA for course logistics only');
 
     // Reset back to full
     await server.inject({

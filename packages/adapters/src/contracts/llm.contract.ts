@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LlmPort } from '@ai-tutor/core';
+import { LlmPort } from '@virtual-ta/core';
 
 export function runLlmContractTests(name: string, createAdapter: () => LlmPort | Promise<LlmPort>) {
   describe(`LLM Port Contract: ${name}`, () => {
@@ -16,7 +16,7 @@ export function runLlmContractTests(name: string, createAdapter: () => LlmPort |
     it('generates a response for a basic prompt', async () => {
       const adapter = await createAdapter();
       const response = await adapter.generate({
-        systemPrompt: 'You are a tutor',
+        systemPrompt: 'You are a Virtual TA',
         messages: [{ role: 'user', content: 'What is safety protocol #1?' }],
       });
 
@@ -28,7 +28,7 @@ export function runLlmContractTests(name: string, createAdapter: () => LlmPort |
     it('streams response events culminating in done event', async () => {
       const adapter = await createAdapter();
       const stream = adapter.stream({
-        systemPrompt: 'You are a tutor',
+        systemPrompt: 'You are a Virtual TA',
         messages: [{ role: 'user', content: 'Hello' }],
       });
 

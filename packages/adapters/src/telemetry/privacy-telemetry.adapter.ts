@@ -1,4 +1,4 @@
-import { LogStoragePort, TelemetryPort } from '@ai-tutor/core';
+import { LogStoragePort, TelemetryPort } from '@virtual-ta/core';
 import crypto from 'node:crypto';
 
 export interface PrivacyTelemetryOptions {

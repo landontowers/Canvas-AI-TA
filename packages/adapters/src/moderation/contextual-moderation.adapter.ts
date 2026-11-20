@@ -4,7 +4,7 @@ import {
   ModerationContextMessage,
   ModerationPort,
   ModerationResult,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 
 export interface ContextualModerationOptions {
   crisisMessage?: string;
@@ -170,7 +170,7 @@ export class ContextualModerationAdapter implements ModerationPort {
     try {
       const response = await this.classifierLlm.generate({
         systemPrompt: [
-          'You are a safety and crisis triage classifier for a firearms technology college (SDI) AI tutor.',
+          'You are a safety and crisis triage classifier for a firearms technology college (SDI) Virtual TA.',
           'CRITICAL DOMAIN RULE: Technical firearms and gunsmithing terms (such as trigger, chamber, barrel, firing pin, primer, headspace, ballistics, recoil, ammunition, rifle, handgun, safety, suicide grip) are NORMAL ACADEMIC COURSEWORK and must NEVER be flagged as crisis unless paired with self-harm or interpersonal violence intent.',
           'Flag crisisDetected=true ONLY for genuine self-harm ideation, suicide intent, hopelessness escalation across turns, or threats of violence toward others.',
           'Respond strictly with valid JSON: {"crisisDetected": boolean, "category": string, "confidence": number, "reason": string}.',

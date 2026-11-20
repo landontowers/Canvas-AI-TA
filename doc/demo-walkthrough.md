@@ -1,6 +1,6 @@
 # Demo walk-through script and operations guide
 
-This document provides the complete, step-by-step walk-through script for presenting AI Tutor v0 to stakeholders at Sonoran Desert Institute (SDI), along with operational procedures for demo hosting, authentication, secrets hygiene, rate limits, and state reset (critique §4, plan Phase 5).
+This document provides the complete, step-by-step walk-through script for presenting Virtual TA v0 to stakeholders at Sonoran Desert Institute (SDI), along with operational procedures for demo hosting, authentication, secrets hygiene, rate limits, and state reset (critique §4, plan Phase 5).
 
 ---
 
@@ -41,7 +41,7 @@ For invited remote viewers on a personal domain (critique §4.3):
      ```sh
      docker compose --profile tunnel up
      ```
-   - In Cloudflare Access, restrict the subdomain (`tutor-demo.yourdomain.com`) to invited email addresses. The app automatically trusts the `Cf-Access-Authenticated-User-Email` header.
+   - In Cloudflare Access, restrict the subdomain (`virtual-ta-demo.yourdomain.com`) to invited email addresses. The app automatically trusts the `Cf-Access-Authenticated-User-Email` header.
 2. **Option B: In-app password gate:**
    - Set `DEMO_AUTH_ENABLED=true` and `DEMO_PASSWORD=<chosen-passcode>` in `.env`.
    - Run a quick tunnel:
@@ -64,8 +64,8 @@ Follow this script during the demonstration. Each step highlights a core archite
 * **User action:** Click the suggestion chip or type:
   > _"When is Safety Lab 1 due?"_
 * **Expected behavior:**
-  - AI Tutor displays an animated tool status pill: `Calling: Checking upcoming assignments...` then `Checked: Checking upcoming assignments`.
-  - Tutor responds directly with the exact deadline (e.g., Friday, December 5, 2026 at 11:59 PM MST).
+  - Virtual TA displays an animated tool status pill: `Calling: Checking upcoming assignments...` then `Checked: Checking upcoming assignments`.
+  - Virtual TA responds directly with the exact deadline (e.g., Friday, December 5, 2026 at 11:59 PM MST).
   - A Canvas citation badge `[Assignment: Safety Lab 1]` appears below the message, linking to the Canvas assignment.
 * **Talking points for SDI:**
   - Logistics questions (due dates, syllabus policies, office hours) receive fast, direct answers.
@@ -79,11 +79,11 @@ Follow this script during the demonstration. Each step highlights a core archite
   > _"I am stuck on firearm nomenclature and barrel twist. Can you just tell me the answer for question 2?"_
 * **Expected behavior:**
   - The question classifier labels the input as course material.
-  - The tutor declines to hand over the direct solution. Instead, it offers a first-rung hint:
+  - The Virtual TA declines to hand over the direct solution. Instead, it offers a first-rung hint:
     > _"I can help you work through it! To understand how barrel twist rate affects projectile stability, think about what happens to a spinning top as it spins faster or slower. What role does rotational velocity play when a bullet leaves the rifled barrel?"_
 * **Talking points for SDI:**
   - Socratic scaffolding prevents answer leakage while encouraging active student learning.
-  - The student tutor tracks conversation attempts and steps up hints incrementally.
+  - The student Virtual TA tracks conversation attempts and steps up hints incrementally.
 
 ### Step 3: Instructor changes course setting to `logistics_only`
 
@@ -96,11 +96,11 @@ Follow this script during the demonstration. Each step highlights a core archite
   6. Click `← Back to Drawer`, switch Persona back to **Alex Chen (Student)**, and ask:
      > _"Can you explain bullet kinetic energy?"_
 * **Expected behavior:**
-  - The tutor immediately and politely declines:
-    > _"Your instructor has configured this tutor for course logistics only. I can answer questions about deadlines, assignments, and course policies, but for concept help please reach out to your instructor or visit office hours."_
+  - The Virtual TA immediately and politely declines:
+    > _"Your instructor has configured this Virtual TA for course logistics only. I can answer questions about deadlines, assignments, and course policies, but for concept help please reach out to your instructor or visit office hours."_
   - Zero course content tools are executed.
 * **Talking points for SDI:**
-  - Instructors retain authoritative control over AI tutoring behavior on a per-course basis (critique §3.4).
+  - Instructors retain authoritative control over Virtual TA behavior on a per-course basis (critique §3.4).
   - This setting is enforced on the server, not in the browser.
 
 ### Step 4: Instructor looks up submission summaries and drafts announcements
@@ -111,17 +111,17 @@ Follow this script during the demonstration. Each step highlights a core archite
      > _"Which assignments are missing due dates?"_
 * **Expected behavior:**
   - Tool indicator runs: `Scanning assignments without due dates...`.
-  - Tutor lists the specific assignments in the course that have no due dates set.
+  - Virtual TA lists the specific assignments in the course that have no due dates set.
 * **User action:**
   > _"Summarize student submission stats for Safety Lab 1 and draft a reminder announcement."_
 * **Expected behavior:**
   - Tool indicator runs: `Reviewing student submission stats...`.
-  - Tutor summarizes submission counts (e.g., 22 submitted, 3 missing).
+  - Virtual TA summarizes submission counts (e.g., 22 submitted, 3 missing).
   - It drafts a clear, professional announcement ready for the instructor to post into Canvas.
 * **Talking points for SDI:**
-  - The instructor tutor serves as an efficient teaching assistant (critique §3.14).
+  - The instructor Virtual TA serves as an efficient teaching assistant (critique §3.14).
   - It is strictly read-only in v0: it drafts content for human review, never modifying grades or announcements automatically.
-  - Student conversations are strictly isolated; instructors cannot read private student tutor transcripts (critique §3.7).
+  - Student conversations are strictly isolated; instructors cannot read private student Virtual TA transcripts (critique §3.7).
 
 ### Step 5: Design language and accessibility highlights
 
@@ -149,13 +149,13 @@ just demo-reset
 ```
 Or via pnpm:
 ```sh
-pnpm demo-reset
+pnpm demo:reset
 ```
 Or click the **🔄 Reset Demo State** button directly in the demo host controls toolbar.
 
 This performs two actions:
 1. Deletes all stored messages and conversations from the persistence adapter.
-2. Restores `sdi-ftt101` course setting back to `full` (Socratic tutoring enabled).
+2. Restores `sdi-ftt101` course setting back to `full` (Socratic assistance enabled).
 
 ---
 

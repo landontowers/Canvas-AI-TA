@@ -12,8 +12,8 @@ RUN pnpm install --frozen-lockfile=false
 COPY packages/core ./packages/core
 COPY apps/web ./apps/web
 
-RUN pnpm --filter @ai-tutor/core run build && \
-    pnpm --filter @ai-tutor/web run build
+RUN pnpm --filter @virtual-ta/core run build && \
+    pnpm --filter @virtual-ta/web run build
 
 FROM nginx:alpine AS runner
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

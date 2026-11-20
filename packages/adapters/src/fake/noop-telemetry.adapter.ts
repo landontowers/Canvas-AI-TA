@@ -1,4 +1,4 @@
-import { TelemetryPort } from '@ai-tutor/core';
+import { TelemetryPort } from '@virtual-ta/core';
 
 export class NoopTelemetryAdapter implements TelemetryPort {
   recordEvent(_name: string, _properties?: Record<string, string | number | boolean>): void {

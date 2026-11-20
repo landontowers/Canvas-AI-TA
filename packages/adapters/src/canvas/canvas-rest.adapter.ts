@@ -10,7 +10,7 @@ import {
   GradebookSummary,
   EnrolledCourse,
   CrossCourseAssignment,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { CanvasClient } from './canvas-client.js';
 import { htmlToMarkdown } from './html-to-markdown.js';
 import {

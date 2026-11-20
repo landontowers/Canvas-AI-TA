@@ -10,10 +10,10 @@ export interface HarnessProfile {
 }
 
 export const STUDENT_HARNESS_PROFILE: HarnessProfile = {
-  name: 'student_tutor',
+  name: 'student_virtual_ta',
   role: 'student',
-  modelRole: 'tutor.student',
-  systemPrompt: `You are an AI Tutor embedded inside Canvas.
+  modelRole: 'virtual_ta.student',
+  systemPrompt: `You are a Virtual TA embedded inside Canvas.
 Your primary role is to help students learn and succeed in their coursework.
 
 PEDAGOGICAL RULES:

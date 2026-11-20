@@ -1,4 +1,4 @@
-import { CrisisAlertPort, CrisisAlertResult, CrisisIncident } from '@ai-tutor/core';
+import { CrisisAlertPort, CrisisAlertResult, CrisisIncident } from '@virtual-ta/core';
 
 export interface WebhookCrisisAlertOptions {
   webhookUrl?: string;

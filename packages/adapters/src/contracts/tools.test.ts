@@ -4,7 +4,7 @@ import {
   ToolRegistry,
   ToolExecutionContext,
   UnauthorizedToolError,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { CanvasClient } from '../canvas/canvas-client.js';
 import { CanvasRestAdapter } from '../canvas/canvas-rest.adapter.js';
 import { InProcessCalculatorAdapter } from '../fake/in-process-calculator.adapter.js';

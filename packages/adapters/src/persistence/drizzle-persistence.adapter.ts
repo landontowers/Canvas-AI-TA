@@ -9,10 +9,10 @@ import {
   Message,
   MessageRole,
   Citation,
-  TutorRole,
+  AssistantRole,
   CrisisIncident,
-  TutoringState,
-} from '@ai-tutor/core';
+  ScaffoldingState,
+} from '@virtual-ta/core';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
@@ -87,7 +87,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       externalCanvasId: rows[0].externalCanvasId,
       name: rows[0].name || undefined,
       email: rows[0].email || undefined,
-      role: rows[0].role as TutorRole,
+      role: rows[0].role as AssistantRole,
       createdAt: rows[0].createdAt,
     };
   }
@@ -110,7 +110,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       externalCanvasId: rows[0].externalCanvasId,
       name: rows[0].name || undefined,
       email: rows[0].email || undefined,
-      role: rows[0].role as TutorRole,
+      role: rows[0].role as AssistantRole,
       createdAt: rows[0].createdAt,
     };
   }
@@ -151,7 +151,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       externalCanvasId: inserted[0].externalCanvasId,
       name: inserted[0].name || undefined,
       email: inserted[0].email || undefined,
-      role: inserted[0].role as TutorRole,
+      role: inserted[0].role as AssistantRole,
       createdAt: inserted[0].createdAt,
     };
   }
@@ -257,7 +257,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     collegeId: string;
     courseId: string;
     userId: string;
-    role: TutorRole;
+    role: AssistantRole;
   }): Promise<Conversation> {
     const inserted = await this.db
       .insert(schema.conversationsTable)
@@ -274,10 +274,10 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       collegeId: inserted[0].collegeId,
       courseId: inserted[0].courseId,
       userId: inserted[0].userId,
-      role: inserted[0].role as TutorRole,
+      role: inserted[0].role as AssistantRole,
       title: inserted[0].title || undefined,
       messageCount: inserted[0].messageCount,
-      tutoringState: (inserted[0].tutoringState as TutoringState) || undefined,
+      scaffoldingState: (inserted[0].scaffoldingState as ScaffoldingState) || undefined,
       createdAt: inserted[0].createdAt,
       updatedAt: inserted[0].updatedAt,
     };
@@ -296,10 +296,10 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       collegeId: rows[0].collegeId,
       courseId: rows[0].courseId,
       userId: rows[0].userId,
-      role: rows[0].role as TutorRole,
+      role: rows[0].role as AssistantRole,
       title: rows[0].title || undefined,
       messageCount: rows[0].messageCount,
-      tutoringState: (rows[0].tutoringState as TutoringState) || undefined,
+      scaffoldingState: (rows[0].scaffoldingState as ScaffoldingState) || undefined,
       createdAt: rows[0].createdAt,
       updatedAt: rows[0].updatedAt,
     };
@@ -322,23 +322,23 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       collegeId: r.collegeId,
       courseId: r.courseId,
       userId: r.userId,
-      role: r.role as TutorRole,
+      role: r.role as AssistantRole,
       title: r.title || undefined,
       messageCount: r.messageCount,
-      tutoringState: (r.tutoringState as TutoringState) || undefined,
+      scaffoldingState: (r.scaffoldingState as ScaffoldingState) || undefined,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));
   }
 
-  async updateConversationTutoringState(
+  async updateConversationScaffoldingState(
     conversationId: string,
-    tutoringState: TutoringState,
+    scaffoldingState: ScaffoldingState,
   ): Promise<Conversation | null> {
     const rows = await this.db
       .update(schema.conversationsTable)
       .set({
-        tutoringState,
+        scaffoldingState,
         updatedAt: new Date(),
       })
       .where(eq(schema.conversationsTable.id, conversationId))
@@ -350,10 +350,10 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       collegeId: rows[0].collegeId,
       courseId: rows[0].courseId,
       userId: rows[0].userId,
-      role: rows[0].role as TutorRole,
+      role: rows[0].role as AssistantRole,
       title: rows[0].title || undefined,
       messageCount: rows[0].messageCount,
-      tutoringState: (rows[0].tutoringState as TutoringState) || undefined,
+      scaffoldingState: (rows[0].scaffoldingState as ScaffoldingState) || undefined,
       createdAt: rows[0].createdAt,
       updatedAt: rows[0].updatedAt,
     };

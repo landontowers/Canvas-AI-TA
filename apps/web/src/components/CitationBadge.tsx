@@ -1,5 +1,5 @@
 import React from 'react';
-import { Citation } from '@ai-tutor/core';
+import { Citation } from '@virtual-ta/core';
 import {
   AssignmentIcon,
   PageIcon,

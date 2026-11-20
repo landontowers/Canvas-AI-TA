@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LmsPort } from '@ai-tutor/core';
+import { LmsPort } from '@virtual-ta/core';
 
 export function runLmsContractTests(name: string, createAdapter: () => LmsPort | Promise<LmsPort>) {
   describe(`LMS Port Contract: ${name}`, () => {

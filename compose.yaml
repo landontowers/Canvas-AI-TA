@@ -1,18 +1,18 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: ai_tutor_db
+    container_name: virtual_ta_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: ai_tutor
+      POSTGRES_DB: virtual_ta
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ai_tutor"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d virtual_ta"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -21,7 +21,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: ai_tutor_api
+    container_name: virtual_ta_api
     restart: unless-stopped
     depends_on:
       db:
@@ -30,7 +30,7 @@ services:
       NODE_ENV: development
       PORT: 3000
       HOST: 0.0.0.0
-      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/ai_tutor
+      DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/virtual_ta
       PERSISTENCE_MODE: ${PERSISTENCE_MODE:-postgres}
       CANVAS_BASE_URL: ${CANVAS_BASE_URL:-https://classroom.sdi.edu}
       CANVAS_ACCESS_TOKEN: ${CANVAS_ACCESS_TOKEN:-mock-dev-token}
@@ -62,7 +62,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: ai_tutor_web
+    container_name: virtual_ta_web
     restart: unless-stopped
     depends_on:
       - api
@@ -73,7 +73,7 @@ services:
   # Run with: docker compose --profile tunnel up
   tunnel:
     image: cloudflare/cloudflared:latest
-    container_name: ai_tutor_tunnel
+    container_name: virtual_ta_tunnel
     restart: unless-stopped
     profiles:
       - tunnel

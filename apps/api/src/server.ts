@@ -17,9 +17,9 @@ import {
   createStandardToolRegistry,
   ToolRegistry,
   UnauthorizedToolError,
-  TutorEngine,
+  VirtualTaEngine,
   toClientStreamEvent,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import {
   FakeLlmAdapter,
   FakeLmsAdapter,
@@ -36,7 +36,7 @@ import {
   CanvasDemoIdentityAdapter,
   GeminiAdapter,
   createDrizzlePersistence,
-} from '@ai-tutor/adapters';
+} from '@virtual-ta/adapters';
 import { CloudflareAccessVerifier } from './cf-access.js';
 import { SlidingWindowRateLimiter } from './rate-limiter.js';
 
@@ -337,7 +337,7 @@ export function buildServer(
     return 'demo_student';
   }
 
-  const engine = new TutorEngine({
+  const engine = new VirtualTaEngine({
     llm: ports.llm,
     instructorLlm: ports.instructorLlm,
     classifierLlm: ports.classifierLlm ?? ports.llm,
@@ -465,9 +465,9 @@ export function buildServer(
         courseId: query.courseId,
       });
 
-      const tools = toolRegistry.getToolsForRole(authContext.tutorRole);
+      const tools = toolRegistry.getToolsForRole(authContext.assistantRole);
       return {
-        role: authContext.tutorRole,
+        role: authContext.assistantRole,
         tools: tools.map((t) => ({
           name: t.name,
           description: t.description,
@@ -516,7 +516,7 @@ export function buildServer(
           userId: authContext.userId,
           canvasUserId: authContext.canvasUserId,
           courseId: authContext.courseId,
-          role: authContext.tutorRole,
+          role: authContext.assistantRole,
           ports: {
             lms: ports.lms,
             calculator: ports.calculator,
@@ -567,7 +567,7 @@ export function buildServer(
 
     try {
       const auth = await ports.identity.resolveIdentity({ personaId, courseId });
-      if (auth.tutorRole !== 'instructor') {
+      if (auth.assistantRole !== 'instructor') {
         reply.status(403);
         return {
           error: 'Forbidden',
@@ -755,7 +755,7 @@ export function buildServer(
     const personaId = extractPersonaId(request);
     try {
       const auth = await ports.identity.resolveIdentity({ personaId });
-      if (auth.tutorRole !== 'instructor') {
+      if (auth.assistantRole !== 'instructor') {
         reply.status(403);
         return {
           error: 'Forbidden',
@@ -778,7 +778,7 @@ export function buildServer(
     };
   });
 
-  // Full streaming SSE chat endpoint driven by TutorEngine
+  // Full streaming SSE chat endpoint driven by VirtualTaEngine
   server.post('/api/chat', async (request, reply) => {
     if (!(await isAuthorized(request))) {
       reply.status(401);

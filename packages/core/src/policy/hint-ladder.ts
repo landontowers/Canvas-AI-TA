@@ -4,14 +4,14 @@ import { QuestionClassification } from './classifier.js';
 export const HintLevelSchema = z.union([z.literal(1), z.literal(2), z.literal(3)]);
 export type HintLevel = z.infer<typeof HintLevelSchema>;
 
-export const TutoringStateSchema = z.object({
+export const ScaffoldingStateSchema = z.object({
   activeConcept: z.string().max(120).optional(),
   attemptCount: z.number().int().nonnegative(),
   hintLevel: HintLevelSchema,
   lastUpdatedAt: z.string().optional(),
 });
 
-export type TutoringState = z.infer<typeof TutoringStateSchema>;
+export type ScaffoldingState = z.infer<typeof ScaffoldingStateSchema>;
 
 const STOP_WORDS = new Set([
   'the',
@@ -86,7 +86,7 @@ const STOP_WORDS = new Set([
   'make',
   'get',
   'got',
-  // Generic tutoring meta / struggle tokens so follow-ups keep the prior topic
+  // Generic scaffolding meta / struggle tokens so follow-ups keep the prior topic
   'help',
   'hint',
   'stuck',
@@ -198,16 +198,16 @@ function topicOverlap(a: string | undefined, b: string | undefined): number {
 }
 
 /**
- * Advances or preserves per-conversation Socratic tutoring state across turns.
+ * Advances or preserves per-conversation Socratic scaffolding state across turns.
  * Escalates Level 1 -> Level 2 -> Level 3 on repeated struggles/attempts on the same concept,
  * preserves state across logistics questions, and resets to Level 1 on a distinct new topic.
  */
-export function advanceTutoringState(
-  prev: TutoringState | undefined,
+export function advanceScaffoldingState(
+  prev: ScaffoldingState | undefined,
   userMessage: string,
   classification: QuestionClassification,
   now: Date = new Date(),
-): TutoringState {
+): ScaffoldingState {
   if (classification === 'logistics') {
     return prev ? { ...prev } : { attemptCount: 0, hintLevel: 1 };
   }
@@ -250,7 +250,7 @@ export function advanceTutoringState(
 /**
  * Formats the current Socratic hint ladder state into a concise server-side system instruction block.
  */
-export function buildHintLadderInstruction(state: TutoringState): string {
+export function buildHintLadderInstruction(state: ScaffoldingState): string {
   const levelDirectives: Record<HintLevel, string> = {
     1: 'Level 1 (Metacognitive Nudge): Ask what the student already knows or has tried, and orient them toward the relevant principle or course material without giving procedural steps or final answers.',
     2: 'Level 2 (Conceptual Scaffold): Provide a targeted conceptual hint, relevant formula/framework name, or concrete analogy, followed by one focused check-in question to test their understanding.',

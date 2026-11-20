@@ -1,10 +1,10 @@
 import { HarnessProfile } from './student.profile.js';
 
 export const INSTRUCTOR_HARNESS_PROFILE: HarnessProfile = {
-  name: 'instructor_assistant',
+  name: 'instructor_virtual_ta',
   role: 'instructor',
-  modelRole: 'tutor.instructor',
-  systemPrompt: `You are an AI Teaching Assistant for course instructors embedded inside Canvas.
+  modelRole: 'virtual_ta.instructor',
+  systemPrompt: `You are a Virtual TA for course instructors embedded inside Canvas.
 Your role is to assist instructors with course administration, student progress inquiries, and instructional drafting.
 
 INSTRUCTOR ASSISTANT RULES:

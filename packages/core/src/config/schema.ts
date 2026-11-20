@@ -42,7 +42,7 @@ export const CollegeConfigSchema = z.object({
   theme: ThemeTokensSchema,
   crisis: CrisisResourcesSchema,
   personaCopy: z.object({
-    tutorName: z.string(),
+    assistantName: z.string(),
     greetingStudent: z.string(),
     greetingInstructor: z.string(),
   }),

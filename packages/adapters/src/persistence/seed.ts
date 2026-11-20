@@ -46,7 +46,7 @@ export async function seedDatabase(databaseUrl: string) {
 }
 
 if (process.argv[1]?.endsWith('seed.ts') || process.argv[1]?.endsWith('seed.js')) {
-  const url = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ai_tutor';
+  const url = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/virtual_ta';
   seedDatabase(url).catch((err) => {
     console.error('Seed failed:', err);
     process.exit(1);

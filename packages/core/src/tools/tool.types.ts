@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TutorRole } from '../types/role.js';
+import { AssistantRole } from '../types/role.js';
 import { LmsPort } from '../ports/lms.port.js';
 import { CalculatorPort } from '../ports/calculator.port.js';
 import { CourseContentPort } from '../ports/course-content.port.js';
@@ -8,7 +8,7 @@ export interface ToolExecutionContext {
   userId: string;
   canvasUserId: string;
   courseId: string;
-  role: TutorRole;
+  role: AssistantRole;
   ports: {
     lms: LmsPort;
     calculator: CalculatorPort;
@@ -17,7 +17,7 @@ export interface ToolExecutionContext {
 }
 
 export class UnauthorizedToolError extends Error {
-  constructor(toolName: string, requiredRole: string, currentRole: TutorRole) {
+  constructor(toolName: string, requiredRole: string, currentRole: AssistantRole) {
     super(
       `Access Denied: Tool '${toolName}' requires role '${requiredRole}', but session role is '${currentRole}'.`,
     );

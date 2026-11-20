@@ -191,7 +191,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/AI Tutor Pedagogy Mode/i)).toBeDefined();
+        expect(screen.getByText(/Virtual TA Pedagogy Mode/i)).toBeDefined();
       });
 
       const logisticsRadio = screen.getByRole('radio', { name: /Logistics Only/i });
@@ -254,7 +254,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       );
 
       // Verify empty state title and suggestions
-      expect(screen.getByText(/SDI Student AI Tutor/i)).toBeDefined();
+      expect(screen.getByText(/SDI Student Virtual TA/i)).toBeDefined();
       expect(screen.getByText(/When is Safety Lab 1 due\?/i)).toBeDefined();
 
       // Verify darkened toolbar buttons
@@ -394,8 +394,8 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         />,
       );
 
-      const input = screen.getByLabelText(/Ask the SDI AI Tutor/i);
-      const sendBtn = screen.getByRole('button', { name: /Send message to AI Tutor/i });
+      const input = screen.getByLabelText(/Ask the SDI Virtual TA/i);
+      const sendBtn = screen.getByRole('button', { name: /Send message to Virtual TA/i });
 
       // Turn 1: ballistics math mentioning '988'
       fireEvent.change(input, { target: { value: 'Calculate energy' } });
@@ -422,7 +422,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
 
       // Turn 2: typed crisis event DOES render crisis card
       fireEvent.change(input, { target: { value: 'Need emergency help' } });
-      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Send message to Virtual TA/i }));
 
       await waitFor(() => {
         expect(screen.getByRole('alert', { name: /Emergency Crisis Support/i })).toBeDefined();
@@ -489,9 +489,9 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         />,
       );
 
-      const input = screen.getByLabelText(/Ask the SDI AI Tutor/i);
+      const input = screen.getByLabelText(/Ask the SDI Virtual TA/i);
       fireEvent.change(input, { target: { value: 'Long answer' } });
-      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Send message to Virtual TA/i }));
 
       await waitFor(() => {
         expect(screen.getByRole('button', { name: /Stop generating response/i })).toBeDefined();
@@ -499,12 +499,12 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       fireEvent.click(screen.getByRole('button', { name: /Stop generating response/i }));
 
       await waitFor(() => {
-        expect(screen.getByRole('button', { name: /Send message to AI Tutor/i })).toBeDefined();
+        expect(screen.getByRole('button', { name: /Send message to Virtual TA/i })).toBeDefined();
       });
 
       // Trigger SSE error event
       fireEvent.change(input, { target: { value: 'Trigger error' } });
-      fireEvent.click(screen.getByRole('button', { name: /Send message to AI Tutor/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Send message to Virtual TA/i }));
 
       await waitFor(() => {
         expect(screen.getByText(/Model temporarily unavailable/i)).toBeDefined();
@@ -565,7 +565,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       render(<DemoShell />);
 
       // Verify header with SDI crest icon and title
-      const heading = screen.getByRole('heading', { level: 1, name: /SDI AI Tutor/i });
+      const heading = screen.getByRole('heading', { level: 1, name: /SDI Virtual TA/i });
       expect(heading).toBeDefined();
 
       // High contrast toggle button
@@ -609,7 +609,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       fireEvent.click(chatToggleBtn);
 
       await waitFor(() => {
-        expect(screen.getByText(/SDI Instructor Assistant/i)).toBeDefined();
+        expect(screen.getByText(/SDI Instructor Virtual TA/i)).toBeDefined();
       });
     });
   });

@@ -9,10 +9,10 @@ import {
   Message,
   MessageRole,
   Citation,
-  TutorRole,
+  AssistantRole,
   CrisisIncident,
-  TutoringState,
-} from '@ai-tutor/core';
+  ScaffoldingState,
+} from '@virtual-ta/core';
 import crypto from 'node:crypto';
 
 export class InMemoryPersistenceAdapter implements PersistencePort {
@@ -102,7 +102,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     collegeId: string;
     courseId: string;
     userId: string;
-    role: TutorRole;
+    role: AssistantRole;
   }): Promise<Conversation> {
     const id = crypto.randomUUID();
     const now = new Date();
@@ -130,13 +130,13 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     );
   }
 
-  async updateConversationTutoringState(
+  async updateConversationScaffoldingState(
     conversationId: string,
-    tutoringState: TutoringState,
+    scaffoldingState: ScaffoldingState,
   ): Promise<Conversation | null> {
     const conv = this.conversations.get(conversationId);
     if (!conv) return null;
-    conv.tutoringState = tutoringState;
+    conv.scaffoldingState = scaffoldingState;
     conv.updatedAt = new Date();
     return conv;
   }

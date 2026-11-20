@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TutorRoleSchema } from './role.js';
+import { AssistantRoleSchema } from './role.js';
 
 export const UserSchema = z.object({
   id: z.string().uuid(),
@@ -7,7 +7,7 @@ export const UserSchema = z.object({
   externalCanvasId: z.string(),
   name: z.string().optional(),
   email: z.string().email().optional(),
-  role: TutorRoleSchema,
+  role: AssistantRoleSchema,
   createdAt: z.date(),
 });
 

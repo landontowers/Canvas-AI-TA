@@ -5,7 +5,7 @@ import {
   LlmResponse,
   LlmUsage,
   StreamEvent,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 
 function estimateUsage(options: LlmGenerateOptions, responseText: string): LlmUsage {
   const inputChars =

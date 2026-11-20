@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LlmPort } from '@ai-tutor/core';
+import { LlmPort } from '@virtual-ta/core';
 import { runModerationContractTests } from '../contracts/moderation.contract.js';
 import { ContextualModerationAdapter } from './contextual-moderation.adapter.js';
 

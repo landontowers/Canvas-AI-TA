@@ -18,27 +18,27 @@ describe('CanvasDemoIdentityAdapter', () => {
     collegeId: 'sdi',
   });
 
-  it('resolves demo_student to student tutor role', async () => {
+  it('resolves demo_student to student Virtual TA role', async () => {
     const context = await adapter.resolveIdentity({ personaId: 'demo_student', courseId: '101' });
 
-    expect(context.tutorRole).toBe('student');
+    expect(context.assistantRole).toBe('student');
     expect(context.canvasUserId).toBe('1001');
     expect(context.collegeId).toBe('sdi');
     expect(context.roles).toContain('Learner');
   });
 
-  it('resolves demo_instructor to instructor tutor role', async () => {
+  it('resolves demo_instructor to instructor Virtual TA role', async () => {
     const context = await adapter.resolveIdentity({ personaId: 'demo_instructor', courseId: '101' });
 
-    expect(context.tutorRole).toBe('instructor');
+    expect(context.assistantRole).toBe('instructor');
     expect(context.canvasUserId).toBe('2001');
     expect(context.roles).toContain('Instructor');
   });
 
-  it('resolves demo_ta with mixed roles to instructor tutor role per fixed rule (critique §3.14)', async () => {
+  it('resolves demo_ta with mixed roles to instructor Virtual TA role per fixed rule (critique §3.14)', async () => {
     const context = await adapter.resolveIdentity({ personaId: 'demo_ta', courseId: '101' });
 
-    expect(context.tutorRole).toBe('instructor');
+    expect(context.assistantRole).toBe('instructor');
     expect(context.canvasUserId).toBe('3001');
     expect(context.roles).toContain('TeachingAssistant');
   });

@@ -20,7 +20,7 @@ export interface PolicyDecision {
 /**
  * Server-enforced policy decision (critique §3.4).
  * If the course setting is 'logistics_only' and the question is classified as 'course_material',
- * access to course content is denied and the tutor responds with a refusal directing the student to the instructor.
+ * access to course content is denied and the Virtual TA responds with a refusal directing the student to the instructor.
  */
 export function evaluateStudentPolicy(
   classification: QuestionClassification,
@@ -31,7 +31,7 @@ export function evaluateStudentPolicy(
       allowed: false,
       classification,
       refusalMessage:
-        'Your instructor has configured this tutor for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.',
+        'Your instructor has configured this Virtual TA for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.',
     };
   }
 

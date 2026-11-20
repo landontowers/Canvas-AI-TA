@@ -7,9 +7,9 @@ import {
   Message,
   MessageRole,
   Citation,
-  TutorRole,
+  AssistantRole,
 } from '../types/index.js';
-import { TutoringState } from '../policy/hint-ladder.js';
+import { ScaffoldingState } from '../policy/hint-ladder.js';
 
 export interface CollegeRecord {
   id: string;
@@ -37,13 +37,13 @@ export interface PersistencePort {
     collegeId: string;
     courseId: string;
     userId: string;
-    role: TutorRole;
+    role: AssistantRole;
   }): Promise<Conversation>;
   getConversation(conversationId: string): Promise<Conversation | null>;
   listConversations(userId: string, courseId: string): Promise<Conversation[]>;
-  updateConversationTutoringState(
+  updateConversationScaffoldingState(
     conversationId: string,
-    tutoringState: TutoringState,
+    scaffoldingState: ScaffoldingState,
   ): Promise<Conversation | null>;
 
   saveMessage(params: {

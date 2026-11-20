@@ -1,4 +1,4 @@
-import { ModerationPort, ModerationResult } from '@ai-tutor/core';
+import { ModerationPort, ModerationResult } from '@virtual-ta/core';
 
 export class FakeModerationAdapter implements ModerationPort {
   private crisisKeywords = [

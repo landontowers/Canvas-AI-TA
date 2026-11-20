@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Canvas Native LTI 1.3 AI Tutor Drawer (Resizable, Flat)
+// @name         Canvas Native LTI 1.3 Virtual TA Drawer (Resizable, Flat)
 // @namespace    https://sdi.edu
-// @version      2.2
+// @version      2.3
 // @description  Resizable native Canvas sidebar drawer with flat border (no left shadow) and bottom-right trigger
 // @match        https://classroom.sdi.edu/*
 // @match        https://*.instructure.com/*
@@ -12,9 +12,9 @@
 (function() {
     'use strict';
 
-    const DEFAULT_TUTOR_URL = 'https://YOUR_TUTOR_HOST_URL/?embedded=true';
-    const TUTOR_HTTPS_URL = localStorage.getItem('sdi_tutor_url') || DEFAULT_TUTOR_URL;
-    let drawerWidth = parseInt(localStorage.getItem('sdi_tutor_drawer_width') || '360', 10);
+    const DEFAULT_VIRTUAL_TA_URL = 'https://YOUR_VIRTUAL_TA_HOST_URL/?embedded=true';
+    const VIRTUAL_TA_HTTPS_URL = localStorage.getItem('sdi_virtual_ta_url') || DEFAULT_VIRTUAL_TA_URL;
+    let drawerWidth = parseInt(localStorage.getItem('sdi_virtual_ta_drawer_width') || '360', 10);
     if (isNaN(drawerWidth) || drawerWidth < 300) drawerWidth = 360;
 
     let isOpen = false;
@@ -22,7 +22,7 @@
 
     // 1. Create the Drawer Container (Flat style: border-left only, no drop-shadow)
     const drawer = document.createElement('div');
-    drawer.id = 'sdi-ai-tutor-drawer-native';
+    drawer.id = 'sdi-virtual-ta-drawer-native';
     drawer.style.cssText = `
         position: fixed;
         top: 0;
@@ -41,7 +41,7 @@
     // 2. Create the Left Edge Resize Handle
     const resizeHandle = document.createElement('div');
     resizeHandle.id = 'sdi-drawer-resizer';
-    resizeHandle.title = 'Drag to resize tutor width';
+    resizeHandle.title = 'Drag to resize Virtual TA width';
     resizeHandle.style.cssText = `
         position: absolute;
         top: 0;
@@ -84,7 +84,7 @@
 
     // 3. Create the iframe
     const iframe = document.createElement('iframe');
-    iframe.src = TUTOR_HTTPS_URL;
+    iframe.src = VIRTUAL_TA_HTTPS_URL;
     iframe.style.cssText = 'width: 100%; height: 100%; border: none; flex: 1;';
     drawer.appendChild(iframe);
     document.body.appendChild(drawer);
@@ -94,11 +94,11 @@
     const CLOSE_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
     const btn = document.createElement('button');
-    btn.id = 'ai-tutor-fab';
+    btn.id = 'virtual-ta-fab';
     btn.type = 'button';
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = `${SPARK_ICON}<span>AI Tutor</span>`;
-    btn.title = 'Toggle SDI AI Tutor';
+    btn.innerHTML = `${SPARK_ICON}<span>Virtual TA</span>`;
+    btn.title = 'Toggle SDI Virtual TA';
     btn.style.cssText = `
         position: fixed;
         bottom: 24px;
@@ -149,7 +149,7 @@
         // Move button adjacent to drawer when open, or back to bottom-right when closed
         btn.style.right = isOpen ? `${drawerWidth + 18}px` : '24px';
         btn.style.background = isOpen ? '#101820' : '#D50032';
-        btn.innerHTML = isOpen ? `${CLOSE_ICON}<span>Close Tutor</span>` : `${SPARK_ICON}<span>AI Tutor</span>`;
+        btn.innerHTML = isOpen ? `${CLOSE_ICON}<span>Close Virtual TA</span>` : `${SPARK_ICON}<span>Virtual TA</span>`;
         btn.setAttribute('aria-expanded', String(isOpen));
 
         if (!animate) {
@@ -202,7 +202,7 @@
             handleLine.style.background = '#CACFD5';
             handleLine.style.height = '48px';
 
-            localStorage.setItem('sdi_tutor_drawer_width', String(drawerWidth));
+            localStorage.setItem('sdi_virtual_ta_drawer_width', String(drawerWidth));
 
             drawer.style.transition = 'right 0.25s cubic-bezier(0.25, 0.8, 0.25, 1)';
             if (canvasMain) {
@@ -224,12 +224,19 @@
         const courseId = courseMatch ? courseMatch[1] : (window.ENV?.COURSE_ID || 'sdi-ftt101');
         const pageTitle = document.title.replace(/\s*:\s*.*$/, '').trim() || 'Course Page';
 
+        let targetOrigin = '*';
+        try {
+            targetOrigin = new URL(VIRTUAL_TA_HTTPS_URL).origin;
+        } catch {
+            // Fall back cleanly if stored URL is relative or unparseable
+        }
+
         iframe.contentWindow?.postMessage({
             subject: 'lti.pageContent',
             course_id: courseId,
             page_title: pageTitle,
             url: window.location.href,
-        }, '*');
+        }, targetOrigin);
     }
 
     window.addEventListener('keydown', (e) => {
@@ -243,4 +250,7 @@
             sendLtiContext();
         }
     });
+
+    // Initialize in closed state cleanly
+    updateLayout(false);
 })();

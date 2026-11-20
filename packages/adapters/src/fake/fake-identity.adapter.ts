@@ -1,4 +1,4 @@
-import { IdentityPort, AuthUserContext, resolveTutorRole } from '@ai-tutor/core';
+import { IdentityPort, AuthUserContext, resolveAssistantRole } from '@virtual-ta/core';
 
 export interface DemoPersonaRecord {
   id: string;
@@ -42,7 +42,7 @@ export class FakeIdentityAdapter implements IdentityPort {
     }
 
     const roles = persona.roles;
-    const tutorRole = resolveTutorRole(roles);
+    const assistantRole = resolveAssistantRole(roles);
 
     return {
       userId: `user-${persona.canvasUserId}`,
@@ -50,7 +50,7 @@ export class FakeIdentityAdapter implements IdentityPort {
       collegeId: 'sdi',
       courseId: params.courseId || 'sdi-ftt101',
       roles,
-      tutorRole,
+      assistantRole,
     };
   }
 }

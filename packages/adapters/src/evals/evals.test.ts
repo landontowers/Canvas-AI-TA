@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LlmGenerateOptions, LlmPort, StreamEvent } from '@ai-tutor/core';
+import { LlmGenerateOptions, LlmPort, StreamEvent } from '@virtual-ta/core';
 import { runEvalSuite } from './eval-runner.js';
 import { EXTENDED_PEDAGOGY_AND_SAFETY_CASES } from './eval-cases.js';
 import path from 'node:path';
 import fs from 'node:fs';
 
-describe('AI Tutor Evaluation Suite (Phase 3 Baseline + Sprint 2 Live/Judge Harness)', () => {
+describe('Virtual TA Evaluation Suite (Phase 3 Baseline + Sprint 2 Live/Judge Harness)', () => {
   it('runs the 60-case evaluation suite and records baseline results with latency and token metrics', async () => {
     const isRoot = fs.existsSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'));
     const outputPath = isRoot

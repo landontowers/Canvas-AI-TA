@@ -1,4 +1,4 @@
-import { loadAppConfig, runMigrations, seedDatabase } from '@ai-tutor/adapters';
+import { loadAppConfig, runMigrations, seedDatabase } from '@virtual-ta/adapters';
 import { buildServer } from './server.js';
 
 async function main() {

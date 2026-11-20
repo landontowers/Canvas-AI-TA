@@ -1,4 +1,4 @@
-import { CollegeConfig, DemoPersona } from '@ai-tutor/core';
+import { CollegeConfig, DemoPersona } from '@virtual-ta/core';
 
 export const SDI_DEMO_PERSONAS: DemoPersona[] = [
   {
@@ -45,9 +45,9 @@ export const SDI_COLLEGE_CONFIG: CollegeConfig = {
       'If you or someone you know is struggling or in crisis, help is available. Speak or text with someone at 988, or reach out to SDI Student Support.',
   },
   personaCopy: {
-    tutorName: 'SDI AI Tutor',
+    assistantName: 'SDI Virtual TA',
     greetingStudent:
-      'Hello! I am your SDI AI Tutor. I can help answer questions about your deadlines, assignments, and guide you through your course material.',
+      'Hello! I am your SDI Virtual TA. I can help answer questions about your deadlines, assignments, and guide you through your course material.',
     greetingInstructor:
       'Welcome, Instructor. I can help look up assignment submissions, summarize gradebook data, and draft course materials.',
   },

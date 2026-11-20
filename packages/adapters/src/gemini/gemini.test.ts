@@ -105,7 +105,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
           toolResultId: 'call_prev',
         },
       ],
-      systemPrompt: 'You are an AI Tutor.',
+      systemPrompt: 'You are a Virtual TA.',
       tools: [
         {
           name: 'get_syllabus',

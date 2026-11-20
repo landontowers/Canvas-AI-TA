@@ -260,7 +260,7 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
 
   it('executes idempotent DDL migration statements via runMigrations', async () => {
     const executedSql: string[] = [];
-    await runMigrations('postgresql://postgres:postgrespassword@localhost:5432/ai_tutor', {
+    await runMigrations('postgresql://postgres:postgrespassword@localhost:5432/virtual_ta', {
       unsafe: async (stmt: string) => {
         executedSql.push(stmt);
       },
@@ -269,10 +269,10 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
     expect(executedSql).toEqual(MIGRATION_STATEMENTS);
     expect(executedSql.some((s) => s.includes('course_id TEXT NOT NULL UNIQUE'))).toBe(true);
     expect(executedSql.some((s) => s.includes('is_crisis BOOLEAN'))).toBe(true);
-    expect(executedSql.some((s) => s.includes('tutoring_state JSONB'))).toBe(true);
+    expect(executedSql.some((s) => s.includes('scaffolding_state JSONB'))).toBe(true);
   });
 
-  it('updates conversation tutoring state', async () => {
+  it('updates conversation scaffolding state', async () => {
     const returningSpy = vi.fn().mockResolvedValue([
       {
         id: 'conv_1',
@@ -282,7 +282,7 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
         role: 'student',
         title: 'Help with lab 1',
         messageCount: 2,
-        tutoringState: {
+        scaffoldingState: {
           activeConcept: 'headspace tolerance',
           attemptCount: 2,
           hintLevel: 2,
@@ -303,12 +303,12 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
     };
 
     const adapter = new DrizzlePersistenceAdapter(mockDb);
-    const updated = await adapter.updateConversationTutoringState('conv_1', {
+    const updated = await adapter.updateConversationScaffoldingState('conv_1', {
       activeConcept: 'headspace tolerance',
       attemptCount: 2,
       hintLevel: 2,
     });
-    expect(updated?.tutoringState?.hintLevel).toBe(2);
+    expect(updated?.scaffoldingState?.hintLevel).toBe(2);
   });
 
   it('records and lists crisis incidents', async () => {

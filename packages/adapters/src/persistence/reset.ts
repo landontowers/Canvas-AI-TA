@@ -33,7 +33,7 @@ export async function resetDatabase(databaseUrl: string, courseId = 'sdi-ftt101'
 }
 
 if (process.argv[1]?.endsWith('reset.ts') || process.argv[1]?.endsWith('reset.js')) {
-  const url = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/ai_tutor';
+  const url = process.env.DATABASE_URL || 'postgresql://postgres:postgrespassword@localhost:5432/virtual_ta';
   resetDatabase(url).catch((err) => {
     console.error('Demo reset failed:', err);
     process.exit(1);

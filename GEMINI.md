@@ -4,7 +4,7 @@ This file gives an AI coding assistant the context it needs to work in this repo
 
 ## What this is
 
-AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine serves two tutors, one for students and one for instructors. The first college is Sonoran Desert Institute (SDI). It's a personal open-source project: Apache 2.0, copyright Landon Towers (see `NOTICE`).
+Virtual TA v0 is a Socratic Virtual TA that runs inside the Canvas LMS. One engine serves two assistants, one for students and one for instructors. The first college is Sonoran Desert Institute (SDI). It's a personal open-source project: Apache 2.0, copyright Landon Towers (see `NOTICE`).
 
 ## Read these first
 
@@ -13,7 +13,7 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
 
 ## Where things stand (2026-11-20)
 
-- **Phases 0 through 5 (cleanup, foundation, Canvas integration, tutor engine, interface, demo hosting & hardening) are complete**, including FERPA § 99.31(b) privacy-preserving structured telemetry and FERPA § 99.36 crisis escalation. Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
+- **Phases 0 through 5 (cleanup, foundation, Canvas integration, Virtual TA engine, interface, demo hosting & hardening) are complete**, including FERPA § 99.31(b) privacy-preserving structured telemetry and FERPA § 99.36 crisis escalation. Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
 - **The current goal is a functional demo hosted locally** (critique §4), not production.
 - **The old prototype is preserved at the `prototype-final` tag.** It's reference only: don't copy its code back in, and link to it only at the tag.
 
@@ -21,9 +21,9 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
 
 - **Stack:** TypeScript end to end, with pnpm workspaces, React with Instructure UI, a Node.js API, Postgres, and zod for schemas.
 - **Architecture:** a core with ports and adapters. `packages/core` never imports a vendor SDK. Every external service is an adapter, with a fake and contract tests (critique §3.12).
-- **Two tutors** (critique §3.14). The role comes from Canvas, never from the client.
-  - The student tutor is Socratic for course material and answers logistics directly. The course setting is `full` (the default) or `logistics_only`, enforced on the server.
-  - The instructor tutor is direct and read-only.
+- **Two assistants** (critique §3.14). The role comes from Canvas, never from the client.
+  - The student Virtual TA is Socratic for course material and answers logistics directly. The course setting is `full` (the default) or `logistics_only`, enforced on the server.
+  - The instructor Virtual TA is direct and read-only.
 - **Models** (critique §3.9):
   - Development and the demo: Gemini (Flash or Flash-Lite) on a personal Google account.
   - Pilot and production: Azure OpenAI `gpt-5.4-mini` and `gpt-5.4-nano`.
@@ -43,7 +43,7 @@ AI Tutor v0 is a Socratic AI tutor that runs inside the Canvas LMS. One engine s
   - `_underscore_` emphasis;
   - tables with `| --- |` separators.
 - **Git:** work on a branch, then fast-forward `main`. Write commit subjects in the imperative, with a bulleted body for anything non-trivial.
-- **This repo is a fork of `spencer-thompson/ai-tutor`.** Pull requests must target `landontowers/canvas-ai-tutor`, not the upstream repo.
+- **This repo is a fork of `spencer-thompson/ai-tutor`.** Pull requests must target `landontowers/Canvas-AI-TA`, not the upstream repo.
 
 ## Open items
 

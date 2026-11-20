@@ -1,4 +1,4 @@
-import { AppConfig, AppConfigSchema } from '@ai-tutor/core';
+import { AppConfig, AppConfigSchema } from '@virtual-ta/core';
 import { SDI_COLLEGE_CONFIG, SDI_DEMO_PERSONAS } from './sdi.config.js';
 
 export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
@@ -50,7 +50,7 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
       corsOrigins: env.CORS_ORIGINS ? env.CORS_ORIGINS.split(',') : ['*'],
     },
     database: {
-      url: env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ai_tutor',
+      url: env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/virtual_ta',
       persistenceMode,
     },
     canvas: {

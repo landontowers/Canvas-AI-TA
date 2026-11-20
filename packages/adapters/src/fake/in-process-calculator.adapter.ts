@@ -2,7 +2,7 @@ import {
   CalculatorPort,
   CalculationResult,
   DateMathResult,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { create, all } from 'mathjs';
 
 const MAX_EXPRESSION_LENGTH = 256;

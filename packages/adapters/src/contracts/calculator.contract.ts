@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CalculatorPort } from '@ai-tutor/core';
+import { CalculatorPort } from '@virtual-ta/core';
 
 export function runCalculatorContractTests(
   name: string,

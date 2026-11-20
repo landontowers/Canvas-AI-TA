@@ -1,4 +1,4 @@
-import { TutorRole } from '../types/role.js';
+import { AssistantRole } from '../types/role.js';
 
 export interface AuthUserContext {
   userId: string;
@@ -6,7 +6,7 @@ export interface AuthUserContext {
   collegeId: string;
   courseId: string;
   roles: string[];
-  tutorRole: TutorRole;
+  assistantRole: AssistantRole;
 }
 
 export interface IdentityPort {

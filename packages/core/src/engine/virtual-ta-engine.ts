@@ -18,15 +18,15 @@ import { HarnessProfile, STUDENT_HARNESS_PROFILE } from '../profiles/student.pro
 import { INSTRUCTOR_HARNESS_PROFILE } from '../profiles/instructor.profile.js';
 import { evaluateStudentPolicy, QuestionClassification } from '../policy/classifier.js';
 import {
-  TutoringState,
-  advanceTutoringState,
+  ScaffoldingState,
+  advanceScaffoldingState,
   buildHintLadderInstruction,
 } from '../policy/hint-ladder.js';
 import { CollegeConfig } from '../config/schema.js';
 import { CourseSettingValue } from '../types/course.js';
-import { TutorRole } from '../types/role.js';
+import { AssistantRole } from '../types/role.js';
 
-export interface TutorEngineDependencies {
+export interface VirtualTaEngineDependencies {
   llm: LlmPort;
   instructorLlm?: LlmPort;
   classifierLlm?: LlmPort;
@@ -60,8 +60,8 @@ export interface TurnParameters {
 const MAX_PAGE_CONTENT_CHARS = 4000;
 const PURE_CALCULATION_TOOLS = new Set(['calculate', 'date_math']);
 
-export class TutorEngine {
-  constructor(private deps: TutorEngineDependencies) {}
+export class VirtualTaEngine {
+  constructor(private deps: VirtualTaEngineDependencies) {}
 
   /**
    * Helper classifier for student questions (critique §3.4).
@@ -142,15 +142,15 @@ export class TutorEngine {
 
   private buildSystemPrompt(
     profile: HarnessProfile,
-    role: TutorRole,
+    role: AssistantRole,
     courseSetting: CourseSettingValue,
     pageContext?: PageContext,
-    tutoringState?: TutoringState,
+    scaffoldingState?: ScaffoldingState,
   ): string {
     const promptSections: string[] = [profile.systemPrompt];
 
-    if (role === 'student' && courseSetting === 'full' && tutoringState) {
-      promptSections.push(buildHintLadderInstruction(tutoringState));
+    if (role === 'student' && courseSetting === 'full' && scaffoldingState) {
+      promptSections.push(buildHintLadderInstruction(scaffoldingState));
     }
 
     if (!pageContext || (role === 'student' && courseSetting === 'logistics_only')) {
@@ -180,7 +180,7 @@ export class TutorEngine {
 
   private getPermittedTools(
     profile: HarnessProfile,
-    role: TutorRole,
+    role: AssistantRole,
     courseSetting: CourseSettingValue,
   ): ToolDefinition[] {
     const allowedSet = new Set(profile.allowedToolNames);
@@ -264,7 +264,7 @@ export class TutorEngine {
   }
 
   /**
-   * Executes a full tutoring turn, streaming typed SSE events to the caller.
+   * Executes a full Virtual TA turn, streaming typed SSE events to the caller.
    */
   async *executeTurn(params: TurnParameters): AsyncIterable<StreamEvent> {
     const startTime = Date.now();
@@ -292,7 +292,7 @@ export class TutorEngine {
         collegeId: authContext.collegeId,
         courseId: authContext.courseId,
         userId: authContext.userId,
-        role: authContext.tutorRole,
+        role: authContext.assistantRole,
       });
     }
 
@@ -378,10 +378,10 @@ export class TutorEngine {
     }
 
     // 4. Role-based Profile, Single Course Settings Lookup, Policy check & Hint Ladder
-    const isStudent = authContext.tutorRole === 'student';
+    const isStudent = authContext.assistantRole === 'student';
     const profile = isStudent ? STUDENT_HARNESS_PROFILE : INSTRUCTOR_HARNESS_PROFILE;
     const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
-    let activeTutoringState: TutoringState | undefined;
+    let activeScaffoldingState: ScaffoldingState | undefined;
 
     if (isStudent && courseSettings.setting === 'logistics_only') {
       const classification = await this.classifyQuestion(params.message);
@@ -390,7 +390,7 @@ export class TutorEngine {
       if (!policy.allowed) {
         const refusal =
           policy.refusalMessage ||
-          'Your instructor has configured this tutor for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.';
+          'Your instructor has configured this Virtual TA for course logistics only. For questions regarding the course subject matter and assignments, please reach out directly to your instructor.';
 
         yield {
           type: 'text-delta',
@@ -418,36 +418,36 @@ export class TutorEngine {
     } else if (isStudent && courseSettings.setting === 'full') {
       const studentClassification = await this.classifyQuestion(params.message, { useLlm: false });
       if (studentClassification === 'course_material') {
-        activeTutoringState = advanceTutoringState(
-          conversation.tutoringState,
+        activeScaffoldingState = advanceScaffoldingState(
+          conversation.scaffoldingState,
           params.message,
           studentClassification,
         );
-        const updatedConv = await this.deps.persistence.updateConversationTutoringState(
+        const updatedConv = await this.deps.persistence.updateConversationScaffoldingState(
           conversation.id,
-          activeTutoringState,
+          activeScaffoldingState,
         );
-        if (updatedConv?.tutoringState) {
-          activeTutoringState = updatedConv.tutoringState;
+        if (updatedConv?.scaffoldingState) {
+          activeScaffoldingState = updatedConv.scaffoldingState;
         }
-      } else if (conversation.tutoringState) {
-        activeTutoringState = conversation.tutoringState;
+      } else if (conversation.scaffoldingState) {
+        activeScaffoldingState = conversation.scaffoldingState;
       }
     }
 
     // 5. Build tool list from profile allowlist + role boundary + logistics_only guard
     const availableTools = this.getPermittedTools(
       profile,
-      authContext.tutorRole,
+      authContext.assistantRole,
       courseSettings.setting,
     );
 
     const systemPrompt = this.buildSystemPrompt(
       profile,
-      authContext.tutorRole,
+      authContext.assistantRole,
       courseSettings.setting,
       params.pageContext,
-      activeTutoringState,
+      activeScaffoldingState,
     );
     const activeLlm = isStudent ? this.deps.llm : (this.deps.instructorLlm ?? this.deps.llm);
 
@@ -469,7 +469,7 @@ export class TutorEngine {
       userId: authContext.userId,
       canvasUserId: authContext.canvasUserId,
       courseId: authContext.courseId,
-      role: authContext.tutorRole,
+      role: authContext.assistantRole,
       ports: {
         lms: this.deps.lms,
         calculator: this.deps.calculator,
@@ -597,27 +597,27 @@ export class TutorEngine {
     const ttftMs = firstTokenTime !== undefined ? firstTokenTime - startTime : undefined;
 
     this.deps.telemetry.recordMetric('turn_duration_ms', durationMs, {
-      role: authContext.tutorRole,
+      role: authContext.assistantRole,
       courseId: authContext.courseId,
     });
 
     if (ttftMs !== undefined) {
       this.deps.telemetry.recordMetric('turn_ttft_ms', ttftMs, {
-        role: authContext.tutorRole,
+        role: authContext.assistantRole,
         courseId: authContext.courseId,
       });
     }
 
     if (totalTokens > 0) {
       this.deps.telemetry.recordMetric('llm_tokens_total', totalTokens, {
-        role: authContext.tutorRole,
+        role: authContext.assistantRole,
         courseId: authContext.courseId,
       });
     }
 
     this.deps.telemetry.recordEvent('turn_completed', {
       userId: authContext.userId,
-      role: authContext.tutorRole,
+      role: authContext.assistantRole,
       courseId: authContext.courseId,
       durationMs,
       promptChars: params.message.length,
@@ -626,10 +626,10 @@ export class TutorEngine {
       toolRounds: round - 1,
       ...(ttftMs !== undefined ? { ttftMs } : {}),
       ...(totalTokens > 0 ? { promptTokens, completionTokens, totalTokens } : {}),
-      ...(activeTutoringState
+      ...(activeScaffoldingState
         ? {
-            hintLevel: activeTutoringState.hintLevel,
-            attemptCount: activeTutoringState.attemptCount,
+            hintLevel: activeScaffoldingState.hintLevel,
+            attemptCount: activeScaffoldingState.attemptCount,
           }
         : {}),
     });

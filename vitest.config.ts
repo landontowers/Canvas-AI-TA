@@ -7,8 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
-      '@ai-tutor/core': path.resolve(__dirname, './packages/core/src/index.ts'),
-      '@ai-tutor/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
+      '@virtual-ta/core': path.resolve(__dirname, './packages/core/src/index.ts'),
+      '@virtual-ta/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
     },
   },
   test: {
@@ -24,8 +24,8 @@ export default defineConfig({
           ],
           environment: 'node',
           alias: {
-            '@ai-tutor/core': path.resolve(__dirname, './packages/core/src/index.ts'),
-            '@ai-tutor/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
+            '@virtual-ta/core': path.resolve(__dirname, './packages/core/src/index.ts'),
+            '@virtual-ta/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
           },
         },
       },
@@ -36,8 +36,8 @@ export default defineConfig({
           include: ['apps/web/**/*.test.{ts,tsx}'],
           environment: 'jsdom',
           alias: {
-            '@ai-tutor/core': path.resolve(__dirname, './packages/core/src/index.ts'),
-            '@ai-tutor/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
+            '@virtual-ta/core': path.resolve(__dirname, './packages/core/src/index.ts'),
+            '@virtual-ta/adapters': path.resolve(__dirname, './packages/adapters/src/index.ts'),
           },
         },
       },

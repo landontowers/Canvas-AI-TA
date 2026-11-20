@@ -1,5 +1,5 @@
 {
-  "name": "@ai-tutor/adapters",
+  "name": "@virtual-ta/adapters",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,7 @@
     "demo:reset": "tsx src/persistence/reset.ts"
   },
   "dependencies": {
-    "@ai-tutor/core": "workspace:*",
+    "@virtual-ta/core": "workspace:*",
     "@google/genai": "^3.6.1",
     "drizzle-orm": "^0.45.4",
     "mathjs": "^14.3.1",

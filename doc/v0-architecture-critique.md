@@ -1,4 +1,4 @@
-# AI Tutor v0: architecture critique and decisions
+# Virtual TA v0: architecture critique and decisions
 
 _2026-11-19. This repo is a fork of a college-era prototype. v0 is a new build by a new team, based on the prototype's principles rather than iterating on its code. This document records what to keep from the prototype, what to change, the deployment plan, and the decisions made so far. It is not an implementation plan. The current goal is a functional demo hosted locally; production comes after (§4). The phased build is in [v0-implementation-plan.md](v0-implementation-plan.md)._
 
@@ -6,7 +6,7 @@ _2026-11-19. This repo is a fork of a college-era prototype. v0 is a new build b
 
 **The prototype** ran without institutional Canvas API access. A browser extension running on `*.instructure.com` read each student's Canvas data and pushed it to a FastAPI + MongoDB backend. A Streamlit UI (and a Svelte beta) talked to GPT models that had a few read-only tools.
 
-**v0** keeps the core concept: Socratic, course-specific, student-centric tutoring built on Canvas, with code execution available to the model. It is a quick-response helper in a Canvas sidebar that answers and asks short questions. It is not a deep-research tool; students can go elsewhere for that. v0 serves one college, Sonoran Desert Institute (SDI), on its Canvas instance at `classroom.sdi.edu`. Support for other colleges comes later; v0 keeps the seams (adapters, configuration, theme tokens) so that adding one is configuration work, not a rewrite. The stack is TypeScript end to end: Instructure UI (React) for the interface and Node.js for the backend. It runs as two tutors on one engine, a student tutor and an instructor tutor, separated in both access and instruction harness (§3.14).
+**v0** keeps the core concept: Socratic, course-specific, student-centric assistance built on Canvas, with code execution available to the model. It is a quick-response helper in a Canvas sidebar that answers and asks short questions. It is not a deep-research tool; students can go elsewhere for that. v0 serves one college, Sonoran Desert Institute (SDI), on its Canvas instance at `classroom.sdi.edu`. Support for other colleges comes later; v0 keeps the seams (adapters, configuration, theme tokens) so that adding one is configuration work, not a rewrite. The stack is TypeScript end to end: Instructure UI (React) for the interface and Node.js for the backend. It runs as two assistants on one engine, a student Virtual TA and an instructor Virtual TA, separated in both access and instruction harness (§3.14).
 
 **Current phase: a demo.** The team is working toward a functional demo to show SDI; production implementation isn't the goal yet.
 
@@ -29,9 +29,9 @@ The prototype treated its extension as a way past a Canvas protection. It wasn't
 
 The real weakness was on the prototype's side: **the client told the server who the user was, and the server never checked.**
 
-- The extension posted `{sub: canvas_id, uni}` to `POST /token`, and the backend minted a JWT for whatever ID it received, as long as the caller sent the API key ([backend/main.py:323-330](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L323-L330)).
-- That API key was compiled into the shipped extension bundle, so it was public. The Svelte server `load` also handed its private `API_KEY` to the browser ([svelte/src/routes/+layout.server.ts](https://github.com/landontowers/ai-tutor/blob/prototype-final/svelte/src/routes/+layout.server.ts)).
-- No key had scoped permissions. `check_api_key` looks up the key's value, but no endpoint checks it ([backend/main.py:155-166](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L155-L166)). So one public key could:
+- The extension posted `{sub: canvas_id, uni}` to `POST /token`, and the backend minted a JWT for whatever ID it received, as long as the caller sent the API key ([backend/main.py:323-330](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/main.py#L323-L330)).
+- That API key was compiled into the shipped extension bundle, so it was public. The Svelte server `load` also handed its private `API_KEY` to the browser ([svelte/src/routes/+layout.server.ts](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/svelte/src/routes/+layout.server.ts)).
+- No key had scoped permissions. `check_api_key` looks up the key's value, but no endpoint checks it ([backend/main.py:155-166](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/main.py#L155-L166)). So one public key could:
   - mint a token for any student and read their grades, activity, and chat history (`GET /user`);
   - overwrite any student's stored Canvas data (`POST /user`, `/course`), which also changed the context the model saw for that student;
   - dump all users (`GET /analytics_data`);
@@ -41,8 +41,8 @@ The lesson for v0: **identity must come from something Canvas signs, and nothing
 
 ## 2. What to keep
 
-- **The product thesis.** A tutor that knows _this_ student: their courses, deadlines, grades, and recent feedback, across every class. That's the differentiator, and API access makes it stronger.
-- **Tools instead of context-stuffing.** The model fetched grades, assignments, and updates through tools rather than getting everything up front ([backend/responses.py](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py)). That's the right shape; v0's tools pull live data.
+- **The product thesis.** A Virtual TA that knows _this_ student: their courses, deadlines, grades, and recent feedback, across every class. That's the differentiator, and API access makes it stronger.
+- **Tools instead of context-stuffing.** The model fetched grades, assignments, and updates through tools rather than getting everything up front ([backend/responses.py](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/responses.py)). That's the right shape; v0's tools pull live data.
 - **The in-context UX.** Users loved the side panel. v0 keeps the sidebar, natively inside Canvas (§3.1).
 - **Code execution as a separate boundary.** The instinct was right; the implementation wasn't (§3.5).
 - **Catalog enrichment.** Official course descriptions and prerequisites are a cheap, trustworthy grounding source; v0 uses SDI's catalog.
@@ -59,9 +59,9 @@ The lesson for v0: **identity must come from something Canvas signs, and nothing
 
 - **An admin installs the tool once** at the account level (LTI 1.3). It then appears for every student; nothing gets installed in a browser.
 - **The sidebar is Canvas's `top_navigation` placement.** Per Canvas's docs, it "launches in a drawer which allows the tool to be displayed alongside Canvas content." The drawer is a fixed 320px wide and lives in the Top Navigation tool menu; up to two tools can be pinned per account. It sits behind the `top_navigation_placement` feature flag, which SDI's admins need to turn on.
-- **The tutor can see the page the student is on.** The `lti.getPageContent` postMessage (scope `https://canvas.instructure.com/lti/page_content/show`) currently returns the content of Assignments and Wiki Pages, so "help me with this" works without copy and paste.
-- **Opt-in happens at first launch.** Each user, student or instructor, sees what the tutor can read and authorizes it on Canvas's OAuth consent screen. Opting out revokes the token and deletes their data. A student settings page can live in the `user_navigation` placement (Canvas's Account tray).
-- **Instructor settings** live in a `course_navigation` placement visible only to course staff (`visibility: admins`). The instructor tutor itself appears in the same sidebar as the student tutor; which one loads depends on the user's role in the course (§3.14).
+- **The Virtual TA can see the page the student is on.** The `lti.getPageContent` postMessage (scope `https://canvas.instructure.com/lti/page_content/show`) currently returns the content of Assignments and Wiki Pages, so "help me with this" works without copy and paste.
+- **Opt-in happens at first launch.** Each user, student or instructor, sees what the Virtual TA can read and authorizes it on Canvas's OAuth consent screen. Opting out revokes the token and deletes their data. A student settings page can live in the `user_navigation` placement (Canvas's Account tray).
+- **Instructor settings** live in a `course_navigation` placement visible only to course staff (`visibility: admins`). The instructor Virtual TA itself appears in the same sidebar as the student Virtual TA; which one loads depends on the user's role in the course (§3.14).
 - **A browser extension would bring back the prototype's problems:** an identity Canvas doesn't vouch for, separate builds and store reviews per browser, and nothing in Canvas's mobile apps.
 
 **Keys by stage:**
@@ -93,7 +93,7 @@ In the prototype, "course-specific" meant a course code plus the catalog descrip
 v0 splits questions into two kinds:
 
 - **Higher-level questions are always allowed:** grades, deadlines, assignments and what they require, the syllabus, announcements, and other course logistics.
-- **Course-material questions** (the subject matter itself) depend on a per-course instructor setting (§3.4). When it's off, the tutor still handles logistics, declines subject-matter questions, and points the student to the instructor.
+- **Course-material questions** (the subject matter itself) depend on a per-course instructor setting (§3.4). When it's off, the Virtual TA still handles logistics, declines subject-matter questions, and points the student to the instructor.
 
 When course material is allowed, **fetch it live with the student's own token**: the syllabus, module structure, pages, assignment descriptions, and the current page through `lti.getPageContent`. Canvas then enforces visibility for free: locked modules, unlock dates, sections, and unpublished content stay hidden from students who can't see them in Canvas. There's no index to build or secure. In development, masquerade as a test student so the admin token doesn't expose material students can't see.
 
@@ -101,45 +101,45 @@ If live fetching turns out too slow or too shallow, the next steps are a per-cou
 
 ### 3.4 The Socratic method and instructor policy
 
-In the prototype, the Socratic prompt applied only when an LLM router picked "Tutor" ([backend/responses.py:420-451](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py#L420-L451)). The "Assistant" and "Friend" routes answered directly, and a client could send `role: "Quick"` to skip routing entirely. Sending `role: "Tutor"` or `"General"` explicitly crashed, because neither branch defines the prompt. The Socratic instruction itself was four lines.
+In the prototype, the Socratic prompt applied only when an LLM router picked "Tutor" ([backend/responses.py:420-451](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/responses.py#L420-L451)). The "Assistant" and "Friend" routes answered directly, and a client could send `role: "Quick"` to skip routing entirely. Sending `role: "Tutor"` or `"General"` explicitly crashed, because neither branch defines the prompt. The Socratic instruction itself was four lines.
 
 What v0 builds:
 
-- **In the student tutor, Socratic guidance is the only mode for course material,** and students can't opt out. Logistics get direct answers. The instructor tutor works differently (§3.14).
+- **In the student Virtual TA, Socratic guidance is the only mode for course material,** and students can't opt out. Logistics get direct answers. The instructor Virtual TA works differently (§3.14).
 - **One instructor setting per course, stored as a value rather than a boolean.** v0 has two values: `full` (logistics and course material) and `logistics_only`. Later options are new values, not schema changes; examples are `off` for a course that opts out entirely, or stricter rules during exam windows. New courses default to `full`; the default lives in configuration.
 - **Enforce the setting on the server, not only in the prompt.** A classifier labels each question as logistics or course material before the main call. Under `logistics_only`, the course-material path never runs and no course content is fetched.
 - **Plan for the grey zone.** "What does assignment 3 ask for?" is logistics. "How do I solve question 2 of assignment 3?" is course material. The eval set has to cover these edges.
-- **Tutoring state within a conversation.** Track what the student has tried and where they're stuck, and step up through a hint ladder instead of starting over every turn.
+- **Scaffolding state within a conversation.** Track what the student has tried and where they're stuck, and step up through a hint ladder instead of starting over every turn.
 - **Evals as a first-class artifact.** Build a test set of "just give me the answer" pressure, pasted assignment prompts, role-play jailbreaks, and course-setting edge cases. Measure answer leakage, helpfulness, and classifier accuracy on every prompt or model change.
 
 ### 3.5 Code execution: does v0 need a sandbox?
 
-The prototype's runner ([python_sandbox/main.py](https://github.com/landontowers/ai-tutor/blob/prototype-final/python_sandbox/main.py)) wasn't a sandbox:
+The prototype's runner ([python_sandbox/main.py](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/python_sandbox/main.py)) wasn't a sandbox:
 
 - It used one process-wide `InteractiveShell` singleton, so every student's variables were visible to every other student.
 - It had no timeout and no CPU or memory limits.
 - It had network access on the same Docker network as the database.
 - It returned only the value of the last expression, not stdout.
-- It wasn't wired into the active tool list ([backend/responses.py:330](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/responses.py#L330)), even though the UI advertised it.
+- It wasn't wired into the active tool list ([backend/responses.py:330](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/responses.py#L330)), even though the UI advertised it.
 
 The general goal is a private, throwaway shell the model can use behind the scenes for calculations, running student code, or small scripts that help it answer.
 
 **Is it still necessary with modern models? Partly.**
 
 - **Models now handle** everyday arithmetic, explaining code by reading it, and simple conversions well, especially with reasoning turned on.
-- **They still slip on** exact multi-step or large-number arithmetic, statistics over data, date math, and knowing what a program actually prints. A confident wrong number does more harm in a tutor than in a general chatbot.
+- **They still slip on** exact multi-step or large-number arithmetic, statistics over data, date math, and knowing what a program actually prints. A confident wrong number does more harm in a Virtual TA than in a general chatbot.
 - **v0's design raises the risk.** A fast sidebar uses small models with little or no reasoning (§3.9), and those are the most error-prone at exact computation. A sandbox also costs speed: each run adds a tool round trip plus session startup.
 
 **Recommendation:**
 
 - **v0 ships deterministic tools that run in-process:** a safe expression and unit calculator (a real math parser such as mathjs, which handles units; never `eval`) and date math. They need no isolation, add almost no latency, and cover likely SDI needs such as conversions, measurements, and grade math.
 - **Define the code-execution port now** (§3.12), so a sandbox can be added without touching the core.
-- **Add the sandbox when a college needs it.** One example is programming courses, where the tutor runs a student's code to _see_ the failure and then asks guiding questions. On Azure, the natural adapter is Container Apps dynamic sessions: Hyper-V-isolated sessions designed for untrusted, LLM-generated code. Provider-hosted code tools are the no-ops alternative, but they tie the feature to one provider and run student data in that provider's environment.
+- **Add the sandbox when a college needs it.** One example is programming courses, where the Virtual TA runs a student's code to _see_ the failure and then asks guiding questions. On Azure, the natural adapter is Container Apps dynamic sessions: Hyper-V-isolated sessions designed for untrusted, LLM-generated code. Provider-hosted code tools are the no-ops alternative, but they tie the feature to one provider and run student data in that provider's environment.
 - **Any runner** is ephemeral and has no network access by default. It enforces hard limits on time, memory, and CPU, returns stdout, stderr, and files, and treats all output as untrusted input to the model.
 
 ### 3.6 Data model
 
-The prototype's own retrospective pointed toward a relational database, and the code backs that up. The catalog "join" in `get_user_from_token` pairs two independently ordered query results by position ([backend/main.py:223-233](https://github.com/landontowers/ai-tutor/blob/prototype-final/backend/main.py#L223-L233)), so it only merges correctly when the orders happen to line up. Chat history was a single array per user that each save overwrote.
+The prototype's own retrospective pointed toward a relational database, and the code backs that up. The catalog "join" in `get_user_from_token` pairs two independently ordered query results by position ([backend/main.py:223-233](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/backend/main.py#L223-L233)), so it only merges correctly when the orders happen to line up. Chat history was a single array per user that each save overwrote.
 
 - **Use a relational core** for colleges, users, courses, course settings, conversations, messages, and audit. Add JSON columns for cached Canvas payloads. Postgres can also hold vectors later, if a search index is ever needed (§3.3).
 - **Keep the re-fetchable Canvas cache separate from first-party data** (conversations, settings, policies). The two need different retention, backup, and deletion rules.
@@ -150,7 +150,7 @@ The prototype's own retrospective pointed toward a relational database, and the 
 
 FERPA applies to student records, and an official integration will likely face a vendor or security review. These prototype practices wouldn't pass:
 
-- Student names and Canvas IDs were sent to Plausible as event properties ([streamlit/app.py:256-268](https://github.com/landontowers/ai-tutor/blob/prototype-final/streamlit/app.py#L256-L268)).
+- Student names and Canvas IDs were sent to Plausible as event properties ([streamlit/app.py:256-268](https://github.com/landontowers/Canvas-AI-TA/blob/prototype-final/streamlit/app.py#L256-L268)).
 - Names were logged when moderation flagged a message, and Streamlit logged every request body, chats included, at INFO.
 - The LLM `safety_identifier` was a hardcoded constant rather than a hash of each user's ID.
 - `/analytics_data` returned every user's record.
@@ -164,7 +164,7 @@ FERPA applies to student records, and an official integration will likely face a
 
 **Decision:** once real student data is involved, v0 uses only models Azure sells directly, under Microsoft's terms and in a US data zone (§3.9). That keeps everything inside the Azure agreement already in use, the easiest path. Development and the demo use Gemini on a personal Google account, with test data only (§3.9). Partner models such as Claude in Foundry come under separate terms and are left for later. Before the pilot, confirm with SDI's IT office that this setup is approved (§7).
 
-**Research is out of scope for v0.** "Research" here means a study of whether the tutor improves outcomes: comparing grades, completion, or retention between students who use it and students who don't. That links tutor usage to student records, so it typically needs IRB review, informed consent, and de-identified data handling, all designed before launch. Product analytics is different: usage counts, latency, thumbs up or down, and which tools get called. That's normal operation and needs privacy care, not an IRB. v0 collects product analytics only, with pseudonymous IDs and no chat text.
+**Research is out of scope for v0.** "Research" here means a study of whether the Virtual TA improves outcomes: comparing grades, completion, or retention between students who use it and students who don't. That links Virtual TA usage to student records, so it typically needs IRB review, informed consent, and de-identified data handling, all designed before launch. Product analytics is different: usage counts, latency, thumbs up or down, and which tools get called. That's normal operation and needs privacy care, not an IRB. v0 collects product analytics only, with pseudonymous IDs and no chat text.
 
 **3-tier logging architecture:**
 
@@ -187,14 +187,14 @@ To resolve the tension between deep observability and educational privacy regula
 When a student conversation expresses thoughts of self-harm, suicide, or imminent physical violence, typical anonymization and silent refusal are insufficient. Under FERPA's Health and Safety Emergency Exception (34 CFR § 99.36), an educational institution may disclose personally identifiable information from education records to appropriate parties (school officials, crisis counselors, campus safety) in connection with an emergency if knowledge of the information is necessary to protect the health or safety of the student or other individuals.
 
 - **In-flight crisis detection:** The moderation layer intercepts self-harm or violence triggers before the LLM generates a response.
-- **Isolated incident persistence:** `TutorEngine` logs a structured `CrisisIncident` via `PersistencePort.saveCrisisIncident` to an isolated database table (`crisis_incidents`), retaining the user identifier, course, timestamp, and a masked trigger snippet.
-- **Urgent alert dispatch:** `TutorEngine` dispatches the incident to a dedicated institution webhook or escalation service via `CrisisAlertPort` (`WebhookCrisisAlertAdapter`).
-- **Immediate student support:** The tutor halts normal generation and delivers a prominent, accessible crisis action card featuring the 988 Suicide & Crisis Lifeline with click-to-call (`tel:988`), click-to-text (`sms:988`), and live chat (`https://988lifeline.org`) links.
+- **Isolated incident persistence:** `VirtualTaEngine` logs a structured `CrisisIncident` via `PersistencePort.saveCrisisIncident` to an isolated database table (`crisis_incidents`), retaining the user identifier, course, timestamp, and a masked trigger snippet.
+- **Urgent alert dispatch:** `VirtualTaEngine` dispatches the incident to a dedicated institution webhook or escalation service via `CrisisAlertPort` (`WebhookCrisisAlertAdapter`).
+- **Immediate student support:** The Virtual TA halts normal generation and delivers a prominent, accessible crisis action card featuring the 988 Suicide & Crisis Lifeline with click-to-call (`tel:988`), click-to-text (`sms:988`), and live chat (`https://988lifeline.org`) links.
 
 **Other rules:**
 
 - **Basics:** classify and minimize data, set retention windows, and keep audit logs of who accessed what.
-- **Instructors see no individual student conversations in v0,** including through the instructor tutor (§3.14). Showing transcripts changes what students are willing to ask. Aggregate insights ("40% of the class is stuck on recursion") can come later as a deliberate, disclosed feature.
+- **Instructors see no individual student conversations in v0,** including through the instructor Virtual TA (§3.14). Showing transcripts changes what students are willing to ask. Aggregate insights ("40% of the class is stuck on recursion") can come later as a deliberate, disclosed feature.
 - **Per-user rate and cost limits.**
 
 ### 3.8 AI layer
@@ -207,13 +207,13 @@ When a student conversation expresses thoughts of self-harm, suicide, or imminen
 
 ### 3.9 Model choice: fast, cheap, accurate enough
 
-The tutor answers and asks short questions in a 320px sidebar. That puts latency and cost first, as long as answers stay accurate and Socratic. Small models with reasoning off or minimal fit that job.
+The Virtual TA answers and asks short questions in a 320px sidebar. That puts latency and cost first, as long as answers stay accurate and Socratic. Small models with reasoning off or minimal fit that job.
 
 **Once real student data is involved, v0 uses only models Azure sells directly** (§3.7), deployed as **Data Zone Standard (US)** so processing stays inside the US. Avoid Global Standard for student data; it can process in any Azure region. Model names come from Microsoft's Foundry documentation, checked 2026-11-19 (see References).
 
 | Role | Pilot and production model | Why |
 | --- | --- | --- |
-| Student and instructor tutors (§3.14) | `gpt-5.4-mini` | The newest small GPT model Azure sells (March 2026). It's fast and cheap, and with reasoning off or minimal it's capable enough for short Socratic answers and tool calls. The two tutors use separate model roles, so the instructor tutor can move to a stronger model or more reasoning later without affecting students. |
+| Student and instructor Virtual TAs (§3.14) | `gpt-5.4-mini` | The newest small GPT model Azure sells (March 2026). It's fast and cheap, and with reasoning off or minimal it's capable enough for short Socratic answers and tool calls. The two assistants use separate model roles, so the instructor Virtual TA can move to a stronger model or more reasoning later without affecting students. |
 | Question classifier (§3.4) | `gpt-5.4-nano` | The cheapest tier, for one short structured call. |
 | Moderation and jailbreak checks | Azure AI Content Safety, plus built-in content filters | Azure-native. |
 
@@ -261,7 +261,7 @@ Because providers are adapters (§3.12), switching the default is a config chang
 - **One UI, built with Instructure UI (React),** rendered inside Canvas through LTI. For the demo, the same UI can also run as a standalone page that mimics the drawer (§4.5).
 - **One TypeScript codebase.** The React UI and the Node.js backend share types for messages, tools, and stream events, for example in one pnpm workspace.
 - **Three surfaces:**
-  - the sidebar (`top_navigation` drawer), which shows the student or instructor tutor based on the user's role in the course (§3.14);
+  - the sidebar (`top_navigation` drawer), which shows the student or instructor Virtual TA based on the user's role in the course (§3.14);
   - instructor course settings (`course_navigation`, staff only);
   - student settings for opt-out and data deletion (`user_navigation`).
 - **Mobile:** check which of these placements Canvas's mobile apps support before promising mobile access. Never use tokens in URLs.
@@ -285,7 +285,7 @@ The prototype wired every external dependency directly into the code that used i
 
 v0 is a core with ports and adapters (hexagonal architecture):
 
-- **The core owns the domain:** tutoring policy, the student and instructor harness profiles (§3.14), course settings, conversation state, tool orchestration, and permission checks. It defines the interfaces (ports) and never imports a vendor SDK.
+- **The core owns the domain:** scaffolding and pedagogical policy, the student and instructor harness profiles (§3.14), course settings, conversation state, tool orchestration, and permission checks. It defines the interfaces (ports) and never imports a vendor SDK.
 - **Adapters implement the ports:** one class per vendor or technology, chosen through configuration.
 
 | Port | What varies behind it | Adapters (v0 first) |
@@ -305,7 +305,7 @@ Design rules:
 
 - **Capabilities, not the lowest common denominator.** Each adapter publishes what it supports: streaming, parallel tool calls, reasoning control, maximum context, structured output, prompt caching, and which sampling parameters it accepts. For example, `claude-haiku-5-5` in Foundry doesn't accept `temperature` or `top_k`. The core checks capabilities and degrades gracefully, and no `if provider == ...` branches leak into it.
 - **Normalized internal schemas.** The core has its own types for messages, tools, and stream events (§3.8). Adapters translate in both directions, and each tool is defined once.
-- **Models are chosen by role, not name.** Config maps each role (student tutor, instructor tutor, classifier, moderation) to a provider, model, and parameters.
+- **Models are chosen by role, not name.** Config maps each role (student Virtual TA, instructor Virtual TA, classifier, moderation) to a provider, model, and parameters.
 - **Configuration selects the adapters:** provider and models, code-execution backend, theme, persona copy, crisis resources, and the default course setting. v0 has one configuration, SDI's. Giving each college its own comes later and needs no core changes. Validate it at startup and fail fast.
 - **Every port gets a fake and a contract test suite** that all its adapters must pass. Design each interface against at least two real implementations, so it isn't one vendor's API under a new name.
 - **Enforce the dependency direction in CI,** for example with dependency-cruiser or ESLint's `no-restricted-imports`, so the core never imports a vendor SDK.
@@ -316,7 +316,7 @@ Design rules:
 The UI lives inside Canvas, so it should feel like part of Canvas first and carry the college's brand second:
 
 - **Canvas layer (structure).** Layout, spacing, density, focus states, component behavior, and body type (Lato) follow Canvas. **Instructure UI (React)** is the component foundation. It's what Canvas is built on, so it matches the native look and accessibility, and its theming system takes the college's tokens.
-- **College layer (brand).** Color, logo, display type, the tutor's name and avatar, and voice come from a theme file: SDI's in v0, and one per college later.
+- **College layer (brand).** Color, logo, display type, the Virtual TA's name and avatar, and voice come from a theme file: SDI's in v0, and one per college later.
 
 **SDI's design language,** read from sdi.edu's stylesheets and SDI's Canvas theme on 2026-11-19. These are enough to build from; v0 needs no separate brand sign-off.
 
@@ -330,7 +330,7 @@ The UI lives inside Canvas, so it should feel like part of Canvas first and carr
 
 How to keep it modular:
 
-- **Design tokens are the single source.** Components reference semantic tokens (`color.action.primary`, `color.surface`, `font.display`), never raw hex values. A college theme is a token file plus assets and copy (tutor name, greeting, crisis resources). Adding a college means adding a theme, not editing components.
+- **Design tokens are the single source.** Components reference semantic tokens (`color.action.primary`, `color.surface`, `font.display`), never raw hex values. A college theme is a token file plus assets and copy (assistant name, greeting, crisis resources). Adding a college means adding a theme, not editing components.
 - **Inherit from Canvas, then override.** Canvas's `lti.getPageSettings` postMessage returns `active_brand_config_json_url` (the college's live Canvas theme), `use_high_contrast`, `locale`, and `time_zone`. Precedence runs: base tokens, then the college's Canvas theme, then its theme file, then the student's preferences.
 - **Design for 320px.** The sidebar drawer is a fixed 320px wide, so that's the primary layout. Wider placements, such as the settings pages, come second.
 - **Accessibility is a gate.** Run automated WCAG 2.1 AA contrast checks on every theme in CI.
@@ -339,30 +339,30 @@ How to keep it modular:
   - On `#101820` it's 3.30:1, which passes for large text and icons only.
 
   Honor Canvas's high-contrast setting. Announce streamed answers to screen readers without interrupting, using `lti.screenReaderAlert` or an `aria-live` region. Support full keyboard use.
-- **Font licenses are per domain.** SDI's Adobe Fonts kit only loads on the domains it lists, so `proxima-nova` and `prohibition` won't load on the tutor's domain unless the kit is extended. Body text uses Lato from the Canvas layer anyway. Give headings a fallback stack, so a missing display font degrades cleanly.
+- **Font licenses are per domain.** SDI's Adobe Fonts kit only loads on the domains it lists, so `proxima-nova` and `prohibition` won't load on the Virtual TA's domain unless the kit is extended. Body text uses Lato from the Canvas layer anyway. Give headings a fallback stack, so a missing display font degrades cleanly.
 
-### 3.14 Two tutors: student and instructor
+### 3.14 Two assistants: student and instructor
 
-v0 runs two tutors on one engine. They share the UI, the adapters, and the infrastructure. They differ in **access**, meaning which data and tools they can reach. They also differ in **instruction harness**: the system prompt, tools, policies, and model settings that shape how each behaves.
+v0 runs two assistants on one engine. They share the UI, the adapters, and the infrastructure. They differ in **access**, meaning which data and tools they can reach. They also differ in **instruction harness**: the system prompt, tools, policies, and model settings that shape how each behaves.
 
 **The role comes from Canvas, per course.** The signed LTI launch carries the user's roles in the current course (the LTI roles claim): for example, Learner, Instructor, or Teaching Assistant.
 
-- **The server picks the tutor from that claim,** never from anything the client sends.
+- **The server picks the assistant from that claim,** never from anything the client sends.
 - **The choice is per course, not per person.** The same person can be a student in one course and a TA in another.
 - **A fixed rule settles mixed roles.** When Canvas reports more than one role in a course, the rule decides (for example, staff roles win only for Teacher and TA) and the choice is logged.
-- **In development, masquerade** as a test student or a test teacher to exercise each tutor (§3.1).
+- **In development, masquerade** as a test student or a test teacher to exercise each assistant (§3.1).
 
-| | Student tutor | Instructor tutor |
+| | Student Virtual TA | Instructor Virtual TA |
 | --- | --- | --- |
 | Who | Learners in the course | Course staff: teachers and TAs, plus designers if SDI wants |
 | Canvas token | The student's own | The instructor's own |
 | Data it can reach | The student's own grades, submissions, and feedback, and course content the student can see | Whatever Canvas lets that instructor or TA see in the course: assignments, the gradebook, submissions, and the roster |
 | Tools | Own grades, assignments, syllabus, announcements, course pages (when the course setting allows), calculator | Course structure lookups, gradebook and submission summaries, content drafting, calculator |
-| Pedagogy | Socratic for course material, direct answers for logistics, course setting enforced (§3.4) | Direct and efficient. It's a teaching assistant, not a tutor, so the Socratic rule and the course setting don't apply. |
+| Pedagogy | Socratic for course material, direct answers for logistics, course setting enforced (§3.4) | Direct and efficient. Designed as a faculty teaching assistant rather than a Socratic study guide, so the Socratic rule and the course setting don't apply. |
 | Typical asks | "When is the next quiz?" "I'm stuck on this problem." | "Which assignments have no due date?" "Draft an announcement about the deadline change." "How many students haven't submitted lab 3?" |
-| Model role (§3.9) | `tutor.student` | `tutor.instructor`, which can use a stronger model or more reasoning, since instructors may value depth over speed |
+| Model role (§3.9) | `virtual_ta.student` | `virtual_ta.instructor`, which can use a stronger model or more reasoning, since instructors may value depth over speed |
 
-**Harness profiles are data, not separate code paths.** Each tutor is a profile the core loads: its system prompt, allowed tools, policies, model role, and output limits.
+**Harness profiles are data, not separate code paths.** Each assistant is a profile the core loads: its system prompt, allowed tools, policies, model role, and output limits.
 
 - **The core only offers the model the tools in the current profile,** and each tool declares which roles and Canvas scopes it requires.
 - **Injection can't cross the line.** A prompt injection in a student session can't reach instructor tools: those tools are never offered, and the core rejects any call to them anyway.
@@ -370,15 +370,15 @@ v0 runs two tutors on one engine. They share the UI, the adapters, and the infra
 
 **Rules that keep the line clear:**
 
-- **Instructors can't read student conversations,** through the instructor tutor or anywhere else in v0 (§3.7). The instructor tutor's tools have no access to the student tutor's conversation store.
-- **The instructor tutor is read-only in v0.** It drafts announcements, rubrics, or quiz questions for the instructor to post. It doesn't post, grade, or change anything in Canvas. Write actions are logged for later (§7), and would need explicit confirmation and write scopes.
+- **Instructors can't read student conversations,** through the instructor Virtual TA or anywhere else in v0 (§3.7). The instructor Virtual TA's tools have no access to the student Virtual TA's conversation store.
+- **The instructor Virtual TA is read-only in v0.** It drafts announcements, rubrics, or quiz questions for the instructor to post. It doesn't post, grade, or change anything in Canvas. Write actions are logged for later (§7), and would need explicit confirmation and write scopes.
 - **Minimize student data sent to the model, even for instructors.** Instructors have a legitimate interest in their students' records, but the model doesn't need the whole roster. Tools return counts and summaries where they can, and individual names only when the question needs them.
 - **Conversations are tagged with role and course,** so a TA's staff conversations stay separate from their own student conversations in another course.
-- **Each tutor has its own eval suite.**
-  - The student tutor's measures answer leakage and Socratic adherence.
-  - The instructor tutor's measures accuracy, and checks that it never reveals student conversations or more student data than the question needs.
+- **Each assistant has its own eval suite.**
+  - The student Virtual TA's measures answer leakage and Socratic adherence.
+  - The instructor Virtual TA's measures accuracy, and checks that it never reveals student conversations or more student data than the question needs.
 
-**Surfaces.** The same `top_navigation` sidebar renders whichever tutor matches the user's role in the current course. The course settings page (`course_navigation`, staff only) stays separate from the instructor tutor, so the course-material setting is changed deliberately, not through chat.
+**Surfaces.** The same `top_navigation` sidebar renders whichever assistant matches the user's role in the current course. The course settings page (`course_navigation`, staff only) stays separate from the instructor Virtual TA, so the course-material setting is changed deliberately, not through chat.
 
 ## 4. The demo: local hosting
 
@@ -392,10 +392,10 @@ The architecture doesn't change for the demo. It runs on the same core and adapt
 
 ### 4.1 What the demo should show
 
-- **Both tutors against real Canvas structure** (§3.14). The student tutor answers logistics and guides Socratically on course material. The instructor tutor answers course questions and drafts content.
-- **The course-material setting** changing what the student tutor will do (§3.4).
+- **Both assistants against real Canvas structure** (§3.14). The student Virtual TA answers logistics and guides Socratically on course material. The instructor Virtual TA answers course questions and drafts content.
+- **The course-material setting** changing what the student Virtual TA will do (§3.4).
 - **The UI in SDI's theme** at sidebar width (§3.13).
-- **Optionally, the tutor inside Canvas's own sidebar** (§4.5).
+- **Optionally, the Virtual TA inside Canvas's own sidebar** (§4.5).
 
 ### 4.2 What runs where
 
@@ -417,7 +417,7 @@ The architecture doesn't change for the demo. It runs on the same core and adapt
 
 - **Use a tunnel, not port forwarding.** A tunnel connects the local stack to a hostname on the personal domain over an outbound connection, and it handles HTTPS. Cloudflare Tunnel is a good default if the domain's DNS is on Cloudflare; ngrok and Tailscale Funnel are alternatives.
 - **Put a sign-in in front of it.** The server holds an admin-level Canvas token, so the public URL must not be open to anyone who finds it. With Cloudflare Tunnel, Cloudflare Access can require viewers to sign in with an invited email address. Otherwise, add authentication in the app.
-- **Use a dedicated subdomain,** such as `tutor-demo.` on the personal domain. That way it can be turned off or moved without touching anything else.
+- **Use a dedicated subdomain,** such as `virtual-ta-demo.` on the personal domain. That way it can be turned off or moved without touching anything else.
 - **The demo is up only while the host machine is.** That's fine for scheduled demos. Needing always-on access is the signal to move to Azure (§5).
 - **LTI needs a stable HTTPS URL,** and a named tunnel provides one. Registering the demo in Canvas (§4.5) against this hostname is fine; it moves to an SDI hostname later.
 
@@ -504,7 +504,7 @@ Across all stages:
 
 - **GitHub signs in to Azure with OpenID Connect** (workload identity federation), so no long-lived Azure credentials are stored in GitHub.
 - **Database migrations run as their own step** before the new revision takes traffic. Write them expand-then-contract, so the old and new revisions can both run against the same schema.
-- **Prompts, model choices, and tutoring policies ship like code.** Version them, run evals on them, and roll them back the same way.
+- **Prompts, model choices, and pedagogical policies ship like code.** Version them, run evals on them, and roll them back the same way.
 
 ### 5.5 Infrastructure as code: Terraform
 
@@ -526,7 +526,7 @@ Across all stages:
 
 ## 6. Repository status (cleanup, 2026-11-19)
 
-The full prototype is preserved at the [`prototype-final`](https://github.com/landontowers/ai-tutor/tree/prototype-final) tag (commit `b1bddf8`). Phase 0 of the [implementation plan](v0-implementation-plan.md) removed everything else from the working tree.
+The full prototype is preserved at the [`prototype-final`](https://github.com/landontowers/Canvas-AI-TA/tree/prototype-final) tag (commit `b1bddf8`). Phase 0 of the [implementation plan](v0-implementation-plan.md) removed everything else from the working tree.
 
 **Removed:**
 
@@ -579,18 +579,19 @@ The full prototype is preserved at the [`prototype-final`](https://github.com/la
 10. **Theme source.** sdi.edu and SDI's Canvas theme, with no separate sign-off (§3.13).
 11. **Azure, after the demo.** Central US and Terraform. Environments are phased: dev, then prod before the pilot, then staging (§5.3, §5.5).
 12. **Prototype deployments.** Out of scope for this fork.
-13. **Two tutors.** A student tutor and an instructor tutor on one engine, separated in access and instruction harness. The instructor tutor gives direct, read-only help (§3.14).
+13. **Two assistants.** A student Virtual TA and an instructor Virtual TA on one engine, separated in access and instruction harness. The instructor Virtual TA gives direct, read-only help (§3.14).
 14. **Current phase.** A functional demo, not a production implementation. It runs locally in Docker Compose, uses Gemini on a personal Google account for the model, and is shared through a tunnel on a personal domain until SDI can provide one (§4).
 15. **License and ownership.** Apache 2.0, copyright Landon Towers, with a `NOTICE` that acknowledges the original prototype led by Spencer Thompson. v0 is a personal open-source project, and only the SDI integration happens on company time (implementation plan, step 0.6).
 16. **Privacy telemetry and crisis escalation.** Operational telemetry is de-identified under FERPA 34 CFR § 99.31(b) using HMAC-SHA256 pseudonymized identifiers and strict free-text scrubbing (`PrivacyTelemetryAdapter`). In-flight crisis detection (self-harm, suicide, imminent violence) invokes the FERPA 34 CFR § 99.36 Health & Safety Emergency Exception, storing isolated incident records and dispatching alerts to student welfare webhooks via `CrisisAlertPort` while presenting immediate 988 Lifeline resources in the UI (§3.7, §3.8).
 17. **Optional Azure log storage.** De-identified operational telemetry and audit logs can be optionally exported directly to Azure Blob Storage via `AzureBlobLogStorageAdapter` (`LogStoragePort`) using SAS URL or connection string configuration, with automated batching and graceful flush on shutdown (§3.7, §5.2).
 18. **Sprint 1 hardening & protocol separation.** Internal LLM stream fields (`thoughtSignature`, raw tool args) are stripped via `toClientStreamEvent` before SSE emission, crisis UI detection uses typed `CrisisEvent` / persisted `isCrisis` flags rather than string matching, LMS/page content is enclosed in `<untrusted_canvas_data>` delimiters, Postgres persistence (`migrate.ts` + `DrizzlePersistenceAdapter`) runs in Compose and CI, and Cloudflare Access / login endpoints enforce RS256 JWKS verification, role-based RBAC, Zod validation, and sliding-window rate limits (§3.1, §3.6, §3.8, §4.3, §8).
-19. **Sprint 2 pedagogy, contextual safety & evals.** `TutorEngine` tracks per-conversation Socratic hint-ladder state (`activeConcept`, `attemptCount`, `hintLevel` 1–3) persisted in `conversations.tutoring_state`, forwards profile `reasoning` levels (`off` / `minimal` / `full`) to `LlmPort`, records `ttftMs` and `usage` tokens without leaking internal usage events to clients, wires `ContextualModerationAdapter` for two-stage firearms-aware / multi-turn crisis detection, parses Canvas HTML via `node-html-parser` AST (`htmlToMarkdown`), and supports live-model + LLM-judge bake-off scoring in `eval-runner.ts` (§3.2, §3.4, §3.7, §3.9, §8).
+19. **Sprint 2 pedagogy, contextual safety & evals.** `VirtualTaEngine` tracks per-conversation Socratic hint-ladder state (`activeConcept`, `attemptCount`, `hintLevel` 1–3) persisted in `conversations.scaffolding_state`, forwards profile `reasoning` levels (`off` / `minimal` / `full`) to `LlmPort`, records `ttftMs` and `usage` tokens without leaking internal usage events to clients, wires `ContextualModerationAdapter` for two-stage firearms-aware / multi-turn crisis detection, parses Canvas HTML via `node-html-parser` AST (`htmlToMarkdown`), and supports live-model + LLM-judge bake-off scoring in `eval-runner.ts` (§3.2, §3.4, §3.7, §3.9, §8).
+20. **Virtual TA reframing.** Renamed the product, workspace packages (`@virtual-ta/*`), core symbols (`VirtualTaEngine`, `AssistantRole`, `ScaffoldingState`, `assistantName`), database identifiers (`virtual_ta`), and repository (`landontowers/Canvas-AI-TA`) from AI Tutor to Virtual TA across code, config, UI, prompts, and documentation (preserving historical prototype references).
 
 **Before the student pilot:**
 
 - **Approval.** Confirm with SDI's IT or compliance office that Azure-sold models in the US data zone are approved for student data, and ask whether a security questionnaire is required (§3.7).
-- **Hostname.** Pick the hostname the tutor is served from. Canvas's registration records the LTI launch, login, redirect, and public-key (JWKS) URLs on it, so changing it later means updating that registration. While v0 serves only SDI, an `sdi.edu` subdomain is simplest, and SDI can add it to its Adobe Fonts kit (§3.13). Until then, the demo uses a tunnel hostname on a personal domain (§4.3).
+- **Hostname.** Pick the hostname the Virtual TA is served from. Canvas's registration records the LTI launch, login, redirect, and public-key (JWKS) URLs on it, so changing it later means updating that registration. While v0 serves only SDI, an `sdi.edu` subdomain is simplest, and SDI can add it to its Adobe Fonts kit (§3.13). Until then, the demo uses a tunnel hostname on a personal domain (§4.3).
 - **Canvas registration.** Register the LTI 1.3 and OAuth2 developer keys against that hostname, and turn on the `top_navigation_placement` feature flag (§3.1).
 - **Production environment.** Create the production subscription and environment (§5.3).
 - **Model switch.** Move the model adapter from Gemini to Azure OpenAI, and re-run the eval suite (§3.9).
@@ -615,8 +616,8 @@ The full prototype is preserved at the [`prototype-final`](https://github.com/la
 Use these as acceptance criteria when writing the implementation plan:
 
 - **Isolation:** Student A can't reach student B's data through any endpoint, tool, cache, or sandbox state. An automated test proves this, not a code review.
-- **Role separation:** A student session is never offered instructor tools, and a forced call to one is rejected. Roles come only from the signed launch. The instructor tutor can't read student conversations, and its eval suite checks that it reveals no more student data than a question needs.
-- **Visibility:** The tutor never shows course content the asking student can't see in Canvas. Development tests run as a masqueraded test student.
+- **Role separation:** A student session is never offered instructor tools, and a forced call to one is rejected. Roles come only from the signed launch. The instructor Virtual TA can't read student conversations, and its eval suite checks that it reveals no more student data than a question needs.
+- **Visibility:** The Virtual TA never shows course content the asking student can't see in Canvas. Development tests run as a masqueraded test student.
 - **Course setting:** Under `logistics_only`, course-material questions are declined and no course content is fetched, while logistics questions, including grey-zone cases, still get answers.
 - **Pedagogy:** The eval suite reports answer leakage, helpfulness, and classifier accuracy, tracked across every prompt or model change.
 - **Speed and cost:** Targets are agreed before the pilot (for example, first token under one second at p95), and cost per conversation is tracked.
@@ -630,7 +631,7 @@ Use these as acceptance criteria when writing the implementation plan:
   - It starts with one command on a fresh machine.
   - The public URL requires sign-in.
   - Only allowlisted test personas can be selected, and the Canvas token never reaches the browser.
-  - Both tutors work end to end against the sandbox course.
+  - Both assistants work end to end against the sandbox course.
   - No real student data or SDI course material reaches the development model provider.
 
 ## References

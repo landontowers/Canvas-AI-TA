@@ -1,14 +1,14 @@
 {
-  "name": "ai-tutor",
+  "name": "virtual-ta",
   "version": "0.1.0",
   "private": true,
-  "description": "Socratic AI tutor built into Canvas LMS",
+  "description": "Socratic Virtual TA built into Canvas LMS",
   "license": "Apache-2.0",
   "author": "Landon Towers",
   "type": "module",
   "scripts": {
     "dev": "docker compose up --build",
-    "build": "pnpm --filter @ai-tutor/core run build && pnpm --filter @ai-tutor/adapters run build && pnpm --filter @ai-tutor/api run build && pnpm --filter @ai-tutor/web run build",
+    "build": "pnpm --filter @virtual-ta/core run build && pnpm --filter @virtual-ta/adapters run build && pnpm --filter @virtual-ta/api run build && pnpm --filter @virtual-ta/web run build",
     "check": "pnpm build && pnpm typecheck && pnpm lint && pnpm dep-check && pnpm test:coverage",
     "typecheck": "pnpm --recursive run typecheck",
     "lint": "eslint .",
@@ -21,10 +21,10 @@
     "eval": "vitest run packages/adapters/src/evals/evals.test.ts",
     "eval:bakeoff": "tsx packages/adapters/src/evals/eval-runner.ts",
     "dep-check": "depcruise --config .dependency-cruiser.cjs packages apps",
-    "db:generate": "pnpm --filter @ai-tutor/adapters db:generate",
-    "db:migrate": "pnpm --filter @ai-tutor/adapters db:migrate",
-    "db:seed": "pnpm --filter @ai-tutor/adapters db:seed",
-    "demo:reset": "pnpm --filter @ai-tutor/adapters demo:reset"
+    "db:generate": "pnpm --filter @virtual-ta/adapters db:generate",
+    "db:migrate": "pnpm --filter @virtual-ta/adapters db:migrate",
+    "db:seed": "pnpm --filter @virtual-ta/adapters db:seed",
+    "demo:reset": "pnpm --filter @virtual-ta/adapters demo:reset"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",

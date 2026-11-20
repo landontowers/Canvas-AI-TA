@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ModerationPort } from '@ai-tutor/core';
+import { ModerationPort } from '@virtual-ta/core';
 
 export function runModerationContractTests(
   name: string,

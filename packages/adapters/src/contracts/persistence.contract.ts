@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PersistencePort } from '@ai-tutor/core';
+import { PersistencePort } from '@virtual-ta/core';
 
 export function runPersistenceContractTests(
   name: string,
@@ -59,16 +59,16 @@ export function runPersistenceContractTests(
       expect(history[0].id).toBe(msg1.id);
       expect(history[1].id).toBe(msg2.id);
 
-      const updatedConv = await adapter.updateConversationTutoringState(conv.id, {
+      const updatedConv = await adapter.updateConversationScaffoldingState(conv.id, {
         activeConcept: 'headspace tolerance',
         attemptCount: 2,
         hintLevel: 2,
         lastUpdatedAt: '2026-11-20T12:00:00.000Z',
       });
-      expect(updatedConv?.tutoringState?.hintLevel).toBe(2);
+      expect(updatedConv?.scaffoldingState?.hintLevel).toBe(2);
 
       const reloadedConv = await adapter.getConversation(conv.id);
-      expect(reloadedConv?.tutoringState).toEqual({
+      expect(reloadedConv?.scaffoldingState).toEqual({
         activeConcept: 'headspace tolerance',
         attemptCount: 2,
         hintLevel: 2,

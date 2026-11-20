@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TutorEngine } from './tutor-engine.js';
+import { VirtualTaEngine } from './virtual-ta-engine.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { CoreTool } from '../tools/tool.types.js';
 import { z } from 'zod';
@@ -20,7 +20,7 @@ import {
   CourseSettingValue,
   CollegeRecord,
   CrisisIncident,
-  TutoringState,
+  ScaffoldingState,
 } from '../index.js';
 
 class MockLlm implements LlmPort {
@@ -131,13 +131,13 @@ class MockPersistence implements PersistencePort {
   async listConversations(params: any): Promise<Conversation[]> {
     return Array.from(this.conversations.values()).filter((c) => c.userId === params.userId);
   }
-  async updateConversationTutoringState(
+  async updateConversationScaffoldingState(
     conversationId: string,
-    tutoringState: TutoringState,
+    scaffoldingState: ScaffoldingState,
   ): Promise<Conversation | null> {
     const conv = this.conversations.get(conversationId);
     if (!conv) return null;
-    conv.tutoringState = tutoringState;
+    conv.scaffoldingState = scaffoldingState;
     conv.updatedAt = new Date();
     return conv;
   }
@@ -194,7 +194,7 @@ class MockIdentity implements IdentityPort {
       collegeId: 'sdi',
       courseId: params.courseId || 'sdi-ftt101',
       roles: [isInstructor ? 'TeacherEnrollment' : 'StudentEnrollment'],
-      tutorRole: isInstructor ? 'instructor' : 'student',
+      assistantRole: isInstructor ? 'instructor' : 'student',
     };
   }
 }
@@ -258,13 +258,13 @@ const mockCollege: CollegeConfig = {
     fontDisplay: 'sans-serif',
   },
   personaCopy: {
-    tutorName: 'SDI AI Tutor',
+    assistantName: 'SDI Virtual TA',
     greetingStudent: 'Hello!',
     greetingInstructor: 'Hello Instructor!',
   },
 };
 
-describe('TutorEngine Comprehensive Suite', () => {
+describe('VirtualTaEngine Comprehensive Suite', () => {
   it('executes student turn, handles tool call, attaches citations, and yields response', async () => {
     const llm = new MockLlm();
     const persistence = new MockPersistence();
@@ -317,7 +317,7 @@ describe('TutorEngine Comprehensive Suite', () => {
       ],
     ];
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm,
       persistence,
       toolRegistry,
@@ -382,7 +382,7 @@ describe('TutorEngine Comprehensive Suite', () => {
     const telemetry = new MockTelemetry();
     const toolRegistry = new ToolRegistry();
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm,
       persistence,
       toolRegistry,
@@ -452,7 +452,7 @@ describe('TutorEngine Comprehensive Suite', () => {
       [{ type: 'text-delta', delta: 'Here is the summary of submissions for Lab 1.' }],
     ];
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm: studentLlm,
       instructorLlm,
       persistence,
@@ -554,7 +554,7 @@ describe('TutorEngine Comprehensive Suite', () => {
       [{ type: 'text-delta', delta: 'Due Sunday.' }],
     ];
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm,
       classifierLlm: llm,
       persistence,
@@ -627,7 +627,7 @@ describe('TutorEngine Comprehensive Suite', () => {
       role: 'instructor',
     });
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm,
       classifierLlm: llm,
       persistence,
@@ -686,7 +686,7 @@ describe('TutorEngine Comprehensive Suite', () => {
       ],
     ];
 
-    const engine = new TutorEngine({
+    const engine = new VirtualTaEngine({
       llm,
       persistence,
       toolRegistry,
@@ -720,22 +720,22 @@ describe('TutorEngine Comprehensive Suite', () => {
     expect(turn1.events.some((e) => e.type === 'usage')).toBe(false);
     expect(llm.recordedOptions[0].reasoning).toBe('minimal');
     expect(llm.recordedOptions[0].systemPrompt).toContain('Current Hint Level: 1/3');
-    expect((await persistence.getConversation(turn1.conversationId))?.tutoringState?.hintLevel).toBe(1);
+    expect((await persistence.getConversation(turn1.conversationId))?.scaffoldingState?.hintLevel).toBe(1);
 
     // Turn 2: Logistics interruption -> preserves Level 1
     const turn2 = await collectTurn('When is the lab due?', turn1.conversationId);
-    expect((await persistence.getConversation(turn2.conversationId))?.tutoringState?.hintLevel).toBe(1);
+    expect((await persistence.getConversation(turn2.conversationId))?.scaffoldingState?.hintLevel).toBe(1);
     expect(llm.recordedOptions[1].systemPrompt).toContain('Current Hint Level: 1/3');
 
     // Turn 3: Student struggle -> escalates to Level 2 + moderation receives prior history
     const turn3 = await collectTurn('I am still stuck on rifling twist rate', turn1.conversationId);
-    expect((await persistence.getConversation(turn3.conversationId))?.tutoringState?.hintLevel).toBe(2);
+    expect((await persistence.getConversation(turn3.conversationId))?.scaffoldingState?.hintLevel).toBe(2);
     expect(llm.recordedOptions[2].systemPrompt).toContain('Current Hint Level: 2/3');
     expect((moderation.calls[2].options as any).recentMessages.length).toBeGreaterThanOrEqual(4);
 
     // Turn 4: Continued struggle -> escalates to Level 3
     await collectTurn('I still do not get what number goes in the numerator', turn1.conversationId);
-    expect((await persistence.getConversation(turn1.conversationId))?.tutoringState?.hintLevel).toBe(3);
+    expect((await persistence.getConversation(turn1.conversationId))?.scaffoldingState?.hintLevel).toBe(3);
     expect(llm.recordedOptions[3].systemPrompt).toContain('Current Hint Level: 3/3');
 
     // Verify telemetry recorded tokens, TTFT, and hintLevel

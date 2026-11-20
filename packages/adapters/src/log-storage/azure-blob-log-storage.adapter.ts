@@ -1,4 +1,4 @@
-import { LogEntry, LogStoragePort } from '@ai-tutor/core';
+import { LogEntry, LogStoragePort } from '@virtual-ta/core';
 import crypto from 'node:crypto';
 
 export interface AzureBlobLogStorageOptions {

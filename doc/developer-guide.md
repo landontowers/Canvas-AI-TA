@@ -1,22 +1,22 @@
-# Developer guide: setting up and using the AI Tutor demo
+# Developer guide: setting up and using the Virtual TA demo
 
-This guide walks a developer through configuring, running, using, and verifying the AI Tutor v0 local demo for Sonoran Desert Institute (SDI) (critique §4).
+This guide walks a developer through configuring, running, using, and verifying the Virtual TA v0 local demo for Sonoran Desert Institute (SDI) (critique §4).
 
 ---
 
 ## 1. Overview and architecture
 
-AI Tutor v0 is a Socratic AI tutor built into the Canvas LMS sidebar drawer. A single engine serves two tutors with strict separation of access and instruction harnesses (critique §3.14):
+Virtual TA v0 is a Socratic Virtual TA built into the Canvas LMS sidebar drawer. A single engine serves two assistants with strict separation of access and instruction harnesses (critique §3.14):
 
-- **Student tutor (`tutor.student`):** guides students through course concepts Socratically with hint ladders, and answers course logistics (schedules, syllabi, policies) directly.
-- **Instructor tutor (`tutor.instructor`):** provides course staff with a direct, read-only teaching assistant to summarize submissions, locate undated assignments, and draft announcements.
+- **Student Virtual TA (`virtual_ta.student`):** guides students through course concepts Socratically with hint ladders, and answers course logistics (schedules, syllabi, policies) directly.
+- **Instructor Virtual TA (`virtual_ta.instructor`):** provides course staff with a direct, read-only teaching assistant to summarize submissions, locate undated assignments, and draft announcements.
 
 ### Repository structure (hexagonal architecture)
 
 The codebase strictly enforces ports and adapters via automated dependency checks (critique §3.12):
 
 ```
-ai-tutor/
+Canvas-AI-TA/
 ├── packages/
 │   ├── core/       # Pure domain models, ports, harness profiles, policies (ZERO vendor SDKs)
 │   └── adapters/   # Canvas REST, Gemini, Drizzle PostgreSQL, mathjs, contract tests, evals
@@ -140,11 +140,11 @@ For active frontend or API editing without Docker rebuilds:
    ```
 3. Start the API server in terminal 1:
    ```bash
-   pnpm --filter @ai-tutor/api dev
+   pnpm --filter @virtual-ta/api dev
    ```
 4. Start the Vite development server in terminal 2:
    ```bash
-   pnpm --filter @ai-tutor/web dev
+   pnpm --filter @virtual-ta/web dev
    ```
 
 ---
@@ -178,25 +178,25 @@ In Canvas, the sidebar drawer knows which page the student is currently viewing.
 - Select **Alex Chen (Student)**.
 - Click the suggestion chip: _"When is Safety Lab 1 due?"_
 - Notice the tool pill: `Calling: Checking upcoming assignments...`.
-- The tutor provides the exact deadline and attaches a Canvas citation badge linking to the assignment.
+- The Virtual TA provides the exact deadline and attaches a Canvas citation badge linking to the assignment.
 
 #### 2. Seek concept help (Socratic hint ladder)
 - Select **Alex Chen (Student)**.
 - Type: _"What is barrel twist rate and can you give me the answer for question 2?"_
-- The tutor declines to give the answer and instead provides a guiding hint to stimulate critical thinking.
+- The Virtual TA declines to give the answer and instead provides a guiding hint to stimulate critical thinking.
 
 #### 3. Enforce `logistics_only` mode (Instructor control)
 - Switch to **Prof. Elena Martinez (Instructor)**.
 - Click the gear icon (`⚙️`) in the header to open **Course Settings (Staff)**.
-- Change the setting from **Full Tutoring** to **Logistics Only**.
+- Change the setting from **Full Virtual TA (Default)** to **Logistics Only**.
 - Return to the drawer (`💬`), switch back to **Alex Chen (Student)**, and ask a course concept question.
-- The tutor politely declines: _"Your instructor has configured this tutor for course logistics only..."_ and executes zero course content tools.
+- The Virtual TA politely declines: _"Your instructor has configured this Virtual TA for course logistics only..."_ and executes zero course content tools.
 
 #### 4. Audit assignments and draft announcements (Instructor)
 - Switch to **Prof. Elena Martinez (Instructor)**.
 - Ask: _"Which assignments are missing due dates?"_
 - Ask: _"Summarize student submission stats for Safety Lab 1 and draft a reminder announcement."_
-- The tutor reviews gradebook data and prepares a draft for the instructor to post.
+- The Virtual TA reviews gradebook data and prepares a draft for the instructor to post.
 
 #### 5. High-contrast mode & accessibility
 - Click the **👁 High Contrast** button in the host bar.
@@ -226,7 +226,7 @@ Or click the **🔄 Reset Demo State** button in the top demo control bar.
 
 This action:
 1. Deletes all conversation messages and sessions.
-2. Restores `sdi-ftt101` course setting back to `full` (Socratic tutoring enabled).
+2. Restores `sdi-ftt101` course setting back to `full` (Socratic assistance enabled).
 
 ---
 
@@ -246,7 +246,7 @@ To present the demo to remote stakeholders securely without port forwarding (cri
    cloudflared tunnel --url http://localhost:5173
    ```
 3. **Restricting access:**
-   - In Cloudflare Access, restrict your subdomain (`tutor-demo.yourdomain.com`) to invited email addresses. The backend automatically trusts the `Cf-Access-Authenticated-User-Email` header.
+   - In Cloudflare Access, restrict your subdomain (`virtual-ta-demo.yourdomain.com`) to invited email addresses. The backend automatically trusts the `Cf-Access-Authenticated-User-Email` header.
    - Or set `DEMO_AUTH_ENABLED=true` and `DEMO_PASSWORD=<passcode>` in `.env` to require password sign-in.
 
 ---
@@ -262,7 +262,7 @@ This runs the complete quality suite:
 1. `pnpm typecheck`: Strict TypeScript typechecking across all 4 packages/apps.
 2. `pnpm lint`: ESLint verification.
 3. `pnpm dep-check`: Dependency-cruiser architecture boundary checks (ensuring `packages/core` never imports adapters or vendor SDKs).
-4. `pnpm test`: Vitest test suite (95 tests passing, including WCAG AA contrast tests, contract tests, and server role-permission tests).
+4. `pnpm test:coverage`: Vitest test suite with `@vitest/coverage-v8` (unit, WCAG AA contrast, contract, and server role-permission tests).
 
 ### Running the evaluation suite
 Run the 60-case Socratic and instructor evaluation suite against baseline results (plan Phase 3):

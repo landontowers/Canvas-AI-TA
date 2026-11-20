@@ -1,9 +1,9 @@
 import {
   IdentityPort,
   AuthUserContext,
-  resolveTutorRole,
+  resolveAssistantRole,
   DemoPersona,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { CanvasClient } from './canvas-client.js';
 import { CanvasEnrollmentSchema } from './canvas-schemas.js';
 
@@ -68,7 +68,7 @@ export class CanvasDemoIdentityAdapter implements IdentityPort {
     }
 
     // Role resolution settled via fixed rule (critique §3.14)
-    const tutorRole = resolveTutorRole(roles);
+    const assistantRole = resolveAssistantRole(roles);
 
     return {
       userId: `user-${persona.canvasUserId}`,
@@ -76,7 +76,7 @@ export class CanvasDemoIdentityAdapter implements IdentityPort {
       collegeId: this.collegeId,
       courseId,
       roles,
-      tutorRole,
+      assistantRole,
     };
   }
 }

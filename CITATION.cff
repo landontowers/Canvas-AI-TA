@@ -1,13 +1,13 @@
 cff-version: 1.2.0
 message: "If you use or build on this software, please cite it as below."
-title: "AI Tutor"
+title: "Virtual TA"
 type: software
 authors:
   - family-names: Towers
     given-names: Landon
     alias: landontowers
-repository-code: "https://github.com/landontowers/canvas-ai-tutor"
+repository-code: "https://github.com/landontowers/Canvas-AI-TA"
 license: Apache-2.0
 abstract: >-
-  A Socratic AI tutor that runs inside the Canvas LMS, with separate
+  A Socratic Virtual TA that runs inside the Canvas LMS, with separate
   student and instructor assistants.

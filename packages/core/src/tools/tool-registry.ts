@@ -1,6 +1,6 @@
 import { CoreTool, ToolExecutionContext, UnauthorizedToolError } from './tool.types.js';
 import { ToolDefinition, ToolCall, ToolResult } from '../types/tool.js';
-import { TutorRole } from '../types/role.js';
+import { AssistantRole } from '../types/role.js';
 
 export class ToolRegistry {
   private tools = new Map<string, CoreTool<unknown, unknown>>();
@@ -17,7 +17,7 @@ export class ToolRegistry {
    * Returns tool definitions filtered for the given session role (critique §3.14).
    * Student sessions are never offered instructor tools.
    */
-  getToolsForRole(role: TutorRole): ToolDefinition[] {
+  getToolsForRole(role: AssistantRole): ToolDefinition[] {
     const list: ToolDefinition[] = [];
     for (const tool of this.tools.values()) {
       if (tool.requiredRole === 'both' || tool.requiredRole === role) {

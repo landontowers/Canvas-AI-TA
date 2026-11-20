@@ -17,7 +17,7 @@ describe('Log Storage Adapters Suite', () => {
       await adapter.write({
         id: 'turn-1',
         collegeId: 'sdi',
-        category: 'tutor_turn',
+        category: 'virtual_ta_turn',
         timestamp: new Date().toISOString(),
         payload: { role: 'student', prompt: 'test' },
       });
@@ -44,7 +44,7 @@ describe('Log Storage Adapters Suite', () => {
       await adapter.write({
         id: 'turn-2',
         collegeId: 'sdi',
-        category: 'tutor_turn',
+        category: 'virtual_ta_turn',
         timestamp: new Date().toISOString(),
         payload: { test: true },
       });
@@ -72,7 +72,7 @@ describe('Log Storage Adapters Suite', () => {
       await adapter.write({
         id: 'log-1',
         collegeId: 'sdi',
-        category: 'tutor_turn',
+        category: 'virtual_ta_turn',
         timestamp: '2026-11-20T12:00:00.000Z',
         payload: { action: 'turn' },
       });
@@ -146,7 +146,7 @@ describe('Log Storage Adapters Suite', () => {
       await adapter.write({
         id: 'log-err',
         collegeId: 'sdi',
-        category: 'tutor_turn',
+        category: 'virtual_ta_turn',
         timestamp: '2026-11-20T12:00:00.000Z',
         payload: {},
       });

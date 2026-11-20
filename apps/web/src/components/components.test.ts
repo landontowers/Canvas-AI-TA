@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Citation, StreamEvent } from '@ai-tutor/core';
+import { Citation, StreamEvent } from '@virtual-ta/core';
 
 describe('UI Component and Stream Processing Logic', () => {
   describe('Citation presentation', () => {

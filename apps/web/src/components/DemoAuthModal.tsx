@@ -49,11 +49,11 @@ export const DemoAuthModal: React.FC<DemoAuthModalProps> = ({ onSuccess }) => {
       <div className="auth-card">
         <div className="auth-header">
           <span className="sdi-logo-square" aria-hidden="true"></span>
-          <h2 id="auth-title">SDI AI Tutor Demo Access</h2>
+          <h2 id="auth-title">SDI Virtual TA Demo Access</h2>
         </div>
 
         <p id="auth-desc" className="auth-description">
-          This demo is connected to Canvas LMS test data. Sign-in is required to access the tutor environment (critique §4.3).
+          This demo is connected to Canvas LMS test data. Sign-in is required to access the Virtual TA environment (critique §4.3).
         </p>
 
         <form onSubmit={handleSubmit} className="auth-form">

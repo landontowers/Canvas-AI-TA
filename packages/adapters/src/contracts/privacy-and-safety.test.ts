@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import {
-  TutorEngine,
+  VirtualTaEngine,
   createStandardToolRegistry,
   CrisisIncident,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 import { PrivacyTelemetryAdapter } from '../telemetry/privacy-telemetry.adapter.js';
 import { WebhookCrisisAlertAdapter } from '../crisis/webhook-crisis-alert.adapter.js';
 import { FakeCrisisAlertAdapter } from '../crisis/fake-crisis-alert.adapter.js';
@@ -210,8 +210,8 @@ describe('Privacy-Preserving Telemetry & Crisis Escalation System', () => {
     });
   });
 
-  describe('TutorEngine Crisis Integration', () => {
-    it('halts tutoring, records crisis incident, dispatches alert, and streams 988 resources on crisis signals', async () => {
+  describe('VirtualTaEngine Crisis Integration', () => {
+    it('halts guidance, records crisis incident, dispatches alert, and streams 988 resources on crisis signals', async () => {
       const persistence = new InMemoryPersistenceAdapter();
       const fakeCrisisAlert = new FakeCrisisAlertAdapter();
       const moderation = new FakeModerationAdapter();
@@ -227,7 +227,7 @@ describe('Privacy-Preserving Telemetry & Crisis Escalation System', () => {
         createdAt: new Date(),
       });
 
-      const engine = new TutorEngine({
+      const engine = new VirtualTaEngine({
         llm: new FakeLlmAdapter(),
         lms: new FakeLmsAdapter(),
         identity: new FakeIdentityAdapter(),

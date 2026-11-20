@@ -63,7 +63,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const updated = await res.json();
       setSetting(updated.setting);
-      setFeedback(`Course setting updated to ${updated.setting === 'full' ? 'Full Socratic Tutoring' : 'Logistics Only'}.`);
+      setFeedback(`Course setting updated to ${updated.setting === 'full' ? 'Full Socratic Guidance' : 'Logistics Only'}.`);
     } catch (err: unknown) {
       setError(`Failed to save: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -78,7 +78,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
           type="button"
           className="back-btn"
           onClick={onClose}
-          aria-label="Back to Tutor Drawer"
+          aria-label="Back to Virtual TA Drawer"
         >
           ← Back to Drawer
         </button>
@@ -100,9 +100,9 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
           </div>
         ) : (
           <fieldset className="settings-fieldset" disabled={saving}>
-            <legend className="settings-legend">AI Tutor Pedagogy Mode</legend>
+            <legend className="settings-legend">Virtual TA Pedagogy Mode</legend>
             <p className="settings-description">
-              Controls how the student AI tutor interacts with enrolled students in this course (critique §3.4).
+              Controls how the student Virtual TA interacts with enrolled students in this course (critique §3.4).
             </p>
 
             <div className={`setting-option ${setting === 'full' ? 'selected' : ''}`}>
@@ -110,13 +110,13 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
                 <input
                   type="radio"
                   id="setting-full"
-                  name="course-tutor-mode"
+                  name="course-virtual-ta-mode"
                   value="full"
                   checked={setting === 'full'}
                   onChange={() => handleSave('full')}
                 />
                 <div className="option-content">
-                  <span className="option-title">Full Tutoring (Default)</span>
+                  <span className="option-title">Full Virtual TA (Default)</span>
                   <p className="option-detail">
                     Socratic guidance for course material and assignments; direct answers for course logistics (schedules, policies, announcements).
                   </p>
@@ -129,7 +129,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
                 <input
                   type="radio"
                   id="setting-logistics"
-                  name="course-tutor-mode"
+                  name="course-virtual-ta-mode"
                   value="logistics_only"
                   checked={setting === 'logistics_only'}
                   onChange={() => handleSave('logistics_only')}
@@ -137,7 +137,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
                 <div className="option-content">
                   <span className="option-title">Logistics Only</span>
                   <p className="option-detail">
-                    Direct answers for logistics only. The tutor politely declines course-material questions and fetches zero course content.
+                    Direct answers for logistics only. The Virtual TA politely declines course-material questions and fetches zero course content.
                   </p>
                 </div>
               </label>

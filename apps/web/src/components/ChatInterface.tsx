@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Citation, StreamEvent } from '@ai-tutor/core';
+import { Citation, StreamEvent } from '@virtual-ta/core';
 import { CitationBadge } from './CitationBadge.js';
 import { ToolStatusPill } from './ToolStatusPill.js';
 import { renderMarkdownWithMath } from '../markdown/render.js';
@@ -360,8 +360,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 void loadConversationList();
                 setScreenReaderAnnouncement(
                   accumulatedAssistantText
-                    ? `AI Tutor finished responding: ${accumulatedAssistantText.slice(0, 150)}...`
-                    : 'AI Tutor finished responding.',
+                    ? `Virtual TA finished responding: ${accumulatedAssistantText.slice(0, 150)}...`
+                    : 'Virtual TA finished responding.',
                 );
                 break;
 
@@ -438,7 +438,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   return (
-    <div className="chat-interface" role="region" aria-label="Tutor Chat">
+    <div className="chat-interface" role="region" aria-label="Virtual TA Chat">
       {/* Screen Reader Live Region (Accessible live updates per modern-web-guidance) */}
       <div aria-live="polite" aria-atomic="false" className="visually-hidden">
         {screenReaderAnnouncement}
@@ -577,7 +577,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               {isStudent ? <AcademicCapIcon size={44} /> : <BookOpenIcon size={44} />}
             </div>
             <h3 className="empty-title">
-              {isStudent ? 'SDI Student AI Tutor' : 'SDI Instructor Assistant'}
+              {isStudent ? 'SDI Student Virtual TA' : 'SDI Instructor Virtual TA'}
             </h3>
             <p className="empty-desc">
               {isStudent
@@ -610,7 +610,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div key={msg.id} className={`message-bubble ${msg.role}`}>
               <div className="message-header">
                 <span className="message-sender">
-                  {msg.role === 'user' ? (isStudent ? 'Alex (Student)' : 'Staff') : 'SDI AI Tutor'}
+                  {msg.role === 'user' ? (isStudent ? 'Alex (Student)' : 'Staff') : 'SDI Virtual TA'}
                 </span>
                 <span className="message-time">
                   {msg.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -705,12 +705,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }}
           className="input-form"
         >
-          <label htmlFor="tutor-chat-input" className="visually-hidden">
-            Ask the SDI AI Tutor
+          <label htmlFor="virtual-ta-chat-input" className="visually-hidden">
+            Ask the SDI Virtual TA
           </label>
           <div className="input-wrapper">
             <textarea
-              id="tutor-chat-input"
+              id="virtual-ta-chat-input"
               ref={textareaRef}
               className="chat-textarea"
               placeholder={
@@ -744,7 +744,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     type="submit"
                     className="send-button"
                     disabled={!input.trim()}
-                    aria-label="Send message to AI Tutor"
+                    aria-label="Send message to Virtual TA"
                   >
                     Send
                   </button>

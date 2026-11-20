@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TelemetryPort } from '@ai-tutor/core';
+import { TelemetryPort } from '@virtual-ta/core';
 
 export function runTelemetryContractTests(
   name: string,

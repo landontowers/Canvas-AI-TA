@@ -274,7 +274,7 @@ export const DemoShell: React.FC = () => {
       )}
 
       {/* Main Canvas Sidebar Drawer Frame */}
-      <main className="canvas-frame" aria-label="SDI AI Tutor Canvas Sidebar Drawer">
+      <main className="canvas-frame" aria-label="SDI Virtual TA Canvas Sidebar Drawer">
         {/* Canvas Drawer Top Header */}
         <header className="sdi-header">
           <div className="sdi-brand">
@@ -286,7 +286,7 @@ export const DemoShell: React.FC = () => {
               width="22"
               height="22"
             />
-            <h1>SDI AI Tutor</h1>
+            <h1>SDI Virtual TA</h1>
           </div>
 
           <div className="header-actions">

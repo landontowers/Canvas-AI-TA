@@ -10,7 +10,7 @@ import {
   GradebookSummary,
   EnrolledCourse,
   CrossCourseAssignment,
-} from '@ai-tutor/core';
+} from '@virtual-ta/core';
 
 export class FakeLmsAdapter implements LmsPort {
   private grades: GradeRecord[] = [

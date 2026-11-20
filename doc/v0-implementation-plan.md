@@ -1,4 +1,4 @@
-# AI Tutor v0: phased implementation plan
+# Virtual TA v0: phased implementation plan
 
 _2026-11-19. Companion to [v0-architecture-critique.md](v0-architecture-critique.md), which holds the reasoning and the decisions; "critique §" references point there. The near-term goal is a functional demo hosted locally (critique §4). Phases 0–5 build the demo, Phase 6 is a stretch goal, and Phases 7–8 come after the demo and are only outlined._
 
@@ -9,10 +9,10 @@ _2026-11-19. Companion to [v0-architecture-critique.md](v0-architecture-critique
 | 0 | Clear out the prototype (destructive) | Only the v0 docs, the license, and clean scaffolding remain, and the prototype is preserved under a tag |
 | 1 | Foundation | One command starts an empty API, web app, and database, and checks run on every change |
 | 2 | Canvas integration | Tools return the right data as the demo student and the demo instructor |
-| 3 | Tutor engine | Both tutors stream answers, the course setting is enforced, and the eval suite runs |
+| 3 | Virtual TA engine | Both assistants stream answers, the course setting is enforced, and the eval suite runs |
 | 4 | Interface | The SDI-themed sidebar works at 320px, with persona switching and course settings |
 | 5 | Demo hosting | Invited viewers can use the demo safely through the tunnel |
-| 6 (stretch) | Inside Canvas | The tutor launches in Canvas's own sidebar through LTI 1.3 |
+| 6 (stretch) | Inside Canvas | The Virtual TA launches in Canvas's own sidebar through LTI 1.3 |
 | 7 (after the demo) | Pilot readiness | Real students can opt in under SDI-approved terms |
 | 8 (after the demo) | Production on Azure | Deploys to Azure are automated, with no downtime |
 
@@ -151,13 +151,13 @@ _Status, 2026-11-19: Phase 2 is complete. Typed Canvas REST adapter with rate-li
 - **Demo identity adapter** (critique §4.4): the personal access token plus `as_user_id`, restricted to an allowlist of persona IDs from config. Viewers choose a persona, and the server supplies the ID.
 - **Role resolution** (critique §3.14): derive each persona's role per course from Canvas enrollments, applying the mixed-role rule. Phase 6 replaces this source with the LTI roles claim.
 - **Tools.** Each tool declares the roles and scopes it requires.
-  - **Student tutor:**
+  - **Student Virtual TA:**
     - the student's own grades;
     - upcoming assignments and assignment details;
     - the syllabus and announcements;
     - course modules and pages (gated by the course setting in Phase 3);
     - a calculator with units (mathjs) and date math.
-  - **Instructor tutor:**
+  - **Instructor Virtual TA:**
     - course structure lookups, such as assignments without due dates;
     - submission status summaries, with counts first and names only when asked;
     - a gradebook summary.
@@ -172,16 +172,16 @@ _Status, 2026-11-19: Phase 2 is complete. Typed Canvas REST adapter with rate-li
 
 ---
 
-## Phase 3: Tutor engine
+## Phase 3: Virtual TA engine
 
-_Status, 2026-11-20: Phase 3 is complete. TutorEngine coordinates Socratic guidance, GeminiAdapter provides @google/genai streaming and tool-calling, question classifier enforces full vs logistics_only course setting on the server, SSE streaming API tested for both personas, PrivacyTelemetryAdapter implements de-identified telemetry (FERPA § 99.31(b)), CrisisAlertPort dispatches emergency notifications (FERPA § 99.36), and the 60-case eval suite baseline is recorded._
+_Status, 2026-11-20: Phase 3 is complete. VirtualTaEngine coordinates Socratic guidance, GeminiAdapter provides @google/genai streaming and tool-calling, question classifier enforces full vs logistics_only course setting on the server, SSE streaming API tested for both personas, PrivacyTelemetryAdapter implements de-identified telemetry (FERPA § 99.31(b)), CrisisAlertPort dispatches emergency notifications (FERPA § 99.36), and the 60-case eval suite baseline is recorded._
 
-**Goal:** both tutors answer correctly, the student tutor stays Socratic on course material, and the course setting is enforced.
+**Goal:** both assistants answer correctly, the student Virtual TA stays Socratic on course material, and the course setting is enforced.
 
 **Work:**
 
-- **Gemini adapter** (critique §3.9): Flash for both tutors and Flash-Lite for the classifier. It translates messages, tool calls, and stream events into the core's types, and publishes a capability descriptor. Use the free tier or billing covered by subscription credits, with test data only.
-- **Harness profiles** (critique §3.14): system prompts, tool allowlists, policies, model roles, and output limits for the student and instructor tutors, loaded as data. The resolved role picks the profile.
+- **Gemini adapter** (critique §3.9): Flash for both assistants and Flash-Lite for the classifier. It translates messages, tool calls, and stream events into the core's types, and publishes a capability descriptor. Use the free tier or billing covered by subscription credits, with test data only.
+- **Harness profiles** (critique §3.14): system prompts, tool allowlists, policies, model roles, and output limits for the student and instructor Virtual TAs, loaded as data. The resolved role picks the profile.
 - **Classifier and course setting** (critique §3.3–3.4):
   - Label each student question as logistics or course material before the main call.
   - Under `logistics_only`, decline course-material questions and fetch no course content.
@@ -195,13 +195,13 @@ _Status, 2026-11-20: Phase 3 is complete. TutorEngine coordinates Socratic guida
   - All Canvas and tool content treated as untrusted input.
 - **Streaming:** SSE with typed events: text delta, tool status, citation, done, and error.
 - **Persistence:** conversations and messages tagged with persona, role, and course, plus a "clear my data" endpoint.
-- **Eval suite, first version:** 50–100 cases per tutor. It runs with one command and saves results, so changes can be compared.
-  - **Student tutor:**
+- **Eval suite, first version:** 50–100 cases per assistant. It runs with one command and saves results, so changes can be compared.
+  - **Student Virtual TA:**
     - "just give me the answer" pressure, pasted assignment prompts, and role-play jailbreaks;
     - grey-zone questions between logistics and course material;
     - refusals under `logistics_only`;
     - tool selection.
-  - **Instructor tutor:**
+  - **Instructor Virtual TA:**
     - factual accuracy about the sandbox course;
     - drafting quality;
     - never exposing student conversations;
@@ -237,7 +237,7 @@ _Status, 2026-11-19: Phase 4 is complete. The 320px Canvas sidebar drawer interf
   - tool-status indicators;
   - citations that link to the Canvas page;
   - a stop button.
-- **Instructor views:** the instructor tutor in the same sidebar, and a course settings page with the `full` / `logistics_only` setting.
+- **Instructor views:** the instructor Virtual TA in the same sidebar, and a course settings page with the `full` / `logistics_only` setting.
 - **Student settings:** "clear my data".
 - **Accessibility:**
   - theme contrast checks in `just check`;
@@ -255,7 +255,7 @@ _Status, 2026-11-19: Phase 4 is complete. The 320px Canvas sidebar drawer interf
 
 ## Phase 5: Demo hosting and hardening
 
-_Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); PrivacyTelemetryAdapter provides HMAC-SHA256 pseudonymized telemetry with full free-text scrubbing (FERPA § 99.31(b)); WebhookCrisisAlertAdapter provides emergency incident alerting (FERPA § 99.36); AzureBlobLogStorageAdapter enables optional export of de-identified telemetry and audit logs to Azure Blob Storage; a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full. Post-Phase 5 Sprint 1 (security, persistence, Canvas correctness & test coverage) and Sprint 2 (stateful Socratic hint ladder, domain-aware multi-turn contextual moderation, AST HTML-to-Markdown parser, Gemini reasoning/usage tracking & live-model bake-off eval harness) are also complete._
+_Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and ingress templates are in place; in-app authentication gate and Cloudflare Access header support protect the demo; Fastify logger is configured with Pino secrets redaction (scrubbing tokens, passwords, and message bodies); PrivacyTelemetryAdapter provides HMAC-SHA256 pseudonymized telemetry with full free-text scrubbing (FERPA § 99.31(b)); WebhookCrisisAlertAdapter provides emergency incident alerting (FERPA § 99.36); AzureBlobLogStorageAdapter enables optional export of de-identified telemetry and audit logs to Azure Blob Storage; a 5-step written demo walk-through script is documented in `doc/demo-walkthrough.md`; and one-command state reset (`just demo-reset` and `POST /api/demo/reset`) clears conversations and restores course settings to full. Post-Phase 5 Sprint 1 (security, persistence, Canvas correctness & test coverage), Sprint 2 (stateful Socratic hint ladder, domain-aware multi-turn contextual moderation, AST HTML-to-Markdown parser, Gemini reasoning/usage tracking & live-model bake-off eval harness), and the repository-wide Virtual TA reframing (`@virtual-ta/*`, `VirtualTaEngine`, `landontowers/Canvas-AI-TA`) are also complete._
 
 **Goal:** invited viewers can use the demo safely over the internet.
 
@@ -266,7 +266,7 @@ _Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and 
 - **Secrets hygiene:** the Canvas token and the Gemini key stay on the server. Scrub tokens and message bodies from logs.
 - **Demo script:** a written walk-through.
   1. A student asks a logistics question.
-  2. A student is stuck on a problem, and the tutor stays Socratic.
+  2. A student is stuck on a problem, and the Virtual TA stays Socratic.
   3. The instructor switches the course to `logistics_only`, and the student's next course-material question is declined.
   4. The instructor asks about missing submissions and drafts an announcement.
   5. Theme and accessibility highlights.
@@ -282,19 +282,19 @@ _Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and 
 
 ## Phase 6 (stretch): Inside Canvas
 
-**Goal:** the tutor launches in Canvas's own sidebar.
+**Goal:** the Virtual TA launches in Canvas's own sidebar.
 
 **Work:**
 
 - **LTI identity adapter** (critique §3.1), for example with ltijs. It handles OIDC login and launch validation, reads roles from the LTI roles claim, and keeps launch state in platform storage.
 - **Registration** (critique §4.5): an LTI 1.3 developer key in SDI's Canvas test or beta instance, pointing at the tunnel hostname. Turn on `top_navigation_placement`, and install the tool only for the sandbox course.
-- **Placements:** `top_navigation` for the tutors, and `course_navigation` (staff only) for course settings.
+- **Placements:** `top_navigation` for the assistants, and `course_navigation` (staff only) for course settings.
 - **Page context:** `lti.getPageContent` for the page the user is on, and `lti.getPageSettings` for theme inheritance and high contrast.
 - **Canvas data:** still read through the personal token with masquerading. The server masquerades as the launched user only if that user is on the test-account allowlist. OAuth comes in Phase 7.
 
 **Exit criteria:**
 
-- The test student and the test teacher each get the right tutor in Canvas's drawer.
+- The test student and the test teacher each get the right Virtual TA in Canvas's drawer.
 - Roles come only from the signed launch.
 
 ---
