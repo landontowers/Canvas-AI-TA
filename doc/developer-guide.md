@@ -89,6 +89,18 @@ DEMO_PASSWORD=sdi-demo-2026
 DEMO_INVITED_EMAILS=evaluator@sdi.edu,guest@sdi.edu
 ```
 
+### Mode D: Hybrid live Canvas identity with fake course data (Approach 1)
+Validates identity and masquerading against a live Canvas instance, but keeps all course material sent to the AI model strictly synthetic (protecting FERPA and proprietary curriculum per critique §3.1 and §4.4):
+```ini
+CANVAS_BASE_URL=https://classroom.sdi.edu
+CANVAS_ACCESS_TOKEN=your_personal_access_token_here
+CANVAS_USE_FAKE_COURSE_DATA=true
+
+# Masquerade target IDs for your live Canvas test accounts:
+DEMO_STUDENT_ID=your_test_student_canvas_id
+DEMO_INSTRUCTOR_ID=your_instructor_canvas_id
+```
+
 ---
 
 ## 4. Running the demo stack

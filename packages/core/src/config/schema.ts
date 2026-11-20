@@ -60,6 +60,7 @@ export const AppConfigSchema = z.object({
     baseUrl: z.string().url(),
     accessToken: z.string().min(1),
     demoPersonas: z.array(DemoPersonaSchema).default([]),
+    useFakeCourseData: z.boolean().default(true),
   }),
   model: z.object({
     provider: z.enum(['fake', 'gemini', 'azure-openai']).default('fake'),

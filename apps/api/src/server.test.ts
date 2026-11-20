@@ -63,6 +63,50 @@ describe('API Server', () => {
     expect(fallbackServer.ports.llm.providerName).toBe('fake');
   });
 
+  it('wires CanvasDemoIdentityAdapter with FakeLmsAdapter in hybrid mode (Approach 1)', () => {
+    const hybridConfig = loadAppConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      CANVAS_BASE_URL: 'https://classroom.sdi.edu',
+      CANVAS_ACCESS_TOKEN: 'valid-test-token-12345',
+      CANVAS_USE_FAKE_COURSE_DATA: 'true',
+    });
+    const hybridServer = buildServer(hybridConfig) as unknown as { ports: PortsContainer };
+    expect(hybridConfig.canvas.useFakeCourseData).toBe(true);
+    expect(hybridServer.ports.identity.constructor.name).toBe('CanvasDemoIdentityAdapter');
+    expect(hybridServer.ports.lms.constructor.name).toBe('FakeLmsAdapter');
+  });
+
+  it('wires CanvasRestAdapter when CANVAS_USE_FAKE_COURSE_DATA is explicitly false', () => {
+    const liveConfig = loadAppConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      CANVAS_BASE_URL: 'https://classroom.sdi.edu',
+      CANVAS_ACCESS_TOKEN: 'valid-test-token-12345',
+      CANVAS_USE_FAKE_COURSE_DATA: 'false',
+    });
+    const liveServer = buildServer(liveConfig) as unknown as { ports: PortsContainer };
+    expect(liveConfig.canvas.useFakeCourseData).toBe(false);
+    expect(liveServer.ports.identity.constructor.name).toBe('CanvasDemoIdentityAdapter');
+    expect(liveServer.ports.lms.constructor.name).toBe('CanvasRestAdapter');
+  });
+
+  it('overrides demo persona canvas user IDs from environment variables', () => {
+    const personaConfig = loadAppConfig({
+      ...process.env,
+      NODE_ENV: 'test',
+      DEMO_STUDENT_ID: '8888',
+      DEMO_INSTRUCTOR_ID: '7777',
+      DEMO_TA_ID: '6666',
+    });
+    const student = personaConfig.canvas.demoPersonas.find((p) => p.id === 'demo_student');
+    const instructor = personaConfig.canvas.demoPersonas.find((p) => p.id === 'demo_instructor');
+    const ta = personaConfig.canvas.demoPersonas.find((p) => p.id === 'demo_ta');
+    expect(student?.canvasUserId).toBe('8888');
+    expect(instructor?.canvasUserId).toBe('7777');
+    expect(ta?.canvasUserId).toBe('6666');
+  });
+
   it('GET /api/tools filters tools strictly by role', async () => {
     const studentRes = await server.inject({
       method: 'GET',

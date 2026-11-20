@@ -33,6 +33,10 @@ services:
       DATABASE_URL: postgresql://postgres:postgrespassword@db:5432/ai_tutor
       CANVAS_BASE_URL: ${CANVAS_BASE_URL:-https://classroom.sdi.edu}
       CANVAS_ACCESS_TOKEN: ${CANVAS_ACCESS_TOKEN:-mock-dev-token}
+      CANVAS_USE_FAKE_COURSE_DATA: ${CANVAS_USE_FAKE_COURSE_DATA:-true}
+      DEMO_STUDENT_ID: ${DEMO_STUDENT_ID:-}
+      DEMO_INSTRUCTOR_ID: ${DEMO_INSTRUCTOR_ID:-}
+      DEMO_TA_ID: ${DEMO_TA_ID:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       MODEL_PROVIDER: ${MODEL_PROVIDER:-fake}
       STUDENT_MODEL: ${STUDENT_MODEL:-gemini-3.8-flash}

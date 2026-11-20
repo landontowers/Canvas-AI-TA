@@ -9,6 +9,8 @@ interface HealthStatus {
   college: string;
   env: string;
   modelProvider?: string;
+  canvasConnected?: boolean;
+  fakeCourseData?: boolean;
   timestamp: string;
 }
 
@@ -191,7 +193,13 @@ export const DemoShell: React.FC = () => {
             <span>
               API:{' '}
               {health
-                ? `ONLINE (${health.college.toUpperCase()} • ${health.modelProvider || 'fake'})`
+                ? `ONLINE (${health.college.toUpperCase()} • ${health.modelProvider || 'fake'}${
+                    health.canvasConnected
+                      ? health.fakeCourseData
+                        ? ' • canvas-auth (fake-data)'
+                        : ' • live-canvas'
+                      : ''
+                  })`
                 : 'CONNECTING...'}
             </span>
           </div>

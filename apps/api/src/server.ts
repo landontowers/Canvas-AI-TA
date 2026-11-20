@@ -83,6 +83,8 @@ export function buildServer(
       })
     : undefined;
 
+  const useFakeLms = config.canvas.useFakeCourseData || !defaultCanvasClient;
+
   // Setup LLM adapter based on config (critique §3.9)
   let defaultLlm: LlmPort;
   let defaultClassifierLlm: LlmPort;
@@ -121,7 +123,7 @@ export function buildServer(
       (portsOverride?.llm ? portsOverride.llm : defaultClassifierLlm),
     lms:
       portsOverride?.lms ??
-      (defaultCanvasClient ? new CanvasRestAdapter(defaultCanvasClient) : new FakeLmsAdapter()),
+      (useFakeLms ? new FakeLmsAdapter() : new CanvasRestAdapter(defaultCanvasClient!)),
     identity:
       portsOverride?.identity ??
       (defaultCanvasClient
@@ -190,6 +192,8 @@ export function buildServer(
       env: config.env,
       college: config.college.id,
       modelProvider: config.model.provider,
+      canvasConnected: Boolean(defaultCanvasClient),
+      fakeCourseData: Boolean(useFakeLms),
       timestamp: new Date().toISOString(),
     };
   });
@@ -206,6 +210,8 @@ export function buildServer(
       },
       personas: config.canvas.demoPersonas,
       modelProvider: config.model.provider,
+      canvasConnected: Boolean(defaultCanvasClient),
+      fakeCourseData: Boolean(useFakeLms),
       demoAuth: {
         enabled: config.demoAuth?.enabled ?? false,
       },

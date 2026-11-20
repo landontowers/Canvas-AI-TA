@@ -16,6 +16,25 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
     }
   }
   const env = customEnv || process.env;
+
+  const demoPersonas = SDI_DEMO_PERSONAS.map((p) => {
+    if (p.id === 'demo_student' && env.DEMO_STUDENT_ID) {
+      return { ...p, canvasUserId: env.DEMO_STUDENT_ID.trim() };
+    }
+    if (p.id === 'demo_instructor' && env.DEMO_INSTRUCTOR_ID) {
+      return { ...p, canvasUserId: env.DEMO_INSTRUCTOR_ID.trim() };
+    }
+    if (p.id === 'demo_ta' && env.DEMO_TA_ID) {
+      return { ...p, canvasUserId: env.DEMO_TA_ID.trim() };
+    }
+    return p;
+  });
+
+  const useFakeCourseData =
+    env.CANVAS_USE_FAKE_COURSE_DATA !== undefined
+      ? env.CANVAS_USE_FAKE_COURSE_DATA === 'true' || env.CANVAS_USE_FAKE_COURSE_DATA === '1'
+      : true;
+
   const rawConfig = {
     env: env.NODE_ENV || 'development',
     server: {
@@ -29,7 +48,8 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
     canvas: {
       baseUrl: env.CANVAS_BASE_URL || 'https://classroom.sdi.edu',
       accessToken: env.CANVAS_ACCESS_TOKEN || 'mock-dev-token',
-      demoPersonas: SDI_DEMO_PERSONAS,
+      demoPersonas,
+      useFakeCourseData,
     },
     model: {
       provider: (env.MODEL_PROVIDER as 'fake' | 'gemini' | 'azure-openai') || 'fake',
