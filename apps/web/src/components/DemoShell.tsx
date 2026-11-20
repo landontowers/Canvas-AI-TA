@@ -4,6 +4,7 @@ import { InstructorSettings } from './InstructorSettings.js';
 import { StudentSettings } from './StudentSettings.js';
 import { DemoAuthModal } from './DemoAuthModal.js';
 import { GearIcon, ChatBubbleIcon, EyeIcon, RefreshIcon } from './Icons.js';
+import sdiShieldIcon from '../assets/sdi-shield-icon.png';
 
 interface HealthStatus {
   status: string;
@@ -262,7 +263,14 @@ export const DemoShell: React.FC = () => {
         {/* Canvas Drawer Top Header */}
         <header className="sdi-header">
           <div className="sdi-brand">
-            <span className="sdi-logo-square" aria-hidden="true"></span>
+            <img
+              src={sdiShieldIcon}
+              alt=""
+              aria-hidden="true"
+              className="sdi-header-logo"
+              width="22"
+              height="22"
+            />
             <h1>SDI AI Tutor</h1>
           </div>
 
