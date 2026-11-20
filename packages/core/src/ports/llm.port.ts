@@ -9,6 +9,13 @@ export interface LlmCapabilities {
   supportsPromptCaching: boolean;
 }
 
+export interface LlmUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  thoughtsTokens?: number;
+}
+
 export interface LlmGenerateOptions {
   systemPrompt: string;
   messages: Array<
@@ -21,11 +28,13 @@ export interface LlmGenerateOptions {
   tools?: ToolDefinition[];
   maxTokens?: number;
   temperature?: number;
+  reasoning?: 'off' | 'minimal' | 'full';
 }
 
 export interface LlmResponse {
   text: string;
   toolCalls?: ToolCall[];
+  usage?: LlmUsage;
 }
 
 export interface LlmPort {

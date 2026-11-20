@@ -731,6 +731,7 @@ describe('API Server', () => {
               message: 'Calculating...',
             };
             yield { type: 'text-delta', delta: 'Result is 4.' };
+            yield { type: 'usage', promptTokens: 45, completionTokens: 12, totalTokens: 57 };
           },
         },
       });
@@ -755,12 +756,14 @@ describe('API Server', () => {
       expect(instructorSawContext).toBe(true);
       expect(recordedPrompts[0]).toContain('<untrusted_canvas_data source="current_page">');
 
-      // Ensure raw thoughtSignature & internal args were stripped from SSE wire output
+      // Ensure raw thoughtSignature, internal args, and internal usage chunks were stripped from SSE wire output
       expect(chatRes.body).not.toContain('internal_sig_xyz');
       expect(chatRes.body).not.toContain('internal_call_1');
+      expect(chatRes.body).not.toContain('"type":"usage"');
 
-      // Single shared LogStorage received telemetry and flushes on close
+      // Single shared LogStorage received telemetry and flushes on close (including token usage)
       expect(fakeStorage.entries.length).toBeGreaterThan(0);
+      expect(fakeStorage.entries.some((e) => e.includes('llm_tokens_total'))).toBe(true);
       await customServer.close();
       expect(fakeStorage.flushCount).toBeGreaterThanOrEqual(1);
     });
@@ -837,6 +840,60 @@ describe('API Server', () => {
       });
       expect(res.statusCode).toBe(404);
       expect(res.json().error).toBe('Not Found');
+    });
+
+    it('uses domain-aware contextual moderation to avoid firearms false positives and escalate multi-turn distress', async () => {
+      const contextualServer = buildServer(config);
+
+      // 1. Technical firearms terminology must NOT trigger crisis
+      const firearmsRes = await contextualServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message:
+            'How do I check chamber headspace and firing pin protrusion after adjusting trigger pull?',
+        },
+      });
+      expect(firearmsRes.statusCode).toBe(200);
+      expect(firearmsRes.body).not.toContain('"type":"crisis"');
+
+      // 2. Prior distress turn + ambiguous goodbye/give-up follow-up must trigger crisis SSE event and FERPA §99.36 incident
+      const turn1 = await contextualServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'I feel completely overwhelmed and hopeless this week.',
+        },
+      });
+      expect(turn1.statusCode).toBe(200);
+      const doneMatch = turn1.body.match(/"conversationId":"([^"]+)"/);
+      expect(doneMatch).not.toBeNull();
+      const convId = doneMatch![1];
+
+      const turn2 = await contextualServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          conversationId: convId,
+          message: 'I just want to give up and say goodbye.',
+        },
+      });
+      expect(turn2.statusCode).toBe(200);
+      expect(turn2.body).toContain('"type":"crisis"');
+      expect(turn2.body).toContain('988');
+
+      const incidentsRes = await contextualServer.inject({
+        method: 'GET',
+        url: '/api/admin/crisis-incidents?personaId=demo_instructor',
+      });
+      expect(incidentsRes.statusCode).toBe(200);
+      expect(incidentsRes.json().incidents.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

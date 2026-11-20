@@ -42,6 +42,7 @@ export const conversationsTable = pgTable('conversations', {
   role: text('role').notNull(), // 'student' | 'instructor'
   title: text('title'),
   messageCount: integer('message_count').default(0).notNull(),
+  tutoringState: jsonb('tutoring_state'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });

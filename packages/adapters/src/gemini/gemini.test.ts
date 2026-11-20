@@ -9,6 +9,8 @@ vi.mock('@google/genai', () => {
     ThinkingLevel: {
       LOW: 'LOW',
       MINIMAL: 'MINIMAL',
+      MEDIUM: 'MEDIUM',
+      HIGH: 'HIGH',
     },
   };
 });
@@ -44,6 +46,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
 
     expect(caps.streaming).toBe(true);
     expect(caps.parallelToolCalls).toBe(true);
+    expect(caps.reasoning).toBe(true);
     expect(caps.structuredOutput).toBe(true);
     expect(caps.maxContextTokens).toBe(1_000_000);
   });
@@ -244,5 +247,88 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     expect(toolEvents).toHaveLength(1);
     expect((toolEvents[0] as any).toolName).toBe('calculator');
     expect((toolEvents[0] as any).thoughtSignature).toBe('stream_sig');
+  });
+
+  it('maps reasoning levels to ThinkingLevel config and extracts usageMetadata in generate() and stream()', async () => {
+    const mockGenerateContent = vi.fn().mockResolvedValue({
+      text: 'Analyzed carefully.',
+      candidates: [],
+      usageMetadata: {
+        promptTokenCount: 150,
+        candidatesTokenCount: 40,
+        totalTokenCount: 210,
+        thoughtsTokenCount: 20,
+      },
+    });
+
+    async function* streamWithUsage() {
+      yield { text: 'Streaming part ' };
+      yield {
+        text: 'done.',
+        usageMetadata: {
+          promptTokenCount: 80,
+          candidatesTokenCount: 12,
+          totalTokenCount: 92,
+        },
+      };
+    }
+
+    const mockGenerateContentStream = vi.fn().mockImplementation(() => streamWithUsage());
+
+    (GoogleGenAI as unknown as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      models: {
+        generateContent: mockGenerateContent,
+        generateContentStream: mockGenerateContentStream,
+      },
+    }));
+
+    const adapter38 = new GeminiAdapter({ apiKey: 'test-key', defaultModel: 'gemini-3.8-flash' });
+    const genRes = await adapter38.generate({
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoning: 'full',
+    });
+    expect(mockGenerateContent.mock.calls[0][0].config.thinkingConfig).toEqual({
+      thinkingLevel: 'HIGH',
+    });
+    expect(genRes.usage).toEqual({
+      promptTokens: 150,
+      completionTokens: 40,
+      totalTokens: 210,
+      thoughtsTokens: 20,
+    });
+
+    await adapter38.generate({
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoning: 'off',
+    });
+    expect(mockGenerateContent.mock.calls[1][0].config.thinkingConfig).toBeUndefined();
+
+    const adapter35 = new GeminiAdapter({ apiKey: 'test-key', defaultModel: 'gemini-3.5-flash-lite' });
+    await adapter35.generate({
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoning: 'full',
+    });
+    expect(mockGenerateContent.mock.calls[2][0].config.thinkingConfig).toEqual({
+      thinkingLevel: 'MEDIUM',
+    });
+
+    const streamEvents = [];
+    for await (const ev of adapter38.stream({
+      systemPrompt: 'sys',
+      messages: [{ role: 'user', content: 'hi' }],
+      reasoning: 'minimal',
+    })) {
+      streamEvents.push(ev);
+    }
+    const usageEv = streamEvents.find((e) => e.type === 'usage') as any;
+    expect(usageEv).toEqual({
+      type: 'usage',
+      promptTokens: 80,
+      completionTokens: 12,
+      totalTokens: 92,
+    });
   });
 });

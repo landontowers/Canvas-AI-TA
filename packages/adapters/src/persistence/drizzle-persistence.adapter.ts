@@ -11,6 +11,7 @@ import {
   Citation,
   TutorRole,
   CrisisIncident,
+  TutoringState,
 } from '@ai-tutor/core';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import postgres from 'postgres';
@@ -276,6 +277,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       role: inserted[0].role as TutorRole,
       title: inserted[0].title || undefined,
       messageCount: inserted[0].messageCount,
+      tutoringState: (inserted[0].tutoringState as TutoringState) || undefined,
       createdAt: inserted[0].createdAt,
       updatedAt: inserted[0].updatedAt,
     };
@@ -297,6 +299,7 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       role: rows[0].role as TutorRole,
       title: rows[0].title || undefined,
       messageCount: rows[0].messageCount,
+      tutoringState: (rows[0].tutoringState as TutoringState) || undefined,
       createdAt: rows[0].createdAt,
       updatedAt: rows[0].updatedAt,
     };
@@ -322,9 +325,38 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       role: r.role as TutorRole,
       title: r.title || undefined,
       messageCount: r.messageCount,
+      tutoringState: (r.tutoringState as TutoringState) || undefined,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));
+  }
+
+  async updateConversationTutoringState(
+    conversationId: string,
+    tutoringState: TutoringState,
+  ): Promise<Conversation | null> {
+    const rows = await this.db
+      .update(schema.conversationsTable)
+      .set({
+        tutoringState,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.conversationsTable.id, conversationId))
+      .returning();
+
+    if (!rows[0]) return null;
+    return {
+      id: rows[0].id,
+      collegeId: rows[0].collegeId,
+      courseId: rows[0].courseId,
+      userId: rows[0].userId,
+      role: rows[0].role as TutorRole,
+      title: rows[0].title || undefined,
+      messageCount: rows[0].messageCount,
+      tutoringState: (rows[0].tutoringState as TutoringState) || undefined,
+      createdAt: rows[0].createdAt,
+      updatedAt: rows[0].updatedAt,
+    };
   }
 
   async saveMessage(params: {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   CrisisEventSchema,
+  UsageEventSchema,
   StreamEvent,
   StreamEventSchema,
   toClientStreamEvent,
@@ -19,6 +20,19 @@ describe('StreamEvent & toClientStreamEvent', () => {
 
     expect(CrisisEventSchema.parse(crisis)).toEqual(crisis);
     expect(StreamEventSchema.parse(crisis)).toEqual(crisis);
+  });
+
+  it('validates typed UsageEvent payloads', () => {
+    const usage: StreamEvent = {
+      type: 'usage',
+      promptTokens: 120,
+      completionTokens: 45,
+      totalTokens: 175,
+      thoughtsTokens: 10,
+    };
+
+    expect(UsageEventSchema.parse(usage)).toEqual(usage);
+    expect(StreamEventSchema.parse(usage)).toEqual(usage);
   });
 
   it('strips internal args, callId, and thoughtSignature from tool-status events', () => {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { TutorRoleSchema } from './role.js';
+import { TutoringStateSchema } from '../policy/hint-ladder.js';
 
 export const ConversationSchema = z.object({
   id: z.string().uuid(),
@@ -9,6 +10,7 @@ export const ConversationSchema = z.object({
   role: TutorRoleSchema,
   title: z.string().optional(),
   messageCount: z.number().int().nonnegative().optional(),
+  tutoringState: TutoringStateSchema.optional(),
   createdAt: z.date(),
   updatedAt: z.date(),
 });

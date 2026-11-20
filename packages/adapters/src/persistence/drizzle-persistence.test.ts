@@ -269,6 +269,46 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
     expect(executedSql).toEqual(MIGRATION_STATEMENTS);
     expect(executedSql.some((s) => s.includes('course_id TEXT NOT NULL UNIQUE'))).toBe(true);
     expect(executedSql.some((s) => s.includes('is_crisis BOOLEAN'))).toBe(true);
+    expect(executedSql.some((s) => s.includes('tutoring_state JSONB'))).toBe(true);
+  });
+
+  it('updates conversation tutoring state', async () => {
+    const returningSpy = vi.fn().mockResolvedValue([
+      {
+        id: 'conv_1',
+        collegeId: 'sdi',
+        courseId: 'c1',
+        userId: 'user-1001',
+        role: 'student',
+        title: 'Help with lab 1',
+        messageCount: 2,
+        tutoringState: {
+          activeConcept: 'headspace tolerance',
+          attemptCount: 2,
+          hintLevel: 2,
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    const mockDb: any = {
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: returningSpy,
+          }),
+        }),
+      }),
+    };
+
+    const adapter = new DrizzlePersistenceAdapter(mockDb);
+    const updated = await adapter.updateConversationTutoringState('conv_1', {
+      activeConcept: 'headspace tolerance',
+      attemptCount: 2,
+      hintLevel: 2,
+    });
+    expect(updated?.tutoringState?.hintLevel).toBe(2);
   });
 
   it('records and lists crisis incidents', async () => {

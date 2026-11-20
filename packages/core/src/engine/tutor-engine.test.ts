@@ -20,6 +20,7 @@ import {
   CourseSettingValue,
   CollegeRecord,
   CrisisIncident,
+  TutoringState,
 } from '../index.js';
 
 class MockLlm implements LlmPort {
@@ -30,6 +31,7 @@ class MockLlm implements LlmPort {
     systemPrompt: string;
     messages: Array<{ role: string; content: string }>;
     toolNames: string[];
+    reasoning?: string;
   }> = [];
   public currentStreamIndex = 0;
 
@@ -37,7 +39,7 @@ class MockLlm implements LlmPort {
     return {
       streaming: true,
       parallelToolCalls: true,
-      reasoning: false,
+      reasoning: true,
       maxContextTokens: 100000,
       structuredOutput: true,
       supportsPromptCaching: false,
@@ -53,11 +55,13 @@ class MockLlm implements LlmPort {
     systemPrompt: string;
     messages: Array<{ role: string; content: string }>;
     tools?: Array<{ name: string }>;
+    reasoning?: string;
   }) {
     this.recordedOptions.push({
       systemPrompt: options.systemPrompt,
       messages: options.messages.map((m) => ({ role: m.role, content: m.content })),
       toolNames: (options.tools || []).map((t) => t.name),
+      reasoning: options.reasoning,
     });
     const streamToYield = this.streamResponses[this.currentStreamIndex] || [
       { type: 'text-delta', delta: 'Default LLM answer' },
@@ -127,6 +131,16 @@ class MockPersistence implements PersistencePort {
   async listConversations(params: any): Promise<Conversation[]> {
     return Array.from(this.conversations.values()).filter((c) => c.userId === params.userId);
   }
+  async updateConversationTutoringState(
+    conversationId: string,
+    tutoringState: TutoringState,
+  ): Promise<Conversation | null> {
+    const conv = this.conversations.get(conversationId);
+    if (!conv) return null;
+    conv.tutoringState = tutoringState;
+    conv.updatedAt = new Date();
+    return conv;
+  }
   async saveMessage(params: any): Promise<Message> {
     const msg: Message = {
       id: `msg_${Date.now()}_${Math.random()}`,
@@ -186,7 +200,10 @@ class MockIdentity implements IdentityPort {
 }
 
 class MockModeration implements ModerationPort {
-  async checkContent(content: string) {
+  public calls: Array<{ content: string; options: unknown }> = [];
+
+  async checkContent(content: string, options?: unknown) {
+    this.calls.push({ content, options });
     const isCrisis = content.toLowerCase().includes('end my life') || content.toLowerCase().includes('suicide');
     return {
       flagged: isCrisis,
@@ -194,6 +211,7 @@ class MockModeration implements ModerationPort {
       crisisDetected: isCrisis,
       triggerSnippet: isCrisis ? 'end my life' : undefined,
       reason: isCrisis ? 'Detected crisis intent' : undefined,
+      stage: isCrisis ? ('lexical' as const) : ('none' as const),
     };
   }
 }
@@ -639,5 +657,93 @@ describe('TutorEngine Comprehensive Suite', () => {
     llm.generateResponses.push('course_material');
     const res = await engine.classifyQuestion('How do I solve problem 2 before the due date?');
     expect(res).toBe('course_material');
+  });
+
+  it('escalates stateful hint ladder across turns, passes prior history to moderation, forwards reasoning, and strips internal usage chunks', async () => {
+    const llm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const moderation = new MockModeration();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+
+    llm.streamResponses = [
+      [
+        { type: 'text-delta', delta: 'What formula relates twist rate and bullet length?' },
+        { type: 'usage', promptTokens: 100, completionTokens: 15, totalTokens: 115 },
+      ],
+      [
+        { type: 'text-delta', delta: 'Lab 1 is due Sunday.' },
+        { type: 'usage', promptTokens: 120, completionTokens: 8, totalTokens: 128 },
+      ],
+      [
+        { type: 'text-delta', delta: 'Think about Greenhill: twist = 150 * D^2 / L.' },
+        { type: 'usage', promptTokens: 160, completionTokens: 20, totalTokens: 180 },
+      ],
+      [
+        { type: 'text-delta', delta: 'Step 1: square the diameter in inches before multiplying by 150.' },
+        { type: 'usage', promptTokens: 200, completionTokens: 25, totalTokens: 225 },
+      ],
+    ];
+
+    const engine = new TutorEngine({
+      llm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      moderation: moderation as any,
+      lms: new MockLms() as any,
+      calculator: new MockCalculator() as any,
+    });
+
+    const collectTurn = async (message: string, conversationId?: string) => {
+      const events: StreamEvent[] = [];
+      let resolvedConvId = conversationId;
+      for await (const ev of engine.executeTurn({
+        personaId: 'demo_student',
+        courseId: 'sdi-ftt101',
+        conversationId,
+        message,
+      })) {
+        events.push(ev);
+        if (ev.type === 'done') {
+          resolvedConvId = ev.conversationId;
+        }
+      }
+      return { events, conversationId: resolvedConvId! };
+    };
+
+    // Turn 1: Initial course material question -> Level 1
+    const turn1 = await collectTurn('How do I calculate rifling twist rate using barrel diameter?');
+    expect(turn1.events.some((e) => e.type === 'usage')).toBe(false);
+    expect(llm.recordedOptions[0].reasoning).toBe('minimal');
+    expect(llm.recordedOptions[0].systemPrompt).toContain('Current Hint Level: 1/3');
+    expect((await persistence.getConversation(turn1.conversationId))?.tutoringState?.hintLevel).toBe(1);
+
+    // Turn 2: Logistics interruption -> preserves Level 1
+    const turn2 = await collectTurn('When is the lab due?', turn1.conversationId);
+    expect((await persistence.getConversation(turn2.conversationId))?.tutoringState?.hintLevel).toBe(1);
+    expect(llm.recordedOptions[1].systemPrompt).toContain('Current Hint Level: 1/3');
+
+    // Turn 3: Student struggle -> escalates to Level 2 + moderation receives prior history
+    const turn3 = await collectTurn('I am still stuck on rifling twist rate', turn1.conversationId);
+    expect((await persistence.getConversation(turn3.conversationId))?.tutoringState?.hintLevel).toBe(2);
+    expect(llm.recordedOptions[2].systemPrompt).toContain('Current Hint Level: 2/3');
+    expect((moderation.calls[2].options as any).recentMessages.length).toBeGreaterThanOrEqual(4);
+
+    // Turn 4: Continued struggle -> escalates to Level 3
+    await collectTurn('I still do not get what number goes in the numerator', turn1.conversationId);
+    expect((await persistence.getConversation(turn1.conversationId))?.tutoringState?.hintLevel).toBe(3);
+    expect(llm.recordedOptions[3].systemPrompt).toContain('Current Hint Level: 3/3');
+
+    // Verify telemetry recorded tokens, TTFT, and hintLevel
+    const completedEvents = telemetry.loggedEvents.filter((e) => e.name === 'turn_completed');
+    expect(completedEvents[3].properties.totalTokens).toBe(225);
+    expect(completedEvents[3].properties.hintLevel).toBe(3);
+    expect(typeof completedEvents[3].properties.ttftMs).toBe('number');
+    expect(telemetry.loggedMetrics.some((m) => m.name === 'llm_tokens_total')).toBe(true);
+    expect(telemetry.loggedMetrics.some((m) => m.name === 'turn_ttft_ms')).toBe(true);
   });
 });

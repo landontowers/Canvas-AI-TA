@@ -3,8 +3,22 @@ import {
   LlmCapabilities,
   LlmGenerateOptions,
   LlmResponse,
+  LlmUsage,
   StreamEvent,
 } from '@ai-tutor/core';
+
+function estimateUsage(options: LlmGenerateOptions, responseText: string): LlmUsage {
+  const inputChars =
+    options.systemPrompt.length +
+    options.messages.reduce((sum, m) => sum + m.content.length, 0);
+  const promptTokens = Math.max(1, Math.ceil(inputChars / 4));
+  const completionTokens = Math.max(1, Math.ceil(responseText.length / 4));
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens: promptTokens + completionTokens,
+  };
+}
 
 export class FakeLlmAdapter implements LlmPort {
   readonly providerName = 'fake';
@@ -31,9 +45,14 @@ export class FakeLlmAdapter implements LlmPort {
     const hasToolResult = options.messages.some((m) => m.role === 'tool');
 
     // Simulate tool call if user asks about grades and no tool result has been returned yet
-    if (!hasToolResult && content.toLowerCase().includes('grade') && options.tools?.some((t: { name: string }) => t.name === 'get_student_grades')) {
+    if (
+      !hasToolResult &&
+      content.toLowerCase().includes('grade') &&
+      options.tools?.some((t: { name: string }) => t.name === 'get_student_grades')
+    ) {
+      const text = 'Checking your grades...';
       return {
-        text: 'Checking your grades...',
+        text,
         toolCalls: [
           {
             id: 'call_fake_grades',
@@ -41,17 +60,22 @@ export class FakeLlmAdapter implements LlmPort {
             args: {},
           },
         ],
+        usage: estimateUsage(options, text),
       };
     }
 
     if (hasToolResult) {
+      const text =
+        'Based on your grade records, you have an A (95/100) on Week 1 Lab: Safety & Tooling.';
       return {
-        text: 'Based on your grade records, you have an A (95/100) on Week 1 Lab: Safety & Tooling.',
+        text,
+        usage: estimateUsage(options, text),
       };
     }
 
     return {
       text: this.defaultResponseText,
+      usage: estimateUsage(options, this.defaultResponseText),
     };
   }
 
@@ -76,6 +100,13 @@ export class FakeLlmAdapter implements LlmPort {
       yield {
         type: 'text-delta',
         delta: (i > 0 ? ' ' : '') + words[i],
+      };
+    }
+
+    if (response.usage) {
+      yield {
+        type: 'usage',
+        ...response.usage,
       };
     }
 

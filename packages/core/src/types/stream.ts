@@ -45,6 +45,14 @@ export const CrisisEventSchema = z.object({
   message: z.string(),
 });
 
+export const UsageEventSchema = z.object({
+  type: z.literal('usage'),
+  promptTokens: z.number().int().nonnegative(),
+  completionTokens: z.number().int().nonnegative(),
+  totalTokens: z.number().int().nonnegative(),
+  thoughtsTokens: z.number().int().nonnegative().optional(),
+});
+
 export const StreamEventSchema = z.discriminatedUnion('type', [
   TextDeltaEventSchema,
   ToolStatusEventSchema,
@@ -52,6 +60,7 @@ export const StreamEventSchema = z.discriminatedUnion('type', [
   DoneEventSchema,
   ErrorEventSchema,
   CrisisEventSchema,
+  UsageEventSchema,
 ]);
 
 export type StreamEvent = z.infer<typeof StreamEventSchema>;
@@ -61,6 +70,7 @@ export type CitationEvent = z.infer<typeof CitationEventSchema>;
 export type DoneEvent = z.infer<typeof DoneEventSchema>;
 export type ErrorEvent = z.infer<typeof ErrorEventSchema>;
 export type CrisisEvent = z.infer<typeof CrisisEventSchema>;
+export type UsageEvent = z.infer<typeof UsageEventSchema>;
 
 /**
  * Strips internal LLM protocol fields (raw args, callId, thoughtSignature) before

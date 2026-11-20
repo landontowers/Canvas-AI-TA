@@ -17,6 +17,11 @@ import { ToolExecutionContext } from '../tools/tool.types.js';
 import { HarnessProfile, STUDENT_HARNESS_PROFILE } from '../profiles/student.profile.js';
 import { INSTRUCTOR_HARNESS_PROFILE } from '../profiles/instructor.profile.js';
 import { evaluateStudentPolicy, QuestionClassification } from '../policy/classifier.js';
+import {
+  TutoringState,
+  advanceTutoringState,
+  buildHintLadderInstruction,
+} from '../policy/hint-ladder.js';
 import { CollegeConfig } from '../config/schema.js';
 import { CourseSettingValue } from '../types/course.js';
 import { TutorRole } from '../types/role.js';
@@ -63,7 +68,11 @@ export class TutorEngine {
    * Determines if a question is purely about logistics (grades, deadlines, requirements, syllabus)
    * or course subject matter (how to solve problems, theory, concepts).
    */
-  async classifyQuestion(message: string): Promise<QuestionClassification> {
+  async classifyQuestion(
+    message: string,
+    options: { useLlm?: boolean } = {},
+  ): Promise<QuestionClassification> {
+    const useLlm = options.useLlm !== false;
     const lower = message.toLowerCase();
 
     // Fast heuristic keywords for common logistics questions
@@ -110,8 +119,8 @@ export class TutorEngine {
       return 'logistics';
     }
 
-    // If both match (blended query) or neither matches (grey zone), invoke classifier LLM if available
-    if (this.deps.classifierLlm) {
+    // If both match (blended query) or neither matches (grey zone), invoke classifier LLM if enabled and available
+    if (useLlm && this.deps.classifierLlm) {
       try {
         const response = await this.deps.classifierLlm.generate({
           systemPrompt:
@@ -136,9 +145,16 @@ export class TutorEngine {
     role: TutorRole,
     courseSetting: CourseSettingValue,
     pageContext?: PageContext,
+    tutoringState?: TutoringState,
   ): string {
+    const promptSections: string[] = [profile.systemPrompt];
+
+    if (role === 'student' && courseSetting === 'full' && tutoringState) {
+      promptSections.push(buildHintLadderInstruction(tutoringState));
+    }
+
     if (!pageContext || (role === 'student' && courseSetting === 'logistics_only')) {
-      return profile.systemPrompt;
+      return promptSections.join('\n\n');
     }
 
     const parts: string[] = [];
@@ -153,10 +169,13 @@ export class TutorEngine {
     }
 
     if (parts.length === 0) {
-      return profile.systemPrompt;
+      return promptSections.join('\n\n');
     }
 
-    return `${profile.systemPrompt}\n\nThe user is currently viewing the following Canvas page:\n<untrusted_canvas_data source="current_page">\n${parts.join('\n')}\n</untrusted_canvas_data>`;
+    promptSections.push(
+      `The user is currently viewing the following Canvas page:\n<untrusted_canvas_data source="current_page">\n${parts.join('\n')}\n</untrusted_canvas_data>`,
+    );
+    return promptSections.join('\n\n');
   }
 
   private getPermittedTools(
@@ -277,15 +296,30 @@ export class TutorEngine {
       });
     }
 
+    // Load prior history once before saving the current user turn (shared with contextual moderation & LLM context)
+    const priorHistory = await this.deps.persistence.listMessages(conversation.id);
+
     // Save student/instructor user message
-    await this.deps.persistence.saveMessage({
+    const savedUserMessage = await this.deps.persistence.saveMessage({
       conversationId: conversation.id,
       role: 'user',
       content: params.message,
     });
 
     // 3. Safety & Crisis check (critique §3.8, FERPA 34 CFR § 99.36)
-    const moderation = await this.deps.moderation.checkContent(params.message, authContext.userId);
+    const recentMessages = priorHistory
+      .filter(
+        (m): m is typeof m & { role: 'user' | 'assistant' } =>
+          m.role === 'user' || m.role === 'assistant',
+      )
+      .slice(-4)
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    const moderation = await this.deps.moderation.checkContent(params.message, {
+      userId: authContext.userId,
+      courseId: authContext.courseId,
+      recentMessages,
+    });
     if (moderation.crisisDetected) {
       const crisis = this.deps.collegeConfig.crisis;
       const crisisText = moderation.crisisMessage || crisis.message;
@@ -338,14 +372,16 @@ export class TutorEngine {
         userId: authContext.userId,
         categories: moderation.categories.join(','),
         incidentId: incident.id,
+        stage: moderation.stage || 'lexical',
       });
       return;
     }
 
-    // 4. Role-based Profile, Single Course Settings Lookup, and Policy check
+    // 4. Role-based Profile, Single Course Settings Lookup, Policy check & Hint Ladder
     const isStudent = authContext.tutorRole === 'student';
     const profile = isStudent ? STUDENT_HARNESS_PROFILE : INSTRUCTOR_HARNESS_PROFILE;
     const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
+    let activeTutoringState: TutoringState | undefined;
 
     if (isStudent && courseSettings.setting === 'logistics_only') {
       const classification = await this.classifyQuestion(params.message);
@@ -379,6 +415,24 @@ export class TutorEngine {
         });
         return;
       }
+    } else if (isStudent && courseSettings.setting === 'full') {
+      const studentClassification = await this.classifyQuestion(params.message, { useLlm: false });
+      if (studentClassification === 'course_material') {
+        activeTutoringState = advanceTutoringState(
+          conversation.tutoringState,
+          params.message,
+          studentClassification,
+        );
+        const updatedConv = await this.deps.persistence.updateConversationTutoringState(
+          conversation.id,
+          activeTutoringState,
+        );
+        if (updatedConv?.tutoringState) {
+          activeTutoringState = updatedConv.tutoringState;
+        }
+      } else if (conversation.tutoringState) {
+        activeTutoringState = conversation.tutoringState;
+      }
     }
 
     // 5. Build tool list from profile allowlist + role boundary + logistics_only guard
@@ -393,11 +447,12 @@ export class TutorEngine {
       authContext.tutorRole,
       courseSettings.setting,
       params.pageContext,
+      activeTutoringState,
     );
     const activeLlm = isStudent ? this.deps.llm : (this.deps.instructorLlm ?? this.deps.llm);
 
-    // 6. Load conversation history
-    const history = await this.deps.persistence.listMessages(conversation.id);
+    // 6. Build conversation history for LLM
+    const history = [...priorHistory, savedUserMessage];
     const messagesForLlm: Array<{
       role: MessageRole;
       content: string;
@@ -426,6 +481,10 @@ export class TutorEngine {
     const accumulatedCitations: Citation[] = [];
     const maxToolRounds = 3;
     let round = 0;
+    let firstTokenTime: number | undefined;
+    let promptTokens = 0;
+    let completionTokens = 0;
+    let totalTokens = 0;
 
     while (round < maxToolRounds) {
       round++;
@@ -438,10 +497,14 @@ export class TutorEngine {
         tools: availableTools,
         maxTokens: profile.maxTokens,
         temperature: profile.temperature,
+        reasoning: profile.reasoning,
       });
 
       for await (const event of stream) {
         if (event.type === 'text-delta') {
+          if (firstTokenTime === undefined && event.delta.length > 0) {
+            firstTokenTime = Date.now();
+          }
           currentRoundText += event.delta;
           fullAssistantResponse += event.delta;
           yield toClientStreamEvent(event);
@@ -458,6 +521,10 @@ export class TutorEngine {
         } else if (event.type === 'citation') {
           accumulatedCitations.push(event.citation);
           yield toClientStreamEvent(event);
+        } else if (event.type === 'usage') {
+          promptTokens += event.promptTokens;
+          completionTokens += event.completionTokens;
+          totalTokens += event.totalTokens;
         }
       }
 
@@ -527,10 +594,26 @@ export class TutorEngine {
     };
 
     const durationMs = Date.now() - startTime;
+    const ttftMs = firstTokenTime !== undefined ? firstTokenTime - startTime : undefined;
+
     this.deps.telemetry.recordMetric('turn_duration_ms', durationMs, {
       role: authContext.tutorRole,
       courseId: authContext.courseId,
     });
+
+    if (ttftMs !== undefined) {
+      this.deps.telemetry.recordMetric('turn_ttft_ms', ttftMs, {
+        role: authContext.tutorRole,
+        courseId: authContext.courseId,
+      });
+    }
+
+    if (totalTokens > 0) {
+      this.deps.telemetry.recordMetric('llm_tokens_total', totalTokens, {
+        role: authContext.tutorRole,
+        courseId: authContext.courseId,
+      });
+    }
 
     this.deps.telemetry.recordEvent('turn_completed', {
       userId: authContext.userId,
@@ -541,6 +624,14 @@ export class TutorEngine {
       responseChars: fullAssistantResponse.length,
       citationsCount: accumulatedCitations.length,
       toolRounds: round - 1,
+      ...(ttftMs !== undefined ? { ttftMs } : {}),
+      ...(totalTokens > 0 ? { promptTokens, completionTokens, totalTokens } : {}),
+      ...(activeTutoringState
+        ? {
+            hintLevel: activeTutoringState.hintLevel,
+            attemptCount: activeTutoringState.attemptCount,
+          }
+        : {}),
     });
   }
 }

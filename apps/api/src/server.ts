@@ -26,7 +26,7 @@ import {
   FakeIdentityAdapter,
   InMemoryPersistenceAdapter,
   InProcessCalculatorAdapter,
-  FakeModerationAdapter,
+  ContextualModerationAdapter,
   NoopTelemetryAdapter,
   PrivacyTelemetryAdapter,
   WebhookCrisisAlertAdapter,
@@ -242,7 +242,15 @@ export function buildServer(
         : new FakeIdentityAdapter()),
     persistence: resolvedPersistence,
     calculator: portsOverride?.calculator ?? new InProcessCalculatorAdapter(),
-    moderation: portsOverride?.moderation ?? new FakeModerationAdapter(config.college.crisis.message),
+    moderation:
+      portsOverride?.moderation ??
+      new ContextualModerationAdapter({
+        crisisMessage: config.college.crisis.message,
+        classifierLlm:
+          config.model.provider === 'gemini' && config.model.apiKey
+            ? defaultClassifierLlm
+            : undefined,
+      }),
     telemetry:
       portsOverride?.telemetry ??
       (config.env === 'test' && !resolvedLogStorage

@@ -3,6 +3,7 @@ import {
   LlmCapabilities,
   LlmGenerateOptions,
   LlmResponse,
+  LlmUsage,
   StreamEvent,
   ToolCall,
 } from '@ai-tutor/core';
@@ -40,7 +41,7 @@ export class GeminiAdapter implements LlmPort {
     return {
       streaming: true,
       parallelToolCalls: true,
-      reasoning: false,
+      reasoning: true,
       maxContextTokens: 1_000_000,
       structuredOutput: true,
       supportsPromptCaching: true,
@@ -145,14 +146,48 @@ export class GeminiAdapter implements LlmPort {
     return [{ functionDeclarations }];
   }
 
-  private getThinkingConfig(model: string) {
+  private getThinkingConfig(
+    model: string,
+    reasoning: LlmGenerateOptions['reasoning'] = 'minimal',
+  ) {
+    if (reasoning === 'off') {
+      return {};
+    }
     if (model.includes('3.8')) {
-      return { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } };
+      return {
+        thinkingConfig: {
+          thinkingLevel: reasoning === 'full' ? ThinkingLevel.HIGH : ThinkingLevel.LOW,
+        },
+      };
     }
     if (model.includes('3.5') || model.includes('3.6')) {
-      return { thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL } };
+      return {
+        thinkingConfig: {
+          thinkingLevel: reasoning === 'full' ? ThinkingLevel.MEDIUM : ThinkingLevel.MINIMAL,
+        },
+      };
     }
     return {};
+  }
+
+  private extractUsage(
+    meta?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+      thoughtsTokenCount?: number;
+    } | null,
+  ): LlmUsage | undefined {
+    if (!meta) return undefined;
+    const promptTokens = meta.promptTokenCount ?? 0;
+    const completionTokens = meta.candidatesTokenCount ?? 0;
+    const totalTokens = meta.totalTokenCount ?? promptTokens + completionTokens;
+    return {
+      promptTokens,
+      completionTokens,
+      totalTokens,
+      ...(meta.thoughtsTokenCount !== undefined ? { thoughtsTokens: meta.thoughtsTokenCount } : {}),
+    };
   }
 
   private isRecoverableError(err: unknown): boolean {
@@ -183,7 +218,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const callModel = async (model: string) => {
-      const thinking = this.getThinkingConfig(model);
+      const thinking = this.getThinkingConfig(model, options.reasoning);
       return this.client!.models.generateContent({
         model,
         contents,
@@ -227,9 +262,12 @@ export class GeminiAdapter implements LlmPort {
       }
     }
 
+    const usage = this.extractUsage(response.usageMetadata);
+
     return {
       text,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -244,7 +282,7 @@ export class GeminiAdapter implements LlmPort {
     const tools = this.mapToolsToGemini(options);
 
     const getStream = (model: string) => {
-      const thinking = this.getThinkingConfig(model);
+      const thinking = this.getThinkingConfig(model, options.reasoning);
       return this.client!.models.generateContentStream({
         model,
         contents,
@@ -272,13 +310,38 @@ export class GeminiAdapter implements LlmPort {
       }
     }
 
-    try {
-      for await (const chunk of activeStream) {
+    const consumeStream = async function* (
+      adapter: GeminiAdapter,
+      iterable: AsyncIterable<{
+        text?: string;
+        usageMetadata?: {
+          promptTokenCount?: number;
+          candidatesTokenCount?: number;
+          totalTokenCount?: number;
+          thoughtsTokenCount?: number;
+        };
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{
+              functionCall?: { id?: string; name?: string; args?: unknown };
+              thoughtSignature?: string;
+            }>;
+          };
+        }>;
+      }>,
+    ): AsyncIterable<StreamEvent> {
+      let latestUsage: LlmUsage | undefined;
+      for await (const chunk of iterable) {
         if (chunk.text) {
           yield {
             type: 'text-delta',
             delta: chunk.text,
           };
+        }
+
+        const chunkUsage = adapter.extractUsage(chunk.usageMetadata);
+        if (chunkUsage) {
+          latestUsage = chunkUsage;
         }
 
         if (chunk.candidates) {
@@ -300,36 +363,25 @@ export class GeminiAdapter implements LlmPort {
           }
         }
       }
-    } catch (streamErr: unknown) {
-      if (this.isRecoverableError(streamErr) && modelUsed === this.defaultModel && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
-        const fallbackStream = await getStream(this.fallbackModel);
-        for await (const chunk of fallbackStream) {
-          if (chunk.text) {
-            yield {
-              type: 'text-delta',
-              delta: chunk.text,
-            };
-          }
+      if (latestUsage) {
+        yield {
+          type: 'usage',
+          ...latestUsage,
+        };
+      }
+    };
 
-          if (chunk.candidates) {
-            for (const cand of chunk.candidates) {
-              for (const part of cand.content?.parts || []) {
-                if (part.functionCall) {
-                  const fc = part.functionCall;
-                  yield {
-                    type: 'tool-status',
-                    toolName: fc.name || 'unknown_tool',
-                    status: 'calling',
-                    args: (fc.args as Record<string, unknown>) || {},
-                    callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
-                    thoughtSignature: (part as Record<string, unknown>).thoughtSignature as string | undefined,
-                    message: `Invoking ${fc.name || 'tool'}...`,
-                  };
-                }
-              }
-            }
-          }
-        }
+    try {
+      yield* consumeStream(this, activeStream as AsyncIterable<never>);
+    } catch (streamErr: unknown) {
+      if (
+        this.isRecoverableError(streamErr) &&
+        modelUsed === this.defaultModel &&
+        this.fallbackModel &&
+        this.fallbackModel !== this.defaultModel
+      ) {
+        const fallbackStream = await getStream(this.fallbackModel);
+        yield* consumeStream(this, fallbackStream as AsyncIterable<never>);
       } else {
         throw streamErr;
       }

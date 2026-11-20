@@ -9,6 +9,7 @@ import {
   Citation,
   TutorRole,
 } from '../types/index.js';
+import { TutoringState } from '../policy/hint-ladder.js';
 
 export interface CollegeRecord {
   id: string;
@@ -40,6 +41,10 @@ export interface PersistencePort {
   }): Promise<Conversation>;
   getConversation(conversationId: string): Promise<Conversation | null>;
   listConversations(userId: string, courseId: string): Promise<Conversation[]>;
+  updateConversationTutoringState(
+    conversationId: string,
+    tutoringState: TutoringState,
+  ): Promise<Conversation | null>;
 
   saveMessage(params: {
     conversationId: string;

@@ -11,6 +11,7 @@ import {
   Citation,
   TutorRole,
   CrisisIncident,
+  TutoringState,
 } from '@ai-tutor/core';
 import crypto from 'node:crypto';
 
@@ -127,6 +128,17 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     return Array.from(this.conversations.values()).filter(
       (c) => c.userId === userId && c.courseId === courseId,
     );
+  }
+
+  async updateConversationTutoringState(
+    conversationId: string,
+    tutoringState: TutoringState,
+  ): Promise<Conversation | null> {
+    const conv = this.conversations.get(conversationId);
+    if (!conv) return null;
+    conv.tutoringState = tutoringState;
+    conv.updatedAt = new Date();
+    return conv;
   }
 
   async saveMessage(params: {

@@ -76,6 +76,17 @@ describe.skipIf(!testPostgresUrl)('DrizzlePersistenceAdapter (Live PostgreSQL In
     expect(fetchedConv?.title).toBe('First user prompt for live postgres');
     expect(fetchedConv?.messageCount).toBe(1);
 
+    const hintUpdated = await pgConn.adapter.updateConversationTutoringState(conv.id, {
+      activeConcept: 'barrel harmonics',
+      attemptCount: 3,
+      hintLevel: 3,
+    });
+    expect(hintUpdated?.tutoringState?.hintLevel).toBe(3);
+
+    const reloadedConv = await pgConn.adapter.getConversation(conv.id);
+    expect(reloadedConv?.tutoringState?.activeConcept).toBe('barrel harmonics');
+    expect(reloadedConv?.tutoringState?.attemptCount).toBe(3);
+
     await pgConn.adapter.clearUserData('user-1001');
     const afterClear = await pgConn.adapter.listConversations('user-1001', 'sdi-ftt101');
     expect(afterClear).toHaveLength(0);

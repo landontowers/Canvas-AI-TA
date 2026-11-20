@@ -44,11 +44,13 @@ export const MIGRATION_STATEMENTS: string[] = [
     role TEXT NOT NULL,
     title TEXT,
     message_count INTEGER NOT NULL DEFAULT 0,
+    tutoring_state JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`,
   `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS title TEXT;`,
   `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS message_count INTEGER NOT NULL DEFAULT 0;`,
+  `ALTER TABLE conversations ADD COLUMN IF NOT EXISTS tutoring_state JSONB;`,
   `CREATE INDEX IF NOT EXISTS idx_conversations_user_course ON conversations (user_id, course_id, updated_at DESC);`,
   `CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

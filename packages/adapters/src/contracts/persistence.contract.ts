@@ -58,6 +58,22 @@ export function runPersistenceContractTests(
       expect(history.length).toBe(2);
       expect(history[0].id).toBe(msg1.id);
       expect(history[1].id).toBe(msg2.id);
+
+      const updatedConv = await adapter.updateConversationTutoringState(conv.id, {
+        activeConcept: 'headspace tolerance',
+        attemptCount: 2,
+        hintLevel: 2,
+        lastUpdatedAt: '2026-11-20T12:00:00.000Z',
+      });
+      expect(updatedConv?.tutoringState?.hintLevel).toBe(2);
+
+      const reloadedConv = await adapter.getConversation(conv.id);
+      expect(reloadedConv?.tutoringState).toEqual({
+        activeConcept: 'headspace tolerance',
+        attemptCount: 2,
+        hintLevel: 2,
+        lastUpdatedAt: '2026-11-20T12:00:00.000Z',
+      });
     });
 
     it('clears student data on opt-out', async () => {
