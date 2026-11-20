@@ -39,6 +39,14 @@ export const DemoShell: React.FC = () => {
       window.self !== window.top);
 
   useEffect(() => {
+    if (isEmbedded) {
+      document.body.classList.add('embedded-mode');
+    } else {
+      document.body.classList.remove('embedded-mode');
+    }
+  }, [isEmbedded]);
+
+  useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (!event.data || typeof event.data !== 'object') return;
       const data = event.data as Record<string, unknown>;
@@ -236,12 +244,12 @@ export const DemoShell: React.FC = () => {
                 : 'CONNECTING...'}
             </span>
           </div>
-          <span className="frame-size-chip">Drawer Width: 320px fixed</span>
+          <span className="frame-size-chip">Drawer: Resizable (Fluid)</span>
         </div>
       </aside>
       )}
 
-      {/* Main 320px Canvas Sidebar Drawer Frame */}
+      {/* Main Canvas Sidebar Drawer Frame */}
       <main className="canvas-frame" aria-label="SDI AI Tutor Canvas Sidebar Drawer">
         {/* Canvas Drawer Top Header */}
         <header className="sdi-header">
@@ -294,7 +302,7 @@ export const DemoShell: React.FC = () => {
 
         {/* Canvas Drawer Footer */}
         <footer className="sidebar-footer">
-          <p>Sonoran Desert Institute • 320px Canvas Drawer</p>
+          <p>Sonoran Desert Institute • Canvas Sidebar Drawer</p>
         </footer>
       </main>
     </div>

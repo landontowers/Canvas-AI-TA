@@ -71,6 +71,20 @@
   padding: 0;
 }
 
+html, body {
+  width: 100%;
+  height: 100%;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 body {
   font-family: var(--font-body);
   background-color: #F0F2F5;
@@ -111,32 +125,154 @@ body {
   width: 100%;
 }
 
-/* Embedded / Iframe / Canvas In-Page Mode */
+/* Embedded / Iframe / Canvas In-Page Mode: 100% fluid responsive scaling */
+body.embedded-mode,
+body:has(.demo-container.embedded) {
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+  overflow: hidden !important;
+  background-color: transparent !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+body.embedded-mode #root,
+body:has(.demo-container.embedded) #root {
+  width: 100% !important;
+  height: 100% !important;
+  flex: 1 1 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+}
+
 .demo-container.embedded {
-  max-width: 100%;
-  width: 100%;
-  height: 100vh;
-  margin: 0;
-  padding: 0;
-  gap: 0;
-  justify-content: stretch;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  flex: 1 1 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
 }
 
 .demo-container.embedded .canvas-frame {
-  width: 100%;
-  max-width: 100%;
-  height: 100vh;
-  max-height: 100vh;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  flex: 1 1 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
 }
 
-body:has(.demo-container.embedded) {
-  padding: 0;
-  margin: 0;
-  background-color: transparent;
-  overflow: hidden;
+.demo-container.embedded .drawer-body {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.demo-container.embedded .chat-interface {
+  width: 100% !important;
+  max-width: 100% !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.demo-container.embedded .messages-container {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .empty-state {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .page-context-pill {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .starter-prompts {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .prompt-chips {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .prompt-chip {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .message-bubble.assistant {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.demo-container.embedded .message-bubble.user {
+  max-width: 88% !important;
+}
+
+.demo-container.embedded .chat-input-area {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .input-form,
+.demo-container.embedded .input-wrapper {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .chat-textarea {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .settings-view,
+.demo-container.embedded .settings-body,
+.demo-container.embedded .settings-fieldset,
+.demo-container.embedded .setting-option {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .auth-card {
+  max-width: 480px !important;
+  width: 90% !important;
+}
+
+.demo-container.embedded .sidebar-footer {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+.demo-container.embedded .feedback-alert {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* External Canvas Host Simulator Controls */
@@ -385,9 +521,11 @@ body:has(.demo-container.embedded) {
   color: var(--sdi-red);
 }
 
-/* 320px Canvas Top Navigation Drawer Frame (critique §3.1, §4.5) */
+/* Canvas Top Navigation Drawer Frame (critique §3.1, §4.5) */
 .canvas-frame {
-  width: 320px;
+  width: 100%;
+  max-width: 540px;
+  min-width: 280px;
   height: 680px;
   background: var(--color-surface-canvas);
   border: 1px solid var(--color-border-subtle);
@@ -618,7 +756,8 @@ body:has(.demo-container.embedded) {
   background: var(--color-surface-warm);
   color: var(--color-text-primary);
   align-self: flex-start;
-  max-width: 95%;
+  max-width: 100%;
+  width: 100%;
   border-left: 3px solid var(--color-primary);
   border-bottom-left-radius: 1px;
 }
@@ -774,6 +913,17 @@ body:has(.demo-container.embedded) {
   padding: 10px;
   background: #FAFAFA;
   border-top: 1px solid var(--color-border-subtle);
+  width: 100%;
+}
+
+.input-form {
+  width: 100%;
+}
+
+.input-wrapper {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .chat-textarea {
