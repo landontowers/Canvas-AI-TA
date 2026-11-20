@@ -70,13 +70,17 @@ export class GeminiAdapter implements LlmPort {
         }
         if (m.toolCalls && m.toolCalls.length > 0) {
           for (const tc of m.toolCalls) {
-            parts.push({
+            const partObj: Record<string, unknown> = {
               functionCall: {
                 id: tc.id,
                 name: tc.name,
                 args: tc.args || {},
               },
-            });
+            };
+            if (tc.thoughtSignature) {
+              partObj.thoughtSignature = tc.thoughtSignature;
+            }
+            parts.push(partObj);
           }
         }
         if (parts.length === 0) {
@@ -207,14 +211,19 @@ export class GeminiAdapter implements LlmPort {
     const text = response.text || '';
     const toolCalls: ToolCall[] = [];
 
-    const functionCalls = response.functionCalls;
-    if (functionCalls) {
-      for (const fc of functionCalls) {
-        toolCalls.push({
-          id: `call_${Date.now()}_${fc.name || 'tool'}`,
-          name: fc.name || 'unknown_tool',
-          args: (fc.args as Record<string, unknown>) || {},
-        });
+    if (response.candidates) {
+      for (const cand of response.candidates) {
+        for (const part of cand.content?.parts || []) {
+          if (part.functionCall) {
+            const fc = part.functionCall;
+            toolCalls.push({
+              id: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
+              name: fc.name || 'unknown_tool',
+              args: (fc.args as Record<string, unknown>) || {},
+              thoughtSignature: (part as Record<string, unknown>).thoughtSignature as string | undefined,
+            });
+          }
+        }
       }
     }
 
@@ -272,16 +281,22 @@ export class GeminiAdapter implements LlmPort {
           };
         }
 
-        if (chunk.functionCalls) {
-          for (const fc of chunk.functionCalls) {
-            yield {
-              type: 'tool-status',
-              toolName: fc.name || 'unknown_tool',
-              status: 'calling',
-              args: (fc.args as Record<string, unknown>) || {},
-              callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
-              message: `Invoking ${fc.name || 'tool'}...`,
-            };
+        if (chunk.candidates) {
+          for (const cand of chunk.candidates) {
+            for (const part of cand.content?.parts || []) {
+              if (part.functionCall) {
+                const fc = part.functionCall;
+                yield {
+                  type: 'tool-status',
+                  toolName: fc.name || 'unknown_tool',
+                  status: 'calling',
+                  args: (fc.args as Record<string, unknown>) || {},
+                  callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
+                  thoughtSignature: (part as Record<string, unknown>).thoughtSignature as string | undefined,
+                  message: `Invoking ${fc.name || 'tool'}...`,
+                };
+              }
+            }
           }
         }
       }
@@ -296,16 +311,22 @@ export class GeminiAdapter implements LlmPort {
             };
           }
 
-          if (chunk.functionCalls) {
-            for (const fc of chunk.functionCalls) {
-              yield {
-                type: 'tool-status',
-                toolName: fc.name || 'unknown_tool',
-                status: 'calling',
-                args: (fc.args as Record<string, unknown>) || {},
-                callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
-                message: `Invoking ${fc.name || 'tool'}...`,
-              };
+          if (chunk.candidates) {
+            for (const cand of chunk.candidates) {
+              for (const part of cand.content?.parts || []) {
+                if (part.functionCall) {
+                  const fc = part.functionCall;
+                  yield {
+                    type: 'tool-status',
+                    toolName: fc.name || 'unknown_tool',
+                    status: 'calling',
+                    args: (fc.args as Record<string, unknown>) || {},
+                    callId: fc.id || `call_${Date.now()}_${fc.name || 'tool'}`,
+                    thoughtSignature: (part as Record<string, unknown>).thoughtSignature as string | undefined,
+                    message: `Invoking ${fc.name || 'tool'}...`,
+                  };
+                }
+              }
             }
           }
         }

@@ -4,6 +4,7 @@ export const ToolCallSchema = z.object({
   id: z.string(),
   name: z.string(),
   args: z.record(z.unknown()),
+  thoughtSignature: z.string().optional(),
 });
 export type ToolCall = z.infer<typeof ToolCallSchema>;
 

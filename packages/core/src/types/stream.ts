@@ -15,6 +15,7 @@ export const ToolStatusEventSchema = z.object({
   status: z.enum(['calling', 'executing', 'complete', 'error']),
   args: z.record(z.unknown()).optional(),
   callId: z.string().optional(),
+  thoughtSignature: z.string().optional(),
   message: z.string().optional(),
 });
 

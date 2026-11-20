@@ -298,6 +298,7 @@ export class TutorEngine {
               id: event.callId || `call_${Date.now()}_${pendingToolCalls.length}`,
               name: event.toolName,
               args: (event.args as Record<string, unknown>) || {},
+              thoughtSignature: event.thoughtSignature,
             });
           }
         } else if (event.type === 'citation') {
