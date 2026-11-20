@@ -101,10 +101,12 @@ export function buildServer(
       defaultLlm = new GeminiAdapter({
         apiKey: config.model.apiKey,
         defaultModel: config.model.studentModel,
+        fallbackModel: 'gemini-3.5-flash',
       });
       defaultClassifierLlm = new GeminiAdapter({
         apiKey: config.model.apiKey,
         defaultModel: config.model.classifierModel,
+        fallbackModel: 'gemini-3.5-flash-lite',
       });
     }
   } else {

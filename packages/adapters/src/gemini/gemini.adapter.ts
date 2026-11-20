@@ -6,24 +6,33 @@ import {
   StreamEvent,
   ToolCall,
 } from '@ai-tutor/core';
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 
 export interface GeminiAdapterOptions {
   apiKey?: string;
   defaultModel?: string;
+  fallbackModel?: string;
+  timeout?: number;
 }
 
 export class GeminiAdapter implements LlmPort {
   readonly providerName = 'gemini';
   private client?: GoogleGenAI;
   private defaultModel: string;
+  private fallbackModel: string;
 
   constructor(options: GeminiAdapterOptions = {}) {
     const key = options.apiKey || process.env.GEMINI_API_KEY;
     if (key) {
-      this.client = new GoogleGenAI({ apiKey: key });
+      this.client = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          timeout: options.timeout ?? 15000,
+        },
+      });
     }
     this.defaultModel = options.defaultModel || 'gemini-3.8-flash';
+    this.fallbackModel = options.fallbackModel || 'gemini-3.5-flash';
   }
 
   getCapabilities(): LlmCapabilities {
@@ -85,16 +94,38 @@ export class GeminiAdapter implements LlmPort {
     const contents = this.mapMessagesToContents(options);
     const tools = this.mapToolsToGemini(options);
 
-    const response = await this.client.models.generateContent({
-      model: this.defaultModel,
-      contents,
-      config: {
-        systemInstruction: options.systemPrompt,
-        maxOutputTokens: options.maxTokens,
-        temperature: options.temperature,
-        ...(tools ? { tools } : {}),
-      },
-    });
+    const callModel = async (model: string) => {
+      return this.client!.models.generateContent({
+        model,
+        contents,
+        config: {
+          systemInstruction: options.systemPrompt,
+          maxOutputTokens: options.maxTokens,
+          temperature: options.temperature,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.MINIMAL,
+          },
+          ...(tools ? { tools } : {}),
+        },
+      });
+    };
+
+    let response;
+    try {
+      response = await callModel(this.defaultModel);
+    } catch (err: unknown) {
+      const isQuotaOrTimeout =
+        err instanceof Error &&
+        (err.message.includes('quota') ||
+          err.message.includes('429') ||
+          err.message.includes('aborted') ||
+          err.message.includes('503'));
+      if (isQuotaOrTimeout && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+        response = await callModel(this.fallbackModel);
+      } else {
+        throw err;
+      }
+    }
 
     const text = response.text || '';
     const toolCalls: ToolCall[] = [];
@@ -126,34 +157,92 @@ export class GeminiAdapter implements LlmPort {
     const contents = this.mapMessagesToContents(options);
     const tools = this.mapToolsToGemini(options);
 
-    const streamResponse = await this.client.models.generateContentStream({
-      model: this.defaultModel,
-      contents,
-      config: {
-        systemInstruction: options.systemPrompt,
-        maxOutputTokens: options.maxTokens,
-        temperature: options.temperature,
-        ...(tools ? { tools } : {}),
-      },
-    });
+    const getStream = (model: string) => {
+      return this.client!.models.generateContentStream({
+        model,
+        contents,
+        config: {
+          systemInstruction: options.systemPrompt,
+          maxOutputTokens: options.maxTokens,
+          temperature: options.temperature,
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.MINIMAL,
+          },
+          ...(tools ? { tools } : {}),
+        },
+      });
+    };
 
-    for await (const chunk of streamResponse) {
-      if (chunk.text) {
-        yield {
-          type: 'text-delta',
-          delta: chunk.text,
-        };
+    let activeStream;
+    let modelUsed = this.defaultModel;
+
+    try {
+      activeStream = await getStream(this.defaultModel);
+    } catch (err: unknown) {
+      const isQuotaOrTimeout =
+        err instanceof Error &&
+        (err.message.includes('quota') ||
+          err.message.includes('429') ||
+          err.message.includes('aborted') ||
+          err.message.includes('503'));
+      if (isQuotaOrTimeout && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+        modelUsed = this.fallbackModel;
+        activeStream = await getStream(this.fallbackModel);
+      } else {
+        throw err;
       }
+    }
 
-      if (chunk.functionCalls) {
-        for (const fc of chunk.functionCalls) {
+    try {
+      for await (const chunk of activeStream) {
+        if (chunk.text) {
           yield {
-            type: 'tool-status',
-            toolName: fc.name || 'unknown_tool',
-            status: 'calling',
-            message: `Invoking ${fc.name || 'tool'}...`,
+            type: 'text-delta',
+            delta: chunk.text,
           };
         }
+
+        if (chunk.functionCalls) {
+          for (const fc of chunk.functionCalls) {
+            yield {
+              type: 'tool-status',
+              toolName: fc.name || 'unknown_tool',
+              status: 'calling',
+              message: `Invoking ${fc.name || 'tool'}...`,
+            };
+          }
+        }
+      }
+    } catch (streamErr: unknown) {
+      const isQuotaOrTimeout =
+        streamErr instanceof Error &&
+        (streamErr.message.includes('quota') ||
+          streamErr.message.includes('429') ||
+          streamErr.message.includes('aborted') ||
+          streamErr.message.includes('503'));
+      if (isQuotaOrTimeout && modelUsed === this.defaultModel && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
+        const fallbackStream = await getStream(this.fallbackModel);
+        for await (const chunk of fallbackStream) {
+          if (chunk.text) {
+            yield {
+              type: 'text-delta',
+              delta: chunk.text,
+            };
+          }
+
+          if (chunk.functionCalls) {
+            for (const fc of chunk.functionCalls) {
+              yield {
+                type: 'tool-status',
+                toolName: fc.name || 'unknown_tool',
+                status: 'calling',
+                message: `Invoking ${fc.name || 'tool'}...`,
+              };
+            }
+          }
+        }
+      } else {
+        throw streamErr;
       }
     }
   }
