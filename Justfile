@@ -49,3 +49,7 @@ db-seed:
 demo-reset:
   pnpm demo:reset
 
+# Start an instant HTTPS Cloudflare tunnel for native Canvas embedding in the browser
+tunnel:
+  docker run --rm --net=host cloudflare/cloudflared tunnel --url http://localhost:5173
+
