@@ -112,4 +112,21 @@ describe.skipIf(!testPostgresUrl)('DrizzlePersistenceAdapter (Live PostgreSQL In
     expect(purged.deletedMessages).toBeGreaterThanOrEqual(1);
     expect(await pgConn.adapter.getConversation(conv.id)).toBeNull();
   });
+
+  it('auto-registers unseeded live Canvas course IDs on createConversation and getCourseSettings', async () => {
+    const unseededCourseId = `canvas-live-${Date.now()}`;
+    const settings = await pgConn.adapter.getCourseSettings(unseededCourseId);
+    expect(settings.courseId).toBe(unseededCourseId);
+    expect(settings.setting).toBe('full');
+
+    const conv = await pgConn.adapter.createConversation({
+      collegeId: 'sdi',
+      courseId: unseededCourseId,
+      userId: 'user-1001',
+      role: 'student',
+    });
+    expect(conv.courseId).toBe(unseededCourseId);
+
+    await pgConn.adapter.clearUserData('user-1001');
+  });
 });

@@ -90,23 +90,29 @@
     document.body.appendChild(drawer);
 
     // 4. Create the Bottom-Right Floating Action Button
-    const SPARK_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l2.4 7.2L22 12l-7.6 2.8L12 22l-2.4-7.2L2 12l7.6-2.8z"/></svg>`;
+    let virtualTaOrigin = 'http://localhost:5173';
+    try {
+        virtualTaOrigin = new URL(VIRTUAL_TA_HTTPS_URL).origin;
+    } catch {
+        // Fall back cleanly if stored URL is relative or unparseable
+    }
+    const TA_ICON = `<img src="${virtualTaOrigin}/assets/virtual-ta-logo-transparent-64.png" width="20" height="20" alt="" aria-hidden="true" style="display:block;flex-shrink:0;background:transparent;" />`;
     const CLOSE_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
 
     const btn = document.createElement('button');
     btn.id = 'virtual-ta-fab';
     btn.type = 'button';
     btn.setAttribute('aria-expanded', 'false');
-    btn.innerHTML = `${SPARK_ICON}<span>Virtual TA</span>`;
+    btn.innerHTML = `${TA_ICON}<span>Virtual TA</span>`;
     btn.title = 'Toggle SDI Virtual TA';
     btn.style.cssText = `
         position: fixed;
         bottom: 24px;
         right: 24px;
         z-index: 1000001;
-        background: #D50032;
+        background: #1D272F;
         color: #ffffff;
-        border: 1px solid rgba(0,0,0,0.15);
+        border: 1px solid rgba(255,255,255,0.16);
         border-radius: 24px;
         padding: 10px 18px;
         font-size: 14px;
@@ -148,8 +154,8 @@
 
         // Move button adjacent to drawer when open, or back to bottom-right when closed
         btn.style.right = isOpen ? `${drawerWidth + 18}px` : '24px';
-        btn.style.background = isOpen ? '#101820' : '#D50032';
-        btn.innerHTML = isOpen ? `${CLOSE_ICON}<span>Close Virtual TA</span>` : `${SPARK_ICON}<span>Virtual TA</span>`;
+        btn.style.background = isOpen ? '#101820' : '#1D272F';
+        btn.innerHTML = isOpen ? `${CLOSE_ICON}<span>Close Virtual TA</span>` : `${TA_ICON}<span>Virtual TA</span>`;
         btn.setAttribute('aria-expanded', String(isOpen));
 
         if (!animate) {

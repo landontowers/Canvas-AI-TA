@@ -193,6 +193,34 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     return course;
   }
 
+  private async ensureCourseExists(courseId: string, collegeId = 'sdi'): Promise<void> {
+    const existingCourse = await this.getCourse(courseId);
+    if (existingCourse) return;
+
+    const existingCollege = await this.getCollege(collegeId);
+    if (!existingCollege) {
+      await this.db
+        .insert(schema.collegesTable)
+        .values({
+          id: collegeId,
+          name: collegeId === 'sdi' ? 'Sonoran Desert Institute' : collegeId,
+          domain: collegeId === 'sdi' ? 'classroom.sdi.edu' : `${collegeId}.edu`,
+        })
+        .onConflictDoNothing();
+    }
+
+    await this.db
+      .insert(schema.coursesTable)
+      .values({
+        id: courseId,
+        collegeId,
+        externalCanvasId: courseId,
+        name: `Course ${courseId}`,
+        courseCode: courseId,
+      })
+      .onConflictDoNothing();
+  }
+
   async getCourseSettings(courseId: string): Promise<CourseSettings> {
     const rows = await this.db
       .select()
@@ -208,6 +236,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         updatedAt: rows[0].updatedAt,
       };
     }
+
+    await this.ensureCourseExists(courseId);
 
     const inserted = await this.db
       .insert(schema.courseSettingsTable)
@@ -229,6 +259,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     courseId: string,
     setting: CourseSettingValue,
   ): Promise<CourseSettings> {
+    await this.ensureCourseExists(courseId);
+
     const rows = await this.db
       .insert(schema.courseSettingsTable)
       .values({
@@ -259,6 +291,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
     userId: string;
     role: AssistantRole;
   }): Promise<Conversation> {
+    await this.ensureCourseExists(params.courseId, params.collegeId);
+
     const inserted = await this.db
       .insert(schema.conversationsTable)
       .values({
