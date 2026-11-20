@@ -23,7 +23,7 @@ import {
   buildHintLadderInstruction,
 } from '../policy/hint-ladder.js';
 import { CollegeConfig } from '../config/schema.js';
-import { CourseSettingValue } from '../types/course.js';
+import { CourseSettingValue, isBlackoutActive } from '../types/course.js';
 import { AssistantRole } from '../types/role.js';
 
 export interface VirtualTaEngineDependencies {
@@ -189,12 +189,13 @@ export class VirtualTaEngine {
       .getToolsForRole(role)
       .filter((t) => allowedSet.has(t.name));
 
-    if (role === 'student' && courseSetting === 'logistics_only') {
+    if (role === 'student' && courseSetting !== 'full') {
       available = available.filter(
         (t) =>
           t.name !== 'get_course_page' &&
           t.name !== 'get_course_modules' &&
-          t.name !== 'get_assignment_details',
+          t.name !== 'get_assignment_details' &&
+          t.name !== 'review_draft_against_rubric',
       );
     }
 
@@ -383,11 +384,36 @@ export class VirtualTaEngine {
     const isStudent = authContext.assistantRole === 'student';
     const profile = isStudent ? STUDENT_HARNESS_PROFILE : INSTRUCTOR_HARNESS_PROFILE;
     const courseSettings = await this.deps.persistence.getCourseSettings(authContext.courseId);
+    const blackoutActive = isBlackoutActive(courseSettings);
+    const effectiveCourseSetting: CourseSettingValue =
+      blackoutActive && courseSettings.setting === 'full'
+        ? 'logistics_only'
+        : courseSettings.setting;
     let activeScaffoldingState: ScaffoldingState | undefined;
 
-    if (isStudent && courseSettings.setting === 'logistics_only') {
+    if (isStudent && effectiveCourseSetting === 'off') {
+      const policy = evaluateStudentPolicy('logistics', 'off', blackoutActive);
+      const refusal =
+        policy.refusalMessage ||
+        'Your instructor has disabled the Student Virtual TA for this course.';
+
+      yield { type: 'text-delta', delta: refusal };
+      const savedMsg = await this.deps.persistence.saveMessage({
+        conversationId: conversation.id,
+        role: 'assistant',
+        content: refusal,
+      });
+      yield { type: 'done', conversationId: conversation.id, messageId: savedMsg.id };
+      this.deps.telemetry.recordEvent('policy_refusal_course_off', {
+        courseId: authContext.courseId,
+        userId: authContext.userId,
+      });
+      return;
+    }
+
+    if (isStudent && effectiveCourseSetting === 'logistics_only') {
       const classification = await this.classifyQuestion(params.message);
-      const policy = evaluateStudentPolicy(classification, 'logistics_only');
+      const policy = evaluateStudentPolicy(classification, courseSettings.setting, blackoutActive);
 
       if (!policy.allowed) {
         const refusal =
@@ -417,7 +443,7 @@ export class VirtualTaEngine {
         });
         return;
       }
-    } else if (isStudent && courseSettings.setting === 'full') {
+    } else if (isStudent && effectiveCourseSetting === 'full') {
       const studentClassification = await this.classifyQuestion(params.message, { useLlm: false });
       if (studentClassification === 'course_material') {
         activeScaffoldingState = advanceScaffoldingState(
@@ -437,17 +463,17 @@ export class VirtualTaEngine {
       }
     }
 
-    // 5. Build tool list from profile allowlist + role boundary + logistics_only guard
+    // 5. Build tool list from profile allowlist + role boundary + logistics_only/blackout guard
     const availableTools = this.getPermittedTools(
       profile,
       authContext.assistantRole,
-      courseSettings.setting,
+      effectiveCourseSetting,
     );
 
     const systemPrompt = this.buildSystemPrompt(
       profile,
       authContext.assistantRole,
-      courseSettings.setting,
+      effectiveCourseSetting,
       params.pageContext,
       activeScaffoldingState,
     );

@@ -11,6 +11,8 @@ import {
   Citation,
   AssistantRole,
   CrisisIncident,
+  CrisisIncidentStatus,
+  ConfusionPulseResult,
   ScaffoldingState,
 } from '@virtual-ta/core';
 import crypto from 'node:crypto';
@@ -87,11 +89,20 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
   async updateCourseSettings(
     courseId: string,
     setting: CourseSettingValue,
+    options?: { blackoutStart?: Date | null; blackoutEnd?: Date | null },
   ): Promise<CourseSettings> {
     const existing = await this.getCourseSettings(courseId);
     const updated: CourseSettings = {
       ...existing,
       setting,
+      blackoutStart:
+        options?.blackoutStart === null
+          ? undefined
+          : (options?.blackoutStart ?? existing.blackoutStart),
+      blackoutEnd:
+        options?.blackoutEnd === null
+          ? undefined
+          : (options?.blackoutEnd ?? existing.blackoutEnd),
       updatedAt: new Date(),
     };
     this.courseSettings.set(courseId, updated);
@@ -128,6 +139,53 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     return Array.from(this.conversations.values()).filter(
       (c) => c.userId === userId && c.courseId === courseId,
     );
+  }
+
+  async deleteConversation(conversationId: string, userId: string): Promise<boolean> {
+    const conv = this.conversations.get(conversationId);
+    if (!conv || conv.userId !== userId) {
+      return false;
+    }
+    this.messages = this.messages.filter((m) => m.conversationId !== conversationId);
+    this.conversations.delete(conversationId);
+    return true;
+  }
+
+  async getConfusionPulse(
+    courseId: string,
+    minDistinctUsers = 5,
+  ): Promise<ConfusionPulseResult> {
+    const studentConvs = Array.from(this.conversations.values()).filter(
+      (c) => c.courseId === courseId && c.role === 'student' && c.scaffoldingState?.activeConcept,
+    );
+    const distinctUsers = new Set(studentConvs.map((c) => c.userId));
+    if (distinctUsers.size < minDistinctUsers) {
+      return {
+        thresholdMet: false,
+        distinctStudents: distinctUsers.size,
+        minThreshold: minDistinctUsers,
+        topics: [],
+      };
+    }
+
+    const counts = new Map<string, number>();
+    for (const c of studentConvs) {
+      const topic = c.scaffoldingState?.activeConcept;
+      if (!topic) continue;
+      counts.set(topic, (counts.get(topic) ?? 0) + 1);
+    }
+
+    const topics = Array.from(counts.entries())
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return {
+      thresholdMet: true,
+      distinctStudents: distinctUsers.size,
+      minThreshold: minDistinctUsers,
+      topics,
+    };
   }
 
   async updateConversationScaffoldingState(
@@ -188,6 +246,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     const record: CrisisIncident = {
       id: crypto.randomUUID(),
       timestamp: new Date(),
+      status: 'new',
       ...incident,
     };
     this.crisisIncidents.push(record);
@@ -198,6 +257,23 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
     return this.crisisIncidents
       .filter((i) => i.collegeId === collegeId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  async updateCrisisIncidentStatus(
+    incidentId: string,
+    status: CrisisIncidentStatus,
+    reviewedBy: string,
+  ): Promise<CrisisIncident | null> {
+    const idx = this.crisisIncidents.findIndex((i) => i.id === incidentId);
+    if (idx === -1) return null;
+    const updated: CrisisIncident = {
+      ...this.crisisIncidents[idx],
+      status,
+      reviewedBy,
+      reviewedAt: new Date(),
+    };
+    this.crisisIncidents[idx] = updated;
+    return updated;
   }
 
   async clearUserData(userId: string): Promise<void> {

@@ -129,4 +129,39 @@ describe.skipIf(!testPostgresUrl)('DrizzlePersistenceAdapter (Live PostgreSQL In
 
     await pgConn.adapter.clearUserData('user-1001');
   });
+
+  it('persists blackout windows, single-conversation delete, and crisis incident review status in Postgres', async () => {
+    const start = new Date('2026-11-26T09:00:00Z');
+    const end = new Date('2026-11-26T11:00:00Z');
+    const updatedSettings = await pgConn.adapter.updateCourseSettings('sdi-ftt101', 'full', {
+      blackoutStart: start,
+      blackoutEnd: end,
+    });
+    expect(updatedSettings.blackoutStart?.toISOString()).toBe(start.toISOString());
+    await pgConn.adapter.updateCourseSettings('sdi-ftt101', 'full', {
+      blackoutStart: null,
+      blackoutEnd: null,
+    });
+
+    const conv = await pgConn.adapter.createConversation({
+      collegeId: 'sdi',
+      courseId: 'sdi-ftt101',
+      userId: 'user-pg-delete',
+      role: 'student',
+    });
+    expect(await pgConn.adapter.deleteConversation(conv.id, 'wrong-user')).toBe(false);
+    expect(await pgConn.adapter.deleteConversation(conv.id, 'user-pg-delete')).toBe(true);
+
+    const inc = await pgConn.adapter.saveCrisisIncident({
+      collegeId: 'sdi',
+      courseId: 'sdi-ftt101',
+      studentId: 'user-pg-crisis',
+      category: 'self_harm',
+      triggerSnippet: 'pg triage test',
+      responseRendered: '988',
+    });
+    const reviewed = await pgConn.adapter.updateCrisisIncidentStatus(inc.id, 'acknowledged', 'inst-pg');
+    expect(reviewed?.status).toBe('acknowledged');
+    expect(reviewed?.reviewedBy).toBe('inst-pg');
+  });
 });

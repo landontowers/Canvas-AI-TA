@@ -116,6 +116,96 @@ export const getCrossCourseDeadlinesTool: CoreTool<Record<string, never>> = {
   },
 };
 
+export const planStudyWeekTool: CoreTool<{ daysAhead?: number }> = {
+  name: 'plan_study_week',
+  description:
+    'Combine cross-course upcoming deadlines, points possible, and current course grades into a prioritized study plan for the upcoming week.',
+  parameters: z.object({
+    daysAhead: z
+      .number()
+      .int()
+      .min(1)
+      .max(30)
+      .optional()
+      .describe('Number of days ahead to plan (defaults to 7).'),
+  }),
+  requiredRole: 'student',
+  requiredScopes: [
+    'url:GET|/api/v1/users/self/upcoming_events',
+    'url:GET|/api/v1/courses/:course_id/analytics/users/:user_id/assignments',
+  ],
+  async execute(args, context) {
+    const lmsUserId = context.canvasUserId || context.userId;
+    const daysAhead = args.daysAhead ?? 7;
+    const [crossAssignments, grades] = await Promise.all([
+      context.ports.lms.getCrossCourseUpcomingAssignments(lmsUserId),
+      context.ports.lms.getStudentGrades(context.courseId, lmsUserId),
+    ]);
+
+    const nowMs = Date.now();
+    const horizonMs = nowMs + daysAhead * 86_400_000;
+    const items = crossAssignments
+      .filter((a) => !a.hasSubmitted)
+      .map((a) => {
+        const dueMs = a.dueAt ? Date.parse(a.dueAt) : Number.POSITIVE_INFINITY;
+        const points = a.pointsPossible ?? 0;
+        const daysUntilDue = Number.isFinite(dueMs)
+          ? Math.ceil((dueMs - nowMs) / 86_400_000)
+          : null;
+        return {
+          courseId: a.courseId,
+          courseName: a.courseName,
+          assignmentId: a.id,
+          name: a.name,
+          dueAt: a.dueAt,
+          daysUntilDue,
+          pointsPossible: a.pointsPossible,
+          withinWindow: dueMs <= horizonMs,
+          priorityScore: (daysUntilDue !== null && daysUntilDue <= 3 ? 100 : 40) + points,
+        };
+      })
+      .sort((a, b) => b.priorityScore - a.priorityScore);
+
+    return {
+      windowDays: daysAhead,
+      unsubmittedTasks: items,
+      recentGradesCount: grades.length,
+    };
+  },
+};
+
+export const reviewDraftAgainstRubricTool: CoreTool<{
+  assignmentId: string;
+  draftText: string;
+}> = {
+  name: 'review_draft_against_rubric',
+  description:
+    'Inspect an assignment rubric and requirements so the Virtual TA can give Socratic criterion-by-criterion coaching on a student draft without rewriting it.',
+  parameters: z.object({
+    assignmentId: z.string().describe('The Canvas ID of the assignment to check against.'),
+    draftText: z.string().min(1).max(6000).describe('The student draft outline or text to evaluate.'),
+  }),
+  requiredRole: 'student',
+  requiredScopes: ['url:GET|/api/v1/courses/:course_id/assignments/:id'],
+  async execute(args, context) {
+    const lmsUserId = context.canvasUserId || context.userId;
+    const details = await context.ports.lms.getAssignmentDetails(
+      context.courseId,
+      args.assignmentId,
+      lmsUserId,
+    );
+    const wordCount = args.draftText.trim().split(/\s+/).filter(Boolean).length;
+    return {
+      assignmentName: details.name,
+      pointsPossible: details.pointsPossible,
+      rubric: details.rubric ?? [],
+      draftWordCount: wordCount,
+      coachingDirective:
+        'Provide Socratic criterion-by-criterion questions and gaps based on the rubric. Never rewrite or complete the student submission.',
+    };
+  },
+};
+
 export const calculateTool: CoreTool<{ expression: string }> = {
   name: 'calculate',
   description: 'Perform deterministic math calculations or unit conversions (e.g., "50 mm to inch", "(25 * 4) + 10").',
@@ -203,6 +293,8 @@ export function createStandardToolRegistry(): ToolRegistry {
   registry.register(getCoursePageTool);
   registry.register(listEnrolledCoursesTool);
   registry.register(getCrossCourseDeadlinesTool);
+  registry.register(planStudyWeekTool);
+  registry.register(reviewDraftAgainstRubricTool);
   registry.register(calculateTool);
   registry.register(dateMathTool);
 

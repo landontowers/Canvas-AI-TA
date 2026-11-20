@@ -18,7 +18,28 @@ export const ToolExecuteBodySchema = z.object({
 
 export const CourseSettingsPutBodySchema = z.object({
   setting: CourseSettingValueSchema,
+  blackoutStart: z.string().datetime().nullable().optional(),
+  blackoutEnd: z.string().datetime().nullable().optional(),
   personaId: z.string().optional(),
+});
+
+export const FeedbackBodySchema = z.object({
+  conversationId: z.string().min(1),
+  messageId: z.string().min(1),
+  courseId: z.string().optional(),
+  rating: z.enum(['up', 'down']),
+  personaId: z.string().optional(),
+});
+
+export const CrisisStatusPatchBodySchema = z.object({
+  status: z.enum(['new', 'acknowledged', 'resolved']),
+  personaId: z.string().optional(),
+});
+
+export const PracticeCheckBodySchema = z.object({
+  courseId: z.string().optional(),
+  personaId: z.string().optional(),
+  topic: z.string().max(200).optional(),
 });
 
 export const ChatBodySchema = z.object({

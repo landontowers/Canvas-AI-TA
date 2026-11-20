@@ -1678,3 +1678,271 @@ body:has(.demo-container.embedded) #root {
   text-align: center;
   background: #FAFAFA;
 }
+
+
+/* Sprint 3 Option B: Practice Cards, History Search/Delete, Feedback/Copy, Blackout, Confusion Pulse & Crisis Queue */
+.practice-check-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border-subtle);
+  background: #FFFFFF;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.practice-check-btn:hover {
+  background: #F4F6F8;
+  border-color: var(--color-brand-primary);
+}
+
+.history-search-wrap {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.history-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: #FFFFFF;
+}
+
+.history-delete-btn {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.history-delete-btn:hover {
+  color: var(--status-error);
+  background: #FCE8E6;
+}
+
+.practice-panel {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 8px;
+  background: #FAFAFA;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.practice-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.practice-loading {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.practice-card {
+  background: #FFFFFF;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.practice-question {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.practice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.practice-option-btn {
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--color-border-subtle);
+  background: #FFFFFF;
+  color: var(--color-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.practice-option-btn:hover:not(:disabled) {
+  background: #F4F6F8;
+  border-color: var(--color-brand-primary);
+}
+
+.practice-option-btn.correct {
+  background: #E6F4EA;
+  border-color: var(--status-connected);
+  color: var(--status-connected);
+  font-weight: 600;
+}
+
+.practice-option-btn.incorrect {
+  background: #FCE8E6;
+  border-color: var(--status-error);
+  color: var(--status-error);
+}
+
+.practice-explanation {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: 6px;
+}
+
+.message-actions-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.feedback-btns,
+.copy-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.msg-action-btn {
+  padding: 3px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border-subtle);
+  background: #FFFFFF;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.msg-action-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-brand-primary);
+}
+
+.msg-action-btn.active {
+  background: #E8F0FE;
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-primary);
+  font-weight: 600;
+}
+
+.settings-subsection {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blackout-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.blackout-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pulse-privacy-note {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.pulse-list,
+.crisis-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.crisis-queue-item {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 6px;
+  padding: 8px 10px;
+  background: #FAFAFA;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.incident-status {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #EAEAEA;
+}
+
+.incident-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.high-contrast-mode .practice-panel,
+.high-contrast-mode .practice-card,
+.high-contrast-mode .crisis-queue-item,
+.high-contrast-mode .history-search-input,
+.high-contrast-mode .practice-option-btn,
+.high-contrast-mode .msg-action-btn,
+.high-contrast-mode .practice-check-btn {
+  background: #000000;
+  color: #FFFFFF;
+  border-color: #FFFFFF;
+}
+
+.high-contrast-mode .practice-option-btn.correct {
+  background: #003300;
+  color: #99FF99;
+  border-color: #99FF99;
+}
+
+.high-contrast-mode .practice-option-btn.incorrect {
+  background: #330000;
+  color: #FF9999;
+  border-color: #FF9999;
+}
+
+.high-contrast-mode .msg-action-btn.active {
+  background: #FFFF00;
+  color: #000000;
+  border-color: #FFFF00;
+}

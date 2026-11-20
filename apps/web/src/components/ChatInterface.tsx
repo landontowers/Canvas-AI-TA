@@ -1,9 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Citation, StreamEvent } from '@virtual-ta/core';
 import { ChatHistoryPanel, ConversationItem } from './ChatHistoryPanel.js';
-import { ChatMessageList, ChatMessage, ActiveToolStatus, CrisisResourceInfo } from './ChatMessageList.js';
+import {
+  ChatMessageList,
+  ChatMessage,
+  ActiveToolStatus,
+  CrisisResourceInfo,
+  PracticeCardItem,
+} from './ChatMessageList.js';
 
-export type { ConversationItem, ChatMessage, CrisisResourceInfo };
+export type { ConversationItem, ChatMessage, CrisisResourceInfo, PracticeCardItem };
 
 export interface PageContextInfo {
   title?: string;
@@ -35,11 +41,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState('');
 
-  // Conversation history & resume state
+  // Conversation history & practice check state
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [conversationList, setConversationList] = useState<ConversationItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
   const [isLoadingChat, setIsLoadingChat] = useState<boolean>(false);
+  const [practiceCards, setPracticeCards] = useState<PracticeCardItem[] | null>(null);
+  const [practiceTopic, setPracticeTopic] = useState<string>('');
+  const [isLoadingPractice, setIsLoadingPractice] = useState<boolean>(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -83,6 +92,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setError(null);
     setActiveTool(null);
     setShowHistory(false);
+    setPracticeCards(null);
     void loadConversationList();
   }, [personaId, courseId, loadConversationList]);
 
@@ -106,8 +116,83 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setError(null);
     setActiveTool(null);
     setShowHistory(false);
+    setPracticeCards(null);
     setScreenReaderAnnouncement('Started a new conversation.');
     textareaRef.current?.focus();
+  };
+
+  const handleDeleteConversation = async (targetId: string) => {
+    try {
+      const res = await fetch(
+        `/api/conversations/${encodeURIComponent(targetId)}?personaId=${encodeURIComponent(personaId)}`,
+        {
+          method: 'DELETE',
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+        },
+      );
+      if (res.ok) {
+        setConversationList((prev) => prev.filter((c) => c.id !== targetId));
+        if (conversationId === targetId) {
+          setMessages([]);
+          setConversationId(null);
+        }
+      }
+    } catch {
+      // ignore delete error
+    }
+  };
+
+  const handleRateMessage = async (messageId: string, rating: 'up' | 'down') => {
+    setMessages((prev) => prev.map((m) => (m.id === messageId ? { ...m, rating } : m)));
+    try {
+      await fetch('/api/feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+          conversationId: conversationId || 'unsaved',
+          messageId,
+          courseId,
+          rating,
+          personaId,
+        }),
+      });
+    } catch {
+      // non-blocking telemetry
+    }
+  };
+
+  const handleOpenPracticeCheck = async () => {
+    setIsLoadingPractice(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/practice-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+        },
+        body: JSON.stringify({
+          courseId,
+          personaId,
+          topic: currentPageTitle,
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.message || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { topic?: string; cards?: PracticeCardItem[] };
+      setPracticeTopic(data.topic || currentPageTitle);
+      setPracticeCards(data.cards || []);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err));
+      setPracticeCards(null);
+    } finally {
+      setIsLoadingPractice(false);
+    }
   };
 
   const handleSelectConversation = async (selectedId: string) => {
@@ -362,7 +447,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const suggestions = isStudent
     ? [
         'When is Safety Lab 1 due?',
-        'What assignments do I have due across all my classes this week?',
+        'Plan my study week across all classes.',
         'I am stuck on firearm nomenclature and barrel twist.',
         'What does the syllabus say about late submissions?',
         'Calculate bullet energy for a 55gr bullet at 3100 fps',
@@ -382,6 +467,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       <ChatHistoryPanel
         showHistory={showHistory}
+        isStudent={isStudent}
         conversationId={conversationId}
         conversationList={conversationList}
         isLoadingHistory={isLoadingHistory}
@@ -395,6 +481,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onCloseHistory={() => setShowHistory(false)}
         onRefreshHistory={() => void loadConversationList()}
         onSelectConversation={(id) => void handleSelectConversation(id)}
+        onDeleteConversation={(id) => void handleDeleteConversation(id)}
+        onOpenPracticeCheck={() => void handleOpenPracticeCheck()}
       />
 
       {isLoadingChat && (
@@ -413,7 +501,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         activeTool={activeTool}
         error={error}
         messagesEndRef={messagesEndRef}
+        practiceCards={practiceCards}
+        practiceTopic={practiceTopic}
+        isLoadingPractice={isLoadingPractice}
+        onClosePractice={() => setPracticeCards(null)}
         onSelectSuggestion={(prompt) => void sendMessage(prompt)}
+        onRateMessage={(msgId, rating) => void handleRateMessage(msgId, rating)}
       />
 
       <div className="chat-input-area">

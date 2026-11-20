@@ -11,6 +11,8 @@ import {
   Citation,
   AssistantRole,
   CrisisIncident,
+  CrisisIncidentStatus,
+  ConfusionPulseResult,
   ScaffoldingState,
 } from '@virtual-ta/core';
 import { eq, and, desc, lt, sql } from 'drizzle-orm';
@@ -233,6 +235,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
         id: rows[0].id,
         courseId: rows[0].courseId,
         setting: rows[0].setting as CourseSettingValue,
+        blackoutStart: rows[0].blackoutStart ?? undefined,
+        blackoutEnd: rows[0].blackoutEnd ?? undefined,
         updatedAt: rows[0].updatedAt,
       };
     }
@@ -251,6 +255,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       id: inserted[0].id,
       courseId: inserted[0].courseId,
       setting: inserted[0].setting as CourseSettingValue,
+      blackoutStart: inserted[0].blackoutStart ?? undefined,
+      blackoutEnd: inserted[0].blackoutEnd ?? undefined,
       updatedAt: inserted[0].updatedAt,
     };
   }
@@ -258,20 +264,32 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
   async updateCourseSettings(
     courseId: string,
     setting: CourseSettingValue,
+    options?: { blackoutStart?: Date | null; blackoutEnd?: Date | null },
   ): Promise<CourseSettings> {
     await this.ensureCourseExists(courseId);
+
+    const blackoutSet: Partial<typeof schema.courseSettingsTable.$inferInsert> = {};
+    if (options?.blackoutStart !== undefined) {
+      blackoutSet.blackoutStart = options.blackoutStart;
+    }
+    if (options?.blackoutEnd !== undefined) {
+      blackoutSet.blackoutEnd = options.blackoutEnd;
+    }
 
     const rows = await this.db
       .insert(schema.courseSettingsTable)
       .values({
         courseId,
         setting,
+        ...(options?.blackoutStart !== undefined ? { blackoutStart: options.blackoutStart } : {}),
+        ...(options?.blackoutEnd !== undefined ? { blackoutEnd: options.blackoutEnd } : {}),
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
         target: schema.courseSettingsTable.courseId,
         set: {
           setting,
+          ...blackoutSet,
           updatedAt: new Date(),
         },
       })
@@ -281,6 +299,8 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       id: rows[0].id,
       courseId: rows[0].courseId,
       setting: rows[0].setting as CourseSettingValue,
+      blackoutStart: rows[0].blackoutStart ?? undefined,
+      blackoutEnd: rows[0].blackoutEnd ?? undefined,
       updatedAt: rows[0].updatedAt,
     };
   }
@@ -363,6 +383,70 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
     }));
+  }
+
+  async deleteConversation(conversationId: string, userId: string): Promise<boolean> {
+    const deleted = await this.db
+      .delete(schema.conversationsTable)
+      .where(
+        and(
+          eq(schema.conversationsTable.id, conversationId),
+          eq(schema.conversationsTable.userId, userId),
+        ),
+      )
+      .returning({ id: schema.conversationsTable.id });
+
+    return deleted.length > 0;
+  }
+
+  async getConfusionPulse(
+    courseId: string,
+    minDistinctUsers = 5,
+  ): Promise<ConfusionPulseResult> {
+    const rows = await this.db
+      .select({
+        userId: schema.conversationsTable.userId,
+        scaffoldingState: schema.conversationsTable.scaffoldingState,
+      })
+      .from(schema.conversationsTable)
+      .where(
+        and(
+          eq(schema.conversationsTable.courseId, courseId),
+          eq(schema.conversationsTable.role, 'student'),
+        ),
+      );
+
+    const withConcept = rows.filter(
+      (r) => Boolean((r.scaffoldingState as ScaffoldingState | null)?.activeConcept),
+    );
+    const distinctUsers = new Set(withConcept.map((r) => r.userId));
+    if (distinctUsers.size < minDistinctUsers) {
+      return {
+        thresholdMet: false,
+        distinctStudents: distinctUsers.size,
+        minThreshold: minDistinctUsers,
+        topics: [],
+      };
+    }
+
+    const counts = new Map<string, number>();
+    for (const r of withConcept) {
+      const topic = (r.scaffoldingState as ScaffoldingState | null)?.activeConcept;
+      if (!topic) continue;
+      counts.set(topic, (counts.get(topic) ?? 0) + 1);
+    }
+
+    const topics = Array.from(counts.entries())
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    return {
+      thresholdMet: true,
+      distinctStudents: distinctUsers.size,
+      minThreshold: minDistinctUsers,
+      topics,
+    };
   }
 
   async updateConversationScaffoldingState(
@@ -484,6 +568,9 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       category: inserted[0].category,
       triggerSnippet: inserted[0].triggerSnippet,
       responseRendered: inserted[0].responseRendered,
+      status: (inserted[0].status as CrisisIncidentStatus) || 'new',
+      reviewedBy: inserted[0].reviewedBy ?? undefined,
+      reviewedAt: inserted[0].reviewedAt ?? undefined,
       timestamp: inserted[0].createdAt,
     };
   }
@@ -503,8 +590,42 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       category: r.category,
       triggerSnippet: r.triggerSnippet,
       responseRendered: r.responseRendered,
+      status: (r.status as CrisisIncidentStatus) || 'new',
+      reviewedBy: r.reviewedBy ?? undefined,
+      reviewedAt: r.reviewedAt ?? undefined,
       timestamp: r.createdAt,
     }));
+  }
+
+  async updateCrisisIncidentStatus(
+    incidentId: string,
+    status: CrisisIncidentStatus,
+    reviewedBy: string,
+  ): Promise<CrisisIncident | null> {
+    const rows = await this.db
+      .update(schema.crisisIncidentsTable)
+      .set({
+        status,
+        reviewedBy,
+        reviewedAt: new Date(),
+      })
+      .where(eq(schema.crisisIncidentsTable.id, incidentId))
+      .returning();
+
+    if (!rows[0]) return null;
+    return {
+      id: rows[0].id,
+      collegeId: rows[0].collegeId,
+      courseId: rows[0].courseId,
+      studentId: rows[0].studentId,
+      category: rows[0].category,
+      triggerSnippet: rows[0].triggerSnippet,
+      responseRendered: rows[0].responseRendered,
+      status: (rows[0].status as CrisisIncidentStatus) || status,
+      reviewedBy: rows[0].reviewedBy ?? undefined,
+      reviewedAt: rows[0].reviewedAt ?? undefined,
+      timestamp: rows[0].createdAt,
+    };
   }
 
   async clearUserData(userId: string): Promise<void> {

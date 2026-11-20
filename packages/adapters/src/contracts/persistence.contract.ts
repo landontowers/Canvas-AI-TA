@@ -143,5 +143,90 @@ export function runPersistenceContractTests(
 
       await adapter.clearUserData('user-retention-active');
     });
+
+    it('supports blackout windows, single-conversation delete, k-anonymous confusion pulse, and crisis status workflow', async () => {
+      const adapter = await createAdapter();
+
+      const start = new Date('2026-11-25T10:00:00Z');
+      const end = new Date('2026-11-25T12:00:00Z');
+      const withBlackout = await adapter.updateCourseSettings('course-abc', 'off', {
+        blackoutStart: start,
+        blackoutEnd: end,
+      });
+      expect(withBlackout.setting).toBe('off');
+      expect(withBlackout.blackoutStart?.toISOString()).toBe(start.toISOString());
+      expect(withBlackout.blackoutEnd?.toISOString()).toBe(end.toISOString());
+
+      const cleared = await adapter.updateCourseSettings('course-abc', 'full', {
+        blackoutStart: null,
+        blackoutEnd: null,
+      });
+      expect(cleared.setting).toBe('full');
+      expect(cleared.blackoutStart).toBeUndefined();
+
+      // Single-conversation delete enforces ownership
+      const conv = await adapter.createConversation({
+        collegeId: 'sdi-test',
+        courseId: 'course-abc',
+        userId: 'delete-owner',
+        role: 'student',
+      });
+      expect(await adapter.deleteConversation(conv.id, 'other-user')).toBe(false);
+      expect(await adapter.deleteConversation(conv.id, 'delete-owner')).toBe(true);
+      expect(await adapter.getConversation(conv.id)).toBeNull();
+
+      // Confusion pulse enforces k-anonymity >= 5 distinct students
+      for (let i = 1; i <= 4; i++) {
+        const c = await adapter.createConversation({
+          collegeId: 'sdi-test',
+          courseId: 'pulse-course',
+          userId: `pulse-u-${i}`,
+          role: 'student',
+        });
+        await adapter.updateConversationScaffoldingState(c.id, {
+          activeConcept: 'headspace tolerance',
+          attemptCount: 1,
+          hintLevel: 1,
+        });
+      }
+      const below = await adapter.getConfusionPulse('pulse-course', 5);
+      expect(below.thresholdMet).toBe(false);
+      expect(below.topics).toEqual([]);
+
+      const c5 = await adapter.createConversation({
+        collegeId: 'sdi-test',
+        courseId: 'pulse-course',
+        userId: 'pulse-u-5',
+        role: 'student',
+      });
+      await adapter.updateConversationScaffoldingState(c5.id, {
+        activeConcept: 'headspace tolerance',
+        attemptCount: 1,
+        hintLevel: 1,
+      });
+      const above = await adapter.getConfusionPulse('pulse-course', 5);
+      expect(above.thresholdMet).toBe(true);
+      expect(above.distinctStudents).toBeGreaterThanOrEqual(5);
+      expect(above.topics[0].topic).toBe('headspace tolerance');
+
+      for (let i = 1; i <= 5; i++) {
+        await adapter.clearUserData(`pulse-u-${i}`);
+      }
+
+      // Crisis incident status transitions
+      const inc = await adapter.saveCrisisIncident({
+        collegeId: 'sdi-test',
+        courseId: 'course-abc',
+        studentId: 'student-triage',
+        category: 'self_harm',
+        triggerSnippet: 'crisis snippet',
+        responseRendered: '988',
+      });
+      const ack = await adapter.updateCrisisIncidentStatus(inc.id, 'acknowledged', 'inst-1');
+      expect(ack?.status).toBe('acknowledged');
+      expect(ack?.reviewedBy).toBe('inst-1');
+      const res = await adapter.updateCrisisIncidentStatus(inc.id, 'resolved', 'inst-1');
+      expect(res?.status).toBe('resolved');
+    });
   });
 }

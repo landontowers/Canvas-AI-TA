@@ -3,18 +3,25 @@ import {
   AppConfig,
   IdentityPort,
   PersistencePort,
+  TelemetryPort,
   VirtualTaEngine,
   toClientStreamEvent,
 } from '@virtual-ta/core';
 import { AuthGuard } from '../auth-guard.js';
 import { SlidingWindowRateLimiter } from '../rate-limiter.js';
-import { ChatBodySchema, RetentionPurgeBodySchema } from '../schemas.js';
+import {
+  ChatBodySchema,
+  RetentionPurgeBodySchema,
+  FeedbackBodySchema,
+  CrisisStatusPatchBodySchema,
+} from '../schemas.js';
 
 export interface ConversationsAndAdminRoutesDeps {
   config: AppConfig;
   ports: {
     identity: IdentityPort;
     persistence: PersistencePort;
+    telemetry: TelemetryPort;
   };
   engine: VirtualTaEngine;
   authGuard: AuthGuard;
@@ -118,6 +125,69 @@ export function registerConversationsAndAdminRoutes(
     }
 
     return ports.persistence.listMessages(id);
+  });
+
+  server.delete('/api/conversations/:id', async (request, reply) => {
+    if (!(await authGuard.isAuthorized(request))) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
+
+    const { id } = request.params as { id: string };
+    const token = authGuard.extractBearerToken(request);
+    const query = (request.query || {}) as { userId?: string; personaId?: string };
+
+    let requesterUserId = query.userId;
+    if (token && token.startsWith('lti_')) {
+      const auth = await ports.identity.resolveIdentity({ token });
+      requesterUserId = auth.userId;
+    } else if (query.personaId || !requesterUserId) {
+      const auth = await ports.identity.resolveIdentity({
+        personaId: authGuard.extractPersonaId(request, query.personaId),
+      });
+      requesterUserId = auth.userId;
+    }
+
+    const deleted = await ports.persistence.deleteConversation(id, requesterUserId);
+    if (!deleted) {
+      reply.status(404);
+      return { error: 'Not Found', message: 'Conversation not found or not owned by caller.' };
+    }
+
+    return { success: true, id };
+  });
+
+  server.post('/api/feedback', async (request, reply) => {
+    if (!(await authGuard.isAuthorized(request))) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
+
+    const parsedBody = FeedbackBodySchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) {
+      reply.status(400);
+      return {
+        error: 'Bad Request',
+        message: parsedBody.error.issues.map((i) => i.message).join('; '),
+      };
+    }
+
+    const token = authGuard.extractBearerToken(request);
+    const auth = await ports.identity.resolveIdentity({
+      token,
+      personaId: authGuard.extractPersonaId(request, parsedBody.data.personaId),
+      courseId: parsedBody.data.courseId,
+    });
+
+    ports.telemetry.recordEvent('virtual_ta_feedback', {
+      userId: auth.userId,
+      courseId: auth.courseId,
+      conversationId: parsedBody.data.conversationId,
+      messageId: parsedBody.data.messageId,
+      rating: parsedBody.data.rating,
+    });
+
+    return { success: true };
   });
 
   async function handleClearUserData(
@@ -235,6 +305,56 @@ export function registerConversationsAndAdminRoutes(
       totalIncidents: incidents.length,
       incidents,
     };
+  });
+
+  server.patch('/api/admin/crisis-incidents/:id', async (request, reply) => {
+    if (!(await authGuard.isAuthorized(request))) {
+      reply.status(401);
+      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+    }
+
+    const parsedBody = CrisisStatusPatchBodySchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) {
+      reply.status(400);
+      return {
+        error: 'Bad Request',
+        message: parsedBody.error.issues.map((i) => i.message).join('; '),
+      };
+    }
+
+    const personaId = authGuard.extractPersonaId(request, parsedBody.data.personaId);
+    const token = authGuard.extractBearerToken(request);
+    let reviewerId = personaId;
+    try {
+      const auth = await ports.identity.resolveIdentity({ token, personaId });
+      if (auth.assistantRole !== 'instructor') {
+        reply.status(403);
+        return {
+          error: 'Forbidden',
+          message: 'Course staff or administrator privileges are required to update crisis incidents.',
+        };
+      }
+      reviewerId = auth.userId;
+    } catch (err: unknown) {
+      reply.status(403);
+      return {
+        error: 'Forbidden',
+        message: err instanceof Error ? err.message : String(err),
+      };
+    }
+
+    const { id } = request.params as { id: string };
+    const updated = await ports.persistence.updateCrisisIncidentStatus(
+      id,
+      parsedBody.data.status,
+      reviewerId,
+    );
+    if (!updated) {
+      reply.status(404);
+      return { error: 'Not Found', message: 'Crisis incident not found.' };
+    }
+
+    return { success: true, incident: updated };
   });
 
   server.post('/api/admin/retention/purge', async (request, reply) => {

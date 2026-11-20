@@ -7,6 +7,8 @@ import { DemoAuthModal } from './DemoAuthModal.js';
 import { StudentSettings } from './StudentSettings.js';
 import { InstructorSettings } from './InstructorSettings.js';
 import { ChatInterface } from './ChatInterface.js';
+import { ChatHistoryPanel } from './ChatHistoryPanel.js';
+import { ChatMessageList } from './ChatMessageList.js';
 import { DemoShell } from './DemoShell.js';
 import * as Icons from './Icons.js';
 
@@ -170,16 +172,24 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
   describe('InstructorSettings', () => {
     it('renders instructor mode toggles and saves setting changes', async () => {
       const onClose = vi.fn();
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ setting: 'full', courseId: 'sdi-ftt101' }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ setting: 'logistics_only', courseId: 'sdi-ftt101' }),
-        });
+      globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url.includes('/settings') && init?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ setting: 'logistics_only', courseId: 'sdi-ftt101' }),
+          });
+        }
+        if (url.includes('/settings')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ setting: 'full', courseId: 'sdi-ftt101' }),
+          });
+        }
+        if (url.includes('/api/admin/crisis-incidents')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ incidents: [] }) });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve(null) });
+      });
 
       render(
         <InstructorSettings
@@ -669,6 +679,226 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       });
 
       window.history.replaceState({}, '', '/');
+    });
+  });
+
+  describe('Sprint 3 Option B Components', () => {
+    it('ChatHistoryPanel filters conversations by search query, triggers delete, and opens practice check', () => {
+      const onDeleteConversation = vi.fn();
+      const onOpenPracticeCheck = vi.fn();
+      render(
+        <ChatHistoryPanel
+          showHistory={true}
+          isStudent={true}
+          conversationId="c1"
+          conversationList={[
+            {
+              id: 'c1',
+              collegeId: 'sdi',
+              courseId: 'sdi-ftt101',
+              userId: 'u1',
+              role: 'student',
+              title: 'Headspace Tolerance Lab',
+              createdAt: '2026-11-20T10:00:00Z',
+              updatedAt: '2026-11-20T10:00:00Z',
+            },
+            {
+              id: 'c2',
+              collegeId: 'sdi',
+              courseId: 'sdi-ftt101',
+              userId: 'u1',
+              role: 'student',
+              title: 'Syllabus Deadlines',
+              createdAt: '2026-11-20T10:00:00Z',
+              updatedAt: '2026-11-20T10:00:00Z',
+            },
+          ]}
+          isLoadingHistory={false}
+          onNewChat={vi.fn()}
+          onToggleHistory={vi.fn()}
+          onCloseHistory={vi.fn()}
+          onRefreshHistory={vi.fn()}
+          onSelectConversation={vi.fn()}
+          onDeleteConversation={onDeleteConversation}
+          onOpenPracticeCheck={onOpenPracticeCheck}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Practice/i }));
+      expect(onOpenPracticeCheck).toHaveBeenCalledTimes(1);
+
+      const searchInput = screen.getByPlaceholderText(/Filter chats/i);
+      fireEvent.change(searchInput, { target: { value: 'Headspace' } });
+      expect(screen.getByText('Headspace Tolerance Lab')).toBeDefined();
+      expect(screen.queryByText('Syllabus Deadlines')).toBeNull();
+
+      const delBtn = screen.getByRole('button', { name: /Delete/i });
+      fireEvent.click(delBtn);
+      expect(onDeleteConversation).toHaveBeenCalledWith('c1');
+    });
+
+    it('ChatMessageList renders interactive practice cards, feedback buttons, and instructor copy buttons', async () => {
+      const onRateMessage = vi.fn();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
+
+      const ref = { current: null } as unknown as React.RefObject<HTMLDivElement>;
+      const { rerender } = render(
+        <ChatMessageList
+          messages={[
+            {
+              id: 'm1',
+              role: 'assistant',
+              content: 'Try checking **chamber** headspace first.',
+              citations: [],
+              toolsUsed: [],
+              createdAt: new Date(),
+            },
+          ]}
+          isStudent={true}
+          isStreaming={false}
+          currentPageTitle="Lab 1"
+          suggestions={[]}
+          activeTool={null}
+          error={null}
+          messagesEndRef={ref}
+          practiceTopic="Headspace"
+          practiceCards={[
+            {
+              question: 'Which gauge verifies minimum chamber length?',
+              options: ['GO gauge', 'NO-GO gauge'],
+              correctIndex: 0,
+              explanation: 'A GO gauge confirms minimum chamber dimensions.',
+            },
+          ]}
+          onSelectSuggestion={vi.fn()}
+          onRateMessage={onRateMessage}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'GO gauge' }));
+      expect(screen.getByText(/A GO gauge confirms minimum chamber dimensions/i)).toBeDefined();
+
+      fireEvent.click(screen.getByRole('button', { name: /Helpful/i }));
+      expect(onRateMessage).toHaveBeenCalledWith('m1', 'up');
+
+      rerender(
+        <ChatMessageList
+          messages={[
+            {
+              id: 'm2',
+              role: 'assistant',
+              content: 'Announcement **draft** text.',
+              citations: [],
+              toolsUsed: [],
+              createdAt: new Date(),
+            },
+          ]}
+          isStudent={false}
+          isStreaming={false}
+          currentPageTitle="Course Home"
+          suggestions={[]}
+          activeTool={null}
+          error={null}
+          messagesEndRef={ref}
+          onSelectSuggestion={vi.fn()}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: /Copy as Markdown/i }));
+      expect(writeText).toHaveBeenCalledWith('Announcement **draft** text.');
+      fireEvent.click(screen.getByRole('button', { name: /Copy as Canvas HTML/i }));
+      expect(writeText).toHaveBeenCalledTimes(2);
+    });
+
+    it('InstructorSettings supports off mode, blackout save/clear, confusion pulse, and crisis triage actions', async () => {
+      const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url.includes('/settings') && init?.method === 'PUT') {
+          const body = JSON.parse(String(init.body));
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ courseId: 'sdi-ftt101', ...body }),
+          });
+        }
+        if (url.includes('/settings')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ courseId: 'sdi-ftt101', setting: 'full' }),
+          });
+        }
+        if (url.includes('/confusion-pulse')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                thresholdMet: true,
+                distinctStudents: 6,
+                minThreshold: 5,
+                topics: [{ topic: 'headspace tolerance', count: 8 }],
+              }),
+          });
+        }
+        if (url.includes('/api/admin/crisis-incidents/') && init?.method === 'PATCH') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ id: 'inc-1', status: 'acknowledged' }),
+          });
+        }
+        if (url.includes('/api/admin/crisis-incidents')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                incidents: [
+                  {
+                    id: 'inc-1',
+                    courseId: 'sdi-ftt101',
+                    category: 'self_harm',
+                    triggerSnippet: 'crisis snippet',
+                    status: 'new',
+                    timestamp: '2026-11-20T10:00:00Z',
+                  },
+                ],
+              }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) });
+      });
+      globalThis.fetch = fetchMock;
+
+      render(
+        <InstructorSettings
+          personaId="demo_instructor"
+          courseId="sdi-ftt101"
+          onClose={vi.fn()}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/headspace tolerance/i)).toBeDefined();
+        expect(screen.getByText(/self_harm/i)).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /Acknowledge/i }));
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining('/api/admin/crisis-incidents/inc-1'),
+          expect.objectContaining({ method: 'PATCH' }),
+        );
+      });
+
+      fireEvent.change(screen.getByLabelText(/^Start$/i), { target: { value: '2026-11-25T10:00' } });
+      fireEvent.change(screen.getByLabelText(/^End$/i), { target: { value: '2026-11-25T12:00' } });
+      fireEvent.click(screen.getByRole('button', { name: /Save Blackout/i }));
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledWith(
+          expect.stringContaining('/api/courses/sdi-ftt101/settings'),
+          expect.objectContaining({ method: 'PUT' }),
+        );
+      });
     });
   });
 });

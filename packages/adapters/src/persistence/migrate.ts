@@ -71,8 +71,16 @@ export const MIGRATION_STATEMENTS: string[] = [
     category TEXT NOT NULL,
     trigger_snippet TEXT NOT NULL,
     response_rendered TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'new',
+    reviewed_by TEXT,
+    reviewed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );`,
+  `ALTER TABLE course_settings ADD COLUMN IF NOT EXISTS blackout_start TIMESTAMPTZ;`,
+  `ALTER TABLE course_settings ADD COLUMN IF NOT EXISTS blackout_end TIMESTAMPTZ;`,
+  `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'new';`,
+  `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS reviewed_by TEXT;`,
+  `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`,
 ];
 
 /**

@@ -34,6 +34,8 @@ PEDAGOGICAL RULES:
     'get_course_page',
     'list_enrolled_courses',
     'get_cross_course_deadlines',
+    'plan_study_week',
+    'review_draft_against_rubric',
     'calculate',
     'date_math',
   ],

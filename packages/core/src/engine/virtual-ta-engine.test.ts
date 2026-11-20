@@ -101,8 +101,23 @@ class MockPersistence implements PersistencePort {
       updatedAt: new Date(),
     };
   }
-  async updateCourseSettings(courseId: string, setting: CourseSettingValue): Promise<CourseSettings> {
-    const s: CourseSettings = { courseId, setting, updatedAt: new Date() };
+  async updateCourseSettings(
+    courseId: string,
+    setting: CourseSettingValue,
+    options?: { blackoutStart?: Date | null; blackoutEnd?: Date | null },
+  ): Promise<CourseSettings> {
+    const existing = this.settings.get(courseId);
+    const s: CourseSettings = {
+      courseId,
+      setting,
+      blackoutStart:
+        options && 'blackoutStart' in options
+          ? options.blackoutStart ?? undefined
+          : existing?.blackoutStart,
+      blackoutEnd:
+        options && 'blackoutEnd' in options ? options.blackoutEnd ?? undefined : existing?.blackoutEnd,
+      updatedAt: new Date(),
+    };
     this.settings.set(courseId, s);
     return s;
   }
@@ -182,6 +197,15 @@ class MockPersistence implements PersistencePort {
   }
   async listCrisisIncidents() {
     return this.crisisIncidents;
+  }
+  async updateCrisisIncidentStatus() {
+    return null;
+  }
+  async deleteConversation() {
+    return false;
+  }
+  async getConfusionPulse() {
+    return { thresholdMet: false, distinctStudents: 0, minThreshold: 5, topics: [] };
   }
   async purgeExpiredConversations() {
     return { deletedConversations: 0, deletedMessages: 0 };
@@ -748,5 +772,145 @@ describe('VirtualTaEngine Comprehensive Suite', () => {
     expect(typeof completedEvents[3].properties.ttftMs).toBe('number');
     expect(telemetry.loggedMetrics.some((m) => m.name === 'llm_tokens_total')).toBe(true);
     expect(telemetry.loggedMetrics.some((m) => m.name === 'turn_ttft_ms')).toBe(true);
+  });
+
+  it('enforces course off mode and active blackout windows server-side and filters review_draft_against_rubric', async () => {
+    const { evaluateStudentPolicy } = await import('../policy/classifier.js');
+    const { isBlackoutActive } = await import('../types/course.js');
+    const { planStudyWeekTool, reviewDraftAgainstRubricTool } = await import('../tools/standard-tools.js');
+
+    const offPolicy = evaluateStudentPolicy('course_material', 'off', false);
+    expect(offPolicy.allowed).toBe(false);
+    expect(offPolicy.refusalMessage).toContain('disabled the Student Virtual TA');
+
+    const blackoutPolicy = evaluateStudentPolicy('course_material', 'full', true);
+    expect(blackoutPolicy.allowed).toBe(false);
+    expect(blackoutPolicy.refusalMessage).toContain('active exam or quiz window');
+    expect(evaluateStudentPolicy('logistics', 'full', true).allowed).toBe(true);
+
+    const now = new Date('2026-11-20T12:00:00Z');
+    expect(
+      isBlackoutActive(
+        {
+          courseId: 'sdi-ftt101',
+          setting: 'full',
+          blackoutStart: new Date('2026-11-20T11:00:00Z'),
+          blackoutEnd: new Date('2026-11-20T13:00:00Z'),
+          updatedAt: now,
+        },
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isBlackoutActive(
+        {
+          courseId: 'sdi-ftt101',
+          setting: 'full',
+          blackoutStart: new Date('2026-11-20T14:00:00Z'),
+          blackoutEnd: new Date('2026-11-20T15:00:00Z'),
+          updatedAt: now,
+        },
+        now,
+      ),
+    ).toBe(false);
+
+    const llm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register(planStudyWeekTool);
+    toolRegistry.register(reviewDraftAgainstRubricTool);
+
+    const lms = new MockLms() as any;
+    lms.getCrossCourseUpcomingAssignments = async () => [
+      {
+        id: 'a1',
+        name: 'Lab 1',
+        courseId: 'sdi-ftt101',
+        courseName: 'FTT 101',
+        dueAt: '2026-11-22T23:59:00Z',
+        pointsPossible: 100,
+        hasSubmitted: false,
+      },
+    ];
+    lms.getStudentGrades = async () => [{ assignmentId: 'a0', score: 92 }];
+    lms.getAssignmentDetails = async () => ({
+      id: 'a1',
+      name: 'Lab 1',
+      pointsPossible: 100,
+      rubric: [{ description: 'Safety Check', points: 50 }],
+    });
+
+    const planResult = await planStudyWeekTool.execute(
+      { daysAhead: 7 },
+      { role: 'student', courseId: 'sdi-ftt101', userId: 'u1', ports: { lms } } as any,
+    );
+    expect((planResult as any).unsubmittedTasks).toHaveLength(1);
+    expect((planResult as any).recentGradesCount).toBe(1);
+
+    const rubricResult = await reviewDraftAgainstRubricTool.execute(
+      { assignmentId: 'a1', draftText: 'My safety check draft.' },
+      { role: 'student', courseId: 'sdi-ftt101', userId: 'u1', ports: { lms } } as any,
+    );
+    expect((rubricResult as any).rubric).toHaveLength(1);
+    expect((rubricResult as any).coachingDirective).toContain('Never rewrite');
+
+    const engine = new VirtualTaEngine({
+      llm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      moderation: new MockModeration() as any,
+      lms,
+      calculator: new MockCalculator() as any,
+    });
+
+    // In logistics_only mode, review_draft_against_rubric is withheld from student tools
+    await persistence.updateCourseSettings('sdi-ftt101', 'logistics_only');
+    llm.streamResponses = [[{ type: 'text-delta', delta: 'It is due Sunday.' }]];
+    for await (const _ of engine.executeTurn({
+      personaId: 'demo_student',
+      courseId: 'sdi-ftt101',
+      message: 'When is Lab 1 due?',
+    })) {
+      // consume stream
+    }
+    expect(llm.recordedOptions[0].toolNames).not.toContain('review_draft_against_rubric');
+
+    // In off mode, student turn is blocked with notice and never calls LLM
+    await persistence.updateCourseSettings('sdi-ftt101', 'off');
+    const offEvents: StreamEvent[] = [];
+    for await (const ev of engine.executeTurn({
+      personaId: 'demo_student',
+      courseId: 'sdi-ftt101',
+      message: 'Help me with Lab 1',
+    })) {
+      offEvents.push(ev);
+    }
+    expect(offEvents.map((e) => (e.type === 'text-delta' ? e.delta : '')).join('')).toContain(
+      'disabled the Student Virtual TA',
+    );
+    expect(llm.recordedOptions).toHaveLength(1);
+
+    // During active blackout window, student turn is blocked even when setting is full
+    await persistence.updateCourseSettings('sdi-ftt101', 'full', {
+      blackoutStart: new Date(Date.now() - 60_000),
+      blackoutEnd: new Date(Date.now() + 60_000),
+    });
+    const blackoutEvents: StreamEvent[] = [];
+    for await (const ev of engine.executeTurn({
+      personaId: 'demo_student',
+      courseId: 'sdi-ftt101',
+      message: 'Help me with Lab 1',
+    })) {
+      blackoutEvents.push(ev);
+    }
+    expect(blackoutEvents.map((e) => (e.type === 'text-delta' ? e.delta : '')).join('')).toContain(
+      'active exam or quiz window',
+    );
+    expect(llm.recordedOptions).toHaveLength(1);
   });
 });

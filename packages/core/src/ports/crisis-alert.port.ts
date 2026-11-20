@@ -1,3 +1,5 @@
+export type CrisisIncidentStatus = 'new' | 'acknowledged' | 'resolved';
+
 export interface CrisisIncident {
   id: string;
   timestamp: Date;
@@ -7,6 +9,9 @@ export interface CrisisIncident {
   category: string;
   triggerSnippet: string;
   responseRendered: string;
+  status?: CrisisIncidentStatus;
+  reviewedBy?: string;
+  reviewedAt?: Date;
 }
 
 export interface CrisisAlertResult {

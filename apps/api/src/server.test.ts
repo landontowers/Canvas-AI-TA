@@ -1075,5 +1075,116 @@ describe('API Server', () => {
       expect(okRes.json().retentionDays).toBe(90);
       expect(typeof okRes.json().deletedConversations).toBe('number');
     });
+
+    it('supports Sprint 3 Option B endpoints: off/blackout settings, confusion pulse, practice check, delete thread, feedback, and crisis triage', async () => {
+      // 1. Settings with blackout window and off mode
+      const offRes = await server.inject({
+        method: 'PUT',
+        url: '/api/courses/sdi-ftt101/settings',
+        payload: {
+          personaId: 'demo_instructor',
+          setting: 'off',
+          blackoutStart: '2026-11-25T10:00:00Z',
+          blackoutEnd: '2026-11-25T12:00:00Z',
+        },
+      });
+      expect(offRes.statusCode).toBe(200);
+      expect(offRes.json().setting).toBe('off');
+      expect(offRes.json().blackoutStart).toBeDefined();
+
+      // Practice check rejected when course is off
+      const blockedPractice = await server.inject({
+        method: 'POST',
+        url: '/api/practice-check',
+        payload: { personaId: 'demo_student', courseId: 'sdi-ftt101', topic: 'headspace' },
+      });
+      expect(blockedPractice.statusCode).toBe(403);
+
+      // Restore full mode without blackout
+      const fullRes = await server.inject({
+        method: 'PUT',
+        url: '/api/courses/sdi-ftt101/settings',
+        payload: {
+          personaId: 'demo_instructor',
+          setting: 'full',
+          blackoutStart: null,
+          blackoutEnd: null,
+        },
+      });
+      expect(fullRes.statusCode).toBe(200);
+
+      // Practice check succeeds in full mode
+      const practiceRes = await server.inject({
+        method: 'POST',
+        url: '/api/practice-check',
+        payload: { personaId: 'demo_student', courseId: 'sdi-ftt101', topic: 'headspace' },
+      });
+      expect(practiceRes.statusCode).toBe(200);
+      expect(Array.isArray(practiceRes.json().cards)).toBe(true);
+
+      // Confusion pulse requires instructor role
+      const studentPulse = await server.inject({
+        method: 'GET',
+        url: '/api/courses/sdi-ftt101/confusion-pulse?personaId=demo_student',
+      });
+      expect(studentPulse.statusCode).toBe(403);
+
+      const instPulse = await server.inject({
+        method: 'GET',
+        url: '/api/courses/sdi-ftt101/confusion-pulse?personaId=demo_instructor',
+      });
+      expect(instPulse.statusCode).toBe(200);
+      expect(typeof instPulse.json().thresholdMet).toBe('boolean');
+
+      // Feedback endpoint
+      const fbRes = await server.inject({
+        method: 'POST',
+        url: '/api/feedback',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          conversationId: 'conv_fb_1',
+          messageId: 'm1',
+          rating: 'up',
+        },
+      });
+      expect(fbRes.statusCode).toBe(200);
+      expect(fbRes.json().success).toBe(true);
+
+      // Create & delete a student conversation
+      const chat = await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'When is Lab 1 due?',
+        },
+      });
+      const doneLine = chat.body.split('\n').find((l) => l.includes('"type":"done"'));
+      const convId = JSON.parse(doneLine!.replace(/^data:\s*/, '')).conversationId;
+
+      const delRes = await server.inject({
+        method: 'DELETE',
+        url: `/api/conversations/${convId}?personaId=demo_student`,
+      });
+      expect(delRes.statusCode).toBe(200);
+      expect(delRes.json().success).toBe(true);
+
+      // Crisis incident PATCH RBAC & 404
+      const studentPatch = await server.inject({
+        method: 'PATCH',
+        url: '/api/admin/crisis-incidents/nonexistent',
+        payload: { personaId: 'demo_student', status: 'acknowledged' },
+      });
+      expect(studentPatch.statusCode).toBe(403);
+
+      const missingPatch = await server.inject({
+        method: 'PATCH',
+        url: '/api/admin/crisis-incidents/nonexistent',
+        payload: { personaId: 'demo_instructor', status: 'acknowledged' },
+      });
+      expect(missingPatch.statusCode).toBe(404);
+    });
   });
 });

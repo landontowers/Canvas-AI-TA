@@ -1,5 +1,5 @@
-import React from 'react';
-import { PlusIcon, HistoryIcon, RefreshIcon, CloseIcon } from './Icons.js';
+import React, { useState } from 'react';
+import { PlusIcon, HistoryIcon, RefreshIcon, CloseIcon, SparklesIcon } from './Icons.js';
 
 export interface ConversationItem {
   id: string;
@@ -27,6 +27,7 @@ export function formatTimeOrDate(isoStr?: string): string {
 
 interface ChatHistoryPanelProps {
   showHistory: boolean;
+  isStudent?: boolean;
   conversationId: string | null;
   conversationList: ConversationItem[];
   isLoadingHistory: boolean;
@@ -35,10 +36,13 @@ interface ChatHistoryPanelProps {
   onCloseHistory: () => void;
   onRefreshHistory: () => void;
   onSelectConversation: (conversationId: string) => void;
+  onDeleteConversation?: (conversationId: string) => void;
+  onOpenPracticeCheck?: () => void;
 }
 
 export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   showHistory,
+  isStudent,
   conversationId,
   conversationList,
   isLoadingHistory,
@@ -47,7 +51,17 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   onCloseHistory,
   onRefreshHistory,
   onSelectConversation,
+  onDeleteConversation,
+  onOpenPracticeCheck,
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredConversations = searchQuery.trim()
+    ? conversationList.filter((c) =>
+        (c.title || 'Conversation').toLowerCase().includes(searchQuery.trim().toLowerCase()),
+      )
+    : conversationList;
+
   return (
     <>
       <div className="chat-toolbar" role="toolbar" aria-label="Conversation tools">
@@ -61,6 +75,19 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
           <PlusIcon size={14} className="btn-icon" />
           <span>New Chat</span>
         </button>
+
+        {isStudent && onOpenPracticeCheck && (
+          <button
+            type="button"
+            className="toolbar-btn practice-check-btn"
+            onClick={onOpenPracticeCheck}
+            aria-label="Open self-check practice cards"
+            title="Self-check practice cards"
+          >
+            <SparklesIcon size={14} className="btn-icon" />
+            <span>Practice</span>
+          </button>
+        )}
 
         <button
           type="button"
@@ -110,19 +137,34 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
             </div>
           </div>
 
+          <div className="history-search-wrap">
+            <input
+              type="search"
+              className="history-search-input"
+              placeholder="Filter chats..."
+              aria-label="Search previous chats"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+
           <div className="history-list" tabIndex={0} aria-label="List of previous chats">
             {isLoadingHistory ? (
               <div className="history-loading">
                 <span className="history-spinner" aria-hidden="true"></span>
                 <span>Loading your chats...</span>
               </div>
-            ) : conversationList.length === 0 ? (
+            ) : filteredConversations.length === 0 ? (
               <div className="history-empty">
-                <p>No previous chats for this course.</p>
-                <span>Ask a question to start your first chat!</span>
+                <p>
+                  {searchQuery.trim()
+                    ? 'No matching conversations found.'
+                    : 'No previous chats for this course.'}
+                </p>
+                {!searchQuery.trim() && <span>Ask a question to start your first chat!</span>}
               </div>
             ) : (
-              conversationList.map((conv) => {
+              filteredConversations.map((conv) => {
                 const isActive = conv.id === conversationId;
                 return (
                   <div
@@ -150,6 +192,20 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
                         <span className="current-chat-pill">Active</span>
                       ) : (
                         <span className="msg-count-pill">{conv.messageCount ?? 0} msgs</span>
+                      )}
+                      {onDeleteConversation && (
+                        <button
+                          type="button"
+                          className="history-delete-btn"
+                          aria-label={`Delete chat: ${conv.title || 'Conversation'}`}
+                          title="Delete chat"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteConversation(conv.id);
+                          }}
+                        >
+                          <CloseIcon size={12} />
+                        </button>
                       )}
                     </div>
                   </div>

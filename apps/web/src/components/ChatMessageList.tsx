@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Citation } from '@virtual-ta/core';
 import { CitationBadge } from './CitationBadge.js';
 import { ToolStatusPill } from './ToolStatusPill.js';
@@ -11,6 +11,7 @@ import {
   GlobeIcon,
   ShieldAlertIcon,
   AlertTriangleIcon,
+  CloseIcon,
 } from './Icons.js';
 
 export interface CrisisResourceInfo {
@@ -29,6 +30,7 @@ export interface ChatMessage {
   toolsUsed: string[];
   isCrisis?: boolean;
   crisis?: CrisisResourceInfo;
+  rating?: 'up' | 'down';
   createdAt: Date;
 }
 
@@ -36,6 +38,13 @@ export interface ActiveToolStatus {
   toolName: string;
   status: 'calling' | 'executing' | 'complete' | 'error';
   message?: string;
+}
+
+export interface PracticeCardItem {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
 }
 
 interface ChatMessageListProps {
@@ -47,7 +56,12 @@ interface ChatMessageListProps {
   activeTool: ActiveToolStatus | null;
   error: string | null;
   messagesEndRef: React.RefObject<HTMLDivElement>;
+  practiceCards?: PracticeCardItem[] | null;
+  practiceTopic?: string;
+  isLoadingPractice?: boolean;
+  onClosePractice?: () => void;
   onSelectSuggestion: (prompt: string) => void;
+  onRateMessage?: (messageId: string, rating: 'up' | 'down') => void;
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -59,10 +73,92 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
   activeTool,
   error,
   messagesEndRef,
+  practiceCards,
+  practiceTopic,
+  isLoadingPractice,
+  onClosePractice,
   onSelectSuggestion,
+  onRateMessage,
 }) => {
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = async (msgId: string, text: string) => {
+    try {
+      await navigator.clipboard?.writeText(text);
+      setCopiedId(msgId);
+      setTimeout(() => setCopiedId((prev) => (prev === msgId ? null : prev)), 2000);
+    } catch {
+      // Clipboard API unavailable in headless tests
+    }
+  };
+
   return (
     <div className="messages-container" tabIndex={0} aria-label="Chat messages history">
+      {(isLoadingPractice || (practiceCards && practiceCards.length > 0)) && (
+        <section className="practice-panel" aria-label="Interactive Self-Check Practice">
+          <div className="practice-header">
+            <strong>Self-Check: {practiceTopic || 'Course Review'}</strong>
+            {onClosePractice && (
+              <button
+                type="button"
+                className="history-icon-btn"
+                onClick={onClosePractice}
+                aria-label="Close practice cards"
+              >
+                <CloseIcon size={12} />
+              </button>
+            )}
+          </div>
+          {isLoadingPractice ? (
+            <p className="practice-loading">Generating practice check...</p>
+          ) : (
+            practiceCards?.map((card, idx) => {
+              const chosen = selectedAnswers[idx];
+              const answered = chosen !== undefined;
+              return (
+                <div key={idx} className="practice-card">
+                  <p className="practice-question">
+                    {idx + 1}. {card.question}
+                  </p>
+                  <div className="practice-options">
+                    {card.options.map((opt, optIdx) => {
+                      const isChosen = chosen === optIdx;
+                      const isCorrect = optIdx === card.correctIndex;
+                      const statusClass = answered
+                        ? isCorrect
+                          ? 'correct'
+                          : isChosen
+                            ? 'incorrect'
+                            : ''
+                        : '';
+                      return (
+                        <button
+                          key={optIdx}
+                          type="button"
+                          className={`practice-option-btn ${statusClass}`}
+                          onClick={() =>
+                            setSelectedAnswers((prev) => ({ ...prev, [idx]: optIdx }))
+                          }
+                        >
+                          {opt}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {answered && (
+                    <p className="practice-explanation" role="status">
+                      {chosen === card.correctIndex ? '✓ ' : '✗ '}
+                      {card.explanation}
+                    </p>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </section>
+      )}
+
       {messages.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon" aria-hidden="true">
@@ -120,6 +216,58 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
                       : '',
               }}
             />
+
+            {msg.role === 'assistant' && msg.content.trim().length > 0 && !isStreaming && (
+              <div className="message-actions-row">
+                {onRateMessage && (
+                  <div className="feedback-btns" role="group" aria-label="Response feedback">
+                    <button
+                      type="button"
+                      className={`msg-action-btn ${msg.rating === 'up' ? 'active' : ''}`}
+                      onClick={() => onRateMessage(msg.id, 'up')}
+                      aria-label="Helpful response"
+                      aria-pressed={msg.rating === 'up'}
+                      title="Helpful"
+                    >
+                      Helpful
+                    </button>
+                    <button
+                      type="button"
+                      className={`msg-action-btn ${msg.rating === 'down' ? 'active' : ''}`}
+                      onClick={() => onRateMessage(msg.id, 'down')}
+                      aria-label="Needs improvement"
+                      aria-pressed={msg.rating === 'down'}
+                      title="Needs improvement"
+                    >
+                      Not helpful
+                    </button>
+                  </div>
+                )}
+
+                {!isStudent && (
+                  <div className="copy-btns" role="group" aria-label="Export draft">
+                    <button
+                      type="button"
+                      className="msg-action-btn"
+                      onClick={() => void handleCopy(`${msg.id}-md`, msg.content)}
+                      aria-label="Copy as Markdown"
+                    >
+                      {copiedId === `${msg.id}-md` ? 'Copied MD' : 'Copy MD'}
+                    </button>
+                    <button
+                      type="button"
+                      className="msg-action-btn"
+                      onClick={() =>
+                        void handleCopy(`${msg.id}-html`, renderMarkdownWithMath(msg.content))
+                      }
+                      aria-label="Copy as Canvas HTML"
+                    >
+                      {copiedId === `${msg.id}-html` ? 'Copied HTML' : 'Copy Canvas HTML'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {msg.citations && msg.citations.length > 0 && (
               <div className="citations-list" aria-label="Canvas citations">

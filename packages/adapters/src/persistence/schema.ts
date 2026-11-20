@@ -30,7 +30,9 @@ export const coursesTable = pgTable('courses', {
 export const courseSettingsTable = pgTable('course_settings', {
   id: uuid('id').defaultRandom().primaryKey(),
   courseId: text('course_id').notNull().unique().references(() => coursesTable.id),
-  setting: text('setting').notNull().default('full'), // 'full' | 'logistics_only'
+  setting: text('setting').notNull().default('full'), // 'full' | 'logistics_only' | 'off'
+  blackoutStart: timestamp('blackout_start', { withTimezone: true }),
+  blackoutEnd: timestamp('blackout_end', { withTimezone: true }),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -69,5 +71,8 @@ export const crisisIncidentsTable = pgTable('crisis_incidents', {
   category: text('category').notNull(),
   triggerSnippet: text('trigger_snippet').notNull(),
   responseRendered: text('response_rendered').notNull(),
+  status: text('status').default('new').notNull(),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });

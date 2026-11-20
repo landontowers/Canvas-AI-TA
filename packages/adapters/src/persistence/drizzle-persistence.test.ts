@@ -398,4 +398,58 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
     const purged = await adapter.purgeExpiredConversations(90, new Date('2026-11-20T00:00:00Z'));
     expect(purged).toEqual({ deletedConversations: 1, deletedMessages: 2 });
   });
+
+  it('supports deleteConversation, getConfusionPulse k-anonymity, and updateCrisisIncidentStatus', async () => {
+    const mockDb: any = {
+      delete: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'conv_1' }]),
+        }),
+      }),
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([
+            { userId: 'u1', scaffoldingState: { activeConcept: 'twist rate' } },
+            { userId: 'u2', scaffoldingState: { activeConcept: 'twist rate' } },
+            { userId: 'u3', scaffoldingState: { activeConcept: 'twist rate' } },
+            { userId: 'u4', scaffoldingState: { activeConcept: 'headspace' } },
+            { userId: 'u5', scaffoldingState: { activeConcept: 'twist rate' } },
+          ]),
+        }),
+      }),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([
+              {
+                id: 'inc_1',
+                collegeId: 'sdi',
+                courseId: 'c1',
+                studentId: 'u1',
+                category: 'self-harm',
+                triggerSnippet: 'snippet',
+                responseRendered: 'Call 988',
+                status: 'resolved',
+                reviewed: true,
+                reviewedBy: 'inst_1',
+                reviewedAt: new Date(),
+                createdAt: new Date(),
+              },
+            ]),
+          }),
+        }),
+      }),
+    };
+
+    const adapter = new DrizzlePersistenceAdapter(mockDb);
+    expect(await adapter.deleteConversation('conv_1', 'u1')).toBe(true);
+
+    const pulse = await adapter.getConfusionPulse('c1', 5);
+    expect(pulse.thresholdMet).toBe(true);
+    expect(pulse.topics[0]).toEqual({ topic: 'twist rate', count: 4 });
+
+    const updated = await adapter.updateCrisisIncidentStatus('inc_1', 'resolved', 'inst_1');
+    expect(updated?.status).toBe('resolved');
+    expect(updated?.reviewedBy).toBe('inst_1');
+  });
 });

@@ -10,6 +10,19 @@ import {
   AssistantRole,
 } from '../types/index.js';
 import { ScaffoldingState } from '../policy/hint-ladder.js';
+import { CrisisIncident, CrisisIncidentStatus } from './crisis-alert.port.js';
+
+export interface ConfusionPulseTopic {
+  topic: string;
+  count: number;
+}
+
+export interface ConfusionPulseResult {
+  thresholdMet: boolean;
+  distinctStudents: number;
+  minThreshold: number;
+  topics: ConfusionPulseTopic[];
+}
 
 export interface CollegeRecord {
   id: string;
@@ -31,7 +44,11 @@ export interface PersistencePort {
   upsertCourse(course: Course): Promise<Course>;
 
   getCourseSettings(courseId: string): Promise<CourseSettings>;
-  updateCourseSettings(courseId: string, setting: CourseSettingValue): Promise<CourseSettings>;
+  updateCourseSettings(
+    courseId: string,
+    setting: CourseSettingValue,
+    options?: { blackoutStart?: Date | null; blackoutEnd?: Date | null },
+  ): Promise<CourseSettings>;
 
   createConversation(params: {
     collegeId: string;
@@ -41,10 +58,13 @@ export interface PersistencePort {
   }): Promise<Conversation>;
   getConversation(conversationId: string): Promise<Conversation | null>;
   listConversations(userId: string, courseId: string): Promise<Conversation[]>;
+  deleteConversation(conversationId: string, userId: string): Promise<boolean>;
   updateConversationScaffoldingState(
     conversationId: string,
     scaffoldingState: ScaffoldingState,
   ): Promise<Conversation | null>;
+
+  getConfusionPulse(courseId: string, minDistinctUsers?: number): Promise<ConfusionPulseResult>;
 
   saveMessage(params: {
     conversationId: string;
@@ -63,8 +83,13 @@ export interface PersistencePort {
     category: string;
     triggerSnippet: string;
     responseRendered: string;
-  }): Promise<import('./crisis-alert.port.js').CrisisIncident>;
-  listCrisisIncidents(collegeId: string): Promise<import('./crisis-alert.port.js').CrisisIncident[]>;
+  }): Promise<CrisisIncident>;
+  listCrisisIncidents(collegeId: string): Promise<CrisisIncident[]>;
+  updateCrisisIncidentStatus(
+    incidentId: string,
+    status: CrisisIncidentStatus,
+    reviewedBy: string,
+  ): Promise<CrisisIncident | null>;
 
   clearUserData(userId: string): Promise<void>;
 

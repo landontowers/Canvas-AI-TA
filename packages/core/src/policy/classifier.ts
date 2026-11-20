@@ -19,13 +19,31 @@ export interface PolicyDecision {
 
 /**
  * Server-enforced policy decision (critique §3.4).
- * If the course setting is 'logistics_only' and the question is classified as 'course_material',
- * access to course content is denied and the Virtual TA responds with a refusal directing the student to the instructor.
+ * Enforces 'off' (disabled), 'logistics_only', and active exam/quiz blackout windows.
  */
 export function evaluateStudentPolicy(
   classification: QuestionClassification,
   courseSetting: CourseSettingValue,
+  isBlackout = false,
 ): PolicyDecision {
+  if (courseSetting === 'off') {
+    return {
+      allowed: false,
+      classification,
+      refusalMessage:
+        'Your instructor has disabled the Student Virtual TA for this course. Please reach out directly to your instructor or visit office hours.',
+    };
+  }
+
+  if (isBlackout && classification === 'course_material') {
+    return {
+      allowed: false,
+      classification,
+      refusalMessage:
+        'Your instructor has paused course-material assistance during an active exam or quiz window. I can still answer logistics questions about deadlines and policies.',
+    };
+  }
+
   if (courseSetting === 'logistics_only' && classification === 'course_material') {
     return {
       allowed: false,
