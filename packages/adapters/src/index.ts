@@ -2,6 +2,7 @@ export * from './fake/index.js';
 export * from './config/index.js';
 export * from './persistence/index.js';
 export * from './canvas/index.js';
+export * from './lti/index.js';
 export * from './gemini/index.js';
 export * from './telemetry/index.js';
 export * from './crisis/index.js';

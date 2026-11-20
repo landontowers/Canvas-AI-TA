@@ -219,4 +219,35 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
       updatedAt: new Date(),
     });
   }
+
+  async purgeExpiredConversations(
+    retentionDays: number,
+    now: Date = new Date(),
+  ): Promise<{ deletedConversations: number; deletedMessages: number }> {
+    const cutoffMs = now.getTime() - retentionDays * 86_400_000;
+    const expiredIds = new Set<string>();
+
+    for (const [id, conv] of this.conversations.entries()) {
+      if (conv.updatedAt.getTime() < cutoffMs) {
+        expiredIds.add(id);
+      }
+    }
+
+    if (expiredIds.size === 0) {
+      return { deletedConversations: 0, deletedMessages: 0 };
+    }
+
+    const beforeMessages = this.messages.length;
+    this.messages = this.messages.filter((m) => !expiredIds.has(m.conversationId));
+    const deletedMessages = beforeMessages - this.messages.length;
+
+    for (const id of expiredIds) {
+      this.conversations.delete(id);
+    }
+
+    return {
+      deletedConversations: expiredIds.size,
+      deletedMessages,
+    };
+  }
 }

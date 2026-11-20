@@ -91,4 +91,25 @@ describe.skipIf(!testPostgresUrl)('DrizzlePersistenceAdapter (Live PostgreSQL In
     const afterClear = await pgConn.adapter.listConversations('user-1001', 'sdi-ftt101');
     expect(afterClear).toHaveLength(0);
   });
+
+  it('purges aged conversations beyond configured retentionDays in Postgres', async () => {
+    const conv = await pgConn.adapter.createConversation({
+      collegeId: 'sdi',
+      courseId: 'sdi-ftt101',
+      userId: 'user-aged-retention',
+      role: 'student',
+    });
+    await pgConn.adapter.saveMessage({
+      conversationId: conv.id,
+      role: 'user',
+      content: 'Old question from 120 days ago',
+    });
+
+    // Advance clock 120 days forward in purge check while verifying active rows survive normal purge
+    const futureCutoff = new Date(Date.now() + 120 * 86_400_000);
+    const purged = await pgConn.adapter.purgeExpiredConversations(90, futureCutoff);
+    expect(purged.deletedConversations).toBeGreaterThanOrEqual(1);
+    expect(purged.deletedMessages).toBeGreaterThanOrEqual(1);
+    expect(await pgConn.adapter.getConversation(conv.id)).toBeNull();
+  });
 });

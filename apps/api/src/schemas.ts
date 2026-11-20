@@ -1,0 +1,67 @@
+import crypto from 'node:crypto';
+import { z } from 'zod';
+import { CourseSettingValueSchema } from '@virtual-ta/core';
+
+export const LoginBodySchema = z
+  .object({
+    password: z.string().optional(),
+    email: z.string().optional(),
+  })
+  .default({});
+
+export const ToolExecuteBodySchema = z.object({
+  personaId: z.string().optional(),
+  courseId: z.string().optional(),
+  toolName: z.string().min(1),
+  args: z.record(z.unknown()).optional(),
+});
+
+export const CourseSettingsPutBodySchema = z.object({
+  setting: CourseSettingValueSchema,
+  personaId: z.string().optional(),
+});
+
+export const ChatBodySchema = z.object({
+  personaId: z.string().optional(),
+  courseId: z.string().optional(),
+  conversationId: z.string().optional(),
+  message: z
+    .string()
+    .trim()
+    .min(1, 'message is required')
+    .max(4000, 'message exceeds maximum length of 4000 characters'),
+  pageContext: z
+    .object({
+      title: z.string().max(500).optional(),
+      url: z.string().max(2000).optional(),
+      content: z.string().max(8000).optional(),
+    })
+    .optional(),
+});
+
+export const LtiLoginParamsSchema = z.object({
+  iss: z.string().min(1, 'iss is required'),
+  login_hint: z.string().min(1, 'login_hint is required'),
+  target_link_uri: z.string().optional(),
+  lti_message_hint: z.string().optional(),
+  client_id: z.string().optional(),
+});
+
+export const LtiLaunchBodySchema = z.object({
+  id_token: z.string().min(1, 'id_token is required'),
+  state: z.string().optional(),
+});
+
+export const RetentionPurgeBodySchema = z
+  .object({
+    retentionDays: z.number().int().positive().optional(),
+    personaId: z.string().optional(),
+  })
+  .default({});
+
+export function safeStringEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}

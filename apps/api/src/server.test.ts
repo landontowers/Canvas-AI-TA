@@ -1,5 +1,11 @@
+import crypto from 'node:crypto';
 import { describe, it, expect } from 'vitest';
-import { loadAppConfig, FakeLogStorageAdapter } from '@virtual-ta/adapters';
+import {
+  loadAppConfig,
+  FakeLogStorageAdapter,
+  LtiIdentityAdapter,
+  SDI_DEMO_PERSONAS,
+} from '@virtual-ta/adapters';
 import { buildServer, PortsContainer } from '../src/server.js';
 
 describe('API Server', () => {
@@ -894,6 +900,180 @@ describe('API Server', () => {
       });
       expect(incidentsRes.statusCode).toBe(200);
       expect(incidentsRes.json().incidents.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('serves LTI 1.3 developer key config & JWKS and rejects OIDC login when LTI_ENABLED=false', async () => {
+      const cfgRes = await server.inject({ method: 'GET', url: '/api/lti/config' });
+      expect(cfgRes.statusCode).toBe(200);
+      const cfgJson = cfgRes.json();
+      expect(cfgJson.title).toBe('SDI Virtual TA');
+      expect(cfgJson.oidc_initiation_url).toContain('/api/lti/login');
+
+      const jwksRes = await server.inject({ method: 'GET', url: '/api/lti/jwks' });
+      expect(jwksRes.statusCode).toBe(200);
+      expect(jwksRes.json().keys[0].kty).toBe('RSA');
+
+      const loginDisabled = await server.inject({
+        method: 'GET',
+        url: '/api/lti/login?iss=https://canvas.instructure.com&login_hint=1001',
+      });
+      expect(loginDisabled.statusCode).toBe(403);
+    });
+
+    it('completes LTI 1.3 OIDC login, RS256 launch, session lookup, and prevents role spoofing', async () => {
+      const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+      const publicKeyPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+
+      const ltiConfig = loadAppConfig({
+        ...process.env,
+        NODE_ENV: 'test',
+        LTI_ENABLED: 'true',
+        DEMO_AUTH_ENABLED: 'true',
+        DEMO_PASSWORD: 'admin-only-password',
+      });
+
+      const customLtiAdapter = new LtiIdentityAdapter({
+        allowedPersonas: SDI_DEMO_PERSONAS,
+        platformPublicKeyPem: publicKeyPem,
+        deploymentId: ltiConfig.lti.deploymentId,
+      });
+
+      const ltiServer = buildServer(ltiConfig, { identity: customLtiAdapter });
+
+      // 1. OIDC Login Initiation
+      const loginJsonRes = await ltiServer.inject({
+        method: 'GET',
+        url: '/api/lti/login?iss=https://canvas.instructure.com&login_hint=1001',
+        headers: { Accept: 'application/json' },
+      });
+      expect(loginJsonRes.statusCode).toBe(200);
+      const { state, nonce, redirectUrl } = loginJsonRes.json();
+      expect(redirectUrl).toContain(nonce);
+
+      const signToken = (payload: Record<string, unknown>) => {
+        const enc = (o: unknown) => Buffer.from(JSON.stringify(o), 'utf8').toString('base64url');
+        const input = `${enc({ alg: 'RS256', typ: 'JWT' })}.${enc(payload)}`;
+        const signer = crypto.createSign('RSA-SHA256');
+        signer.update(input);
+        signer.end();
+        return `${input}.${signer.sign(privateKey).toString('base64url')}`;
+      };
+
+      const nowSec = Math.floor(Date.now() / 1000);
+      const studentJwt = signToken({
+        iss: 'https://canvas.instructure.com',
+        aud: ltiConfig.lti.clientId,
+        sub: '1001',
+        exp: nowSec + 300,
+        nonce,
+        'https://purl.imsglobal.org/spec/lti/claim/version': '1.3.0',
+        'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiResourceLinkRequest',
+        'https://purl.imsglobal.org/spec/lti/claim/deployment_id': ltiConfig.lti.deploymentId,
+        'https://purl.imsglobal.org/spec/lti/claim/roles': [
+          'http://purl.imsglobal.org/vocab/lis/v2/membership#Learner',
+        ],
+        'https://purl.imsglobal.org/spec/lti/claim/custom': {
+          canvas_user_id: '1001',
+          canvas_course_id: 'sdi-ftt101',
+        },
+      });
+
+      // 2. form_post Launch with application/x-www-form-urlencoded returning 302
+      const formLaunch = await ltiServer.inject({
+        method: 'POST',
+        url: '/api/lti/launch',
+        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+        payload: `id_token=${encodeURIComponent(studentJwt)}&state=${encodeURIComponent(state)}`,
+      });
+      expect(formLaunch.statusCode).toBe(302);
+      const location = String(formLaunch.headers.location);
+      expect(location).toContain('embedded=true');
+      expect(location).toContain('ltiToken=lti_');
+
+      const launchedToken = new URLSearchParams(location.split('?')[1]).get('ltiToken')!;
+
+      // 3. Session endpoint validates token
+      const sessionRes = await ltiServer.inject({
+        method: 'GET',
+        url: '/api/lti/session',
+        headers: { Authorization: `Bearer ${launchedToken}` },
+      });
+      expect(sessionRes.statusCode).toBe(200);
+      expect(sessionRes.json().context.assistantRole).toBe('student');
+
+      // 4. Attempting to spoof personaId='demo_instructor' with a student LTI token is rejected (403)
+      const spoofRes = await ltiServer.inject({
+        method: 'PUT',
+        url: '/api/courses/sdi-ftt101/settings',
+        headers: { Authorization: `Bearer ${launchedToken}` },
+        payload: { setting: 'logistics_only', personaId: 'demo_instructor' },
+      });
+      expect(spoofRes.statusCode).toBe(403);
+
+      // 5. Instructor JSON launch works seamlessly with DEMO_AUTH_ENABLED=true
+      const instructorJwt = signToken({
+        iss: 'https://canvas.instructure.com',
+        aud: ltiConfig.lti.clientId,
+        sub: '2001',
+        exp: nowSec + 300,
+        nonce: 'inst-nonce',
+        'https://purl.imsglobal.org/spec/lti/claim/version': '1.3.0',
+        'https://purl.imsglobal.org/spec/lti/claim/message_type': 'LtiResourceLinkRequest',
+        'https://purl.imsglobal.org/spec/lti/claim/deployment_id': ltiConfig.lti.deploymentId,
+        'https://purl.imsglobal.org/spec/lti/claim/roles': [
+          'http://purl.imsglobal.org/vocab/lis/v2/membership#Instructor',
+        ],
+        'https://purl.imsglobal.org/spec/lti/claim/target_link_uri':
+          'http://localhost:5173/api/lti/launch?placement=course_navigation',
+        'https://purl.imsglobal.org/spec/lti/claim/custom': {
+          canvas_user_id: '2001',
+          canvas_course_id: 'sdi-ftt101',
+        },
+      });
+      const jsonLaunch = await ltiServer.inject({
+        method: 'POST',
+        url: '/api/lti/launch',
+        headers: { Accept: 'application/json' },
+        payload: { id_token: instructorJwt },
+      });
+      expect(jsonLaunch.statusCode).toBe(200);
+      expect(jsonLaunch.json().placement).toBe('course_navigation');
+
+      const instructorToken = jsonLaunch.json().sessionToken;
+      const chatRes = await ltiServer.inject({
+        method: 'POST',
+        url: '/api/chat',
+        headers: { Authorization: `Bearer ${instructorToken}` },
+        payload: { message: 'Which assignments are missing due dates?' },
+      });
+      expect(chatRes.statusCode).toBe(200);
+      expect(chatRes.body).toContain('"type":"done"');
+    });
+
+    it('POST /api/admin/retention/purge enforces instructor RBAC and purges expired records', async () => {
+      const studentAttempt = await server.inject({
+        method: 'POST',
+        url: '/api/admin/retention/purge',
+        payload: { personaId: 'demo_student', retentionDays: 90 },
+      });
+      expect(studentAttempt.statusCode).toBe(403);
+
+      const invalidDays = await server.inject({
+        method: 'POST',
+        url: '/api/admin/retention/purge',
+        payload: { personaId: 'demo_instructor', retentionDays: -5 },
+      });
+      expect(invalidDays.statusCode).toBe(400);
+
+      const okRes = await server.inject({
+        method: 'POST',
+        url: '/api/admin/retention/purge',
+        payload: { personaId: 'demo_instructor', retentionDays: 90 },
+      });
+      expect(okRes.statusCode).toBe(200);
+      expect(okRes.json().success).toBe(true);
+      expect(okRes.json().retentionDays).toBe(90);
+      expect(typeof okRes.json().deletedConversations).toBe('number');
     });
   });
 });

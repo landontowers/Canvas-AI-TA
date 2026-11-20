@@ -612,5 +612,63 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         expect(screen.getByText(/SDI Instructor Virtual TA/i)).toBeDefined();
       });
     });
+
+    it('handles LTI launch URL params, strips ltiToken, syncs /api/lti/session, and honors lti.pageSettings', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/?embedded=true&ltiToken=lti_session_xyz&placement=course_navigation&courseId=sdi-ftt101',
+      );
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url === '/api/lti/session') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                personaId: 'demo_instructor',
+                placement: 'course_navigation',
+                context: { courseId: 'sdi-ftt101', assistantRole: 'instructor' },
+              }),
+          });
+        }
+        if (url === '/health') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ status: 'ok', college: 'sdi', env: 'test', timestamp: '' }) });
+        }
+        if (url === '/api/auth/status') {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ authRequired: false, authenticated: true }) });
+        }
+        if (url.includes('/api/courses/sdi-ftt101/settings')) {
+          return Promise.resolve({ ok: true, json: () => Promise.resolve({ courseId: 'sdi-ftt101', setting: 'full' }) });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      });
+
+      const { container } = render(<DemoShell />);
+
+      await waitFor(() => {
+        expect(window.location.search).not.toContain('ltiToken=');
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText(/Course Settings \(Staff\)/i)).toBeDefined();
+      });
+
+      fireEvent(
+        window,
+        new MessageEvent('message', {
+          data: {
+            subject: 'lti.pageSettings',
+            use_high_contrast: true,
+          },
+        }),
+      );
+
+      await waitFor(() => {
+        expect(container.querySelector('.high-contrast-mode')).not.toBeNull();
+      });
+
+      window.history.replaceState({}, '', '/');
+    });
   });
 });

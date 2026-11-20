@@ -364,4 +364,38 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
     expect(incidents).toHaveLength(1);
     expect(incidents[0].category).toBe('self-harm');
   });
+
+  it('purges expired conversations and returns deletion counts', async () => {
+    const emptyMockDb: any = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([]),
+        }),
+      }),
+    };
+    const emptyAdapter = new DrizzlePersistenceAdapter(emptyMockDb);
+    expect(await emptyAdapter.purgeExpiredConversations(90)).toEqual({
+      deletedConversations: 0,
+      deletedMessages: 0,
+    });
+
+    const deleteWhereMock = vi
+      .fn()
+      .mockReturnValueOnce({ returning: vi.fn().mockResolvedValue([{ id: 'm1' }, { id: 'm2' }]) })
+      .mockResolvedValueOnce(undefined);
+    const mockDb: any = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue([{ id: 'expired_conv_1' }]),
+        }),
+      }),
+      delete: vi.fn().mockReturnValue({
+        where: deleteWhereMock,
+      }),
+    };
+
+    const adapter = new DrizzlePersistenceAdapter(mockDb);
+    const purged = await adapter.purgeExpiredConversations(90, new Date('2026-11-20T00:00:00Z'));
+    expect(purged).toEqual({ deletedConversations: 1, deletedMessages: 2 });
+  });
 });

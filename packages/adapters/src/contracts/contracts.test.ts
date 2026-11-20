@@ -2,6 +2,8 @@ import { describe } from 'vitest';
 import { FakeLlmAdapter } from '../fake/fake-llm.adapter.js';
 import { FakeLmsAdapter } from '../fake/fake-lms.adapter.js';
 import { FakeIdentityAdapter } from '../fake/fake-identity.adapter.js';
+import { LtiIdentityAdapter } from '../lti/lti-identity.adapter.js';
+import { SDI_DEMO_PERSONAS } from '../config/sdi.config.js';
 import { InProcessCalculatorAdapter } from '../fake/in-process-calculator.adapter.js';
 import { InMemoryPersistenceAdapter } from '../fake/in-memory-persistence.adapter.js';
 import { FakeModerationAdapter } from '../fake/fake-moderation.adapter.js';
@@ -19,6 +21,10 @@ describe('Port Contract Tests Suite', () => {
   runLlmContractTests('FakeLlmAdapter', () => new FakeLlmAdapter());
   runLmsContractTests('FakeLmsAdapter', () => new FakeLmsAdapter());
   runIdentityContractTests('FakeIdentityAdapter', () => new FakeIdentityAdapter());
+  runIdentityContractTests(
+    'LtiIdentityAdapter',
+    () => new LtiIdentityAdapter({ allowedPersonas: SDI_DEMO_PERSONAS }),
+  );
   runCalculatorContractTests('InProcessCalculatorAdapter', () => new InProcessCalculatorAdapter());
   runPersistenceContractTests('InMemoryPersistenceAdapter', () => new InMemoryPersistenceAdapter());
   runModerationContractTests('FakeModerationAdapter', () => new FakeModerationAdapter());

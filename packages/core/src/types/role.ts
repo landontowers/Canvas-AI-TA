@@ -24,9 +24,15 @@ export type AssistantRole = z.infer<typeof AssistantRoleSchema>;
  * Otherwise, they get the student Virtual TA.
  */
 export function resolveAssistantRole(canvasRoles: string[]): AssistantRole {
-  const staffKeywords = ['teacher', 'instructor', 'ta', 'teachingassistant'];
-  const hasStaffRole = canvasRoles.some((role) =>
-    staffKeywords.some((keyword) => role.toLowerCase().includes(keyword)),
-  );
+  const hasStaffRole = canvasRoles.some((role) => {
+    const lower = role.toLowerCase();
+    return (
+      lower.includes('teacher') ||
+      lower.includes('instructor') ||
+      lower.includes('teachingassistant') ||
+      lower.includes('taenrollment') ||
+      /(^|[^a-z0-9])ta([^a-z0-9]|$)/i.test(role)
+    );
+  });
   return hasStaffRole ? 'instructor' : 'student';
 }

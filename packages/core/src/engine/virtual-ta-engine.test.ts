@@ -183,6 +183,9 @@ class MockPersistence implements PersistencePort {
   async listCrisisIncidents() {
     return this.crisisIncidents;
   }
+  async purgeExpiredConversations() {
+    return { deletedConversations: 0, deletedMessages: 0 };
+  }
 }
 
 class MockIdentity implements IdentityPort {

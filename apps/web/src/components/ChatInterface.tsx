@@ -1,53 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Citation, StreamEvent } from '@virtual-ta/core';
-import { CitationBadge } from './CitationBadge.js';
-import { ToolStatusPill } from './ToolStatusPill.js';
-import { renderMarkdownWithMath } from '../markdown/render.js';
-import {
-  PlusIcon,
-  HistoryIcon,
-  RefreshIcon,
-  CloseIcon,
-  AcademicCapIcon,
-  BookOpenIcon,
-  PhoneIcon,
-  ChatBubbleIcon,
-  GlobeIcon,
-  ShieldAlertIcon,
-  AlertTriangleIcon,
-} from './Icons.js';
+import { ChatHistoryPanel, ConversationItem } from './ChatHistoryPanel.js';
+import { ChatMessageList, ChatMessage, ActiveToolStatus, CrisisResourceInfo } from './ChatMessageList.js';
 
-export interface CrisisResourceInfo {
-  hotlineName: string;
-  phone: string;
-  sms?: string;
-  url: string;
-  message?: string;
-}
-
-export interface ChatMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  citations: Citation[];
-  toolsUsed: string[];
-  isCrisis?: boolean;
-  crisis?: CrisisResourceInfo;
-  createdAt: Date;
-}
-
-export interface ConversationItem {
-  id: string;
-  collegeId: string;
-  courseId: string;
-  userId: string;
-  role: string;
-  title?: string;
-  messageCount?: number;
-  lastMessageAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type { ConversationItem, ChatMessage, CrisisResourceInfo };
 
 export interface PageContextInfo {
   title?: string;
@@ -74,11 +30,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [activeTool, setActiveTool] = useState<{
-    toolName: string;
-    status: 'calling' | 'executing' | 'complete' | 'error';
-    message?: string;
-  } | null>(null);
+  const [activeTool, setActiveTool] = useState<ActiveToolStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [screenReaderAnnouncement, setScreenReaderAnnouncement] = useState('');
@@ -125,7 +77,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [personaId, courseId, authToken]);
 
-  // Reset conversation and reload history when switching persona or course
   useEffect(() => {
     setMessages([]);
     setConversationId(null);
@@ -134,6 +85,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowHistory(false);
     void loadConversationList();
   }, [personaId, courseId, loadConversationList]);
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsStreaming(false);
+    setActiveTool(null);
+    setScreenReaderAnnouncement('Response generation stopped by user.');
+    textareaRef.current?.focus();
+  };
 
   const handleNewChat = () => {
     if (isStreaming) {
@@ -175,22 +137,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }
 
       const rawMsgs = await res.json();
-      const loadedMsgs: ChatMessage[] = rawMsgs.map((m: {
-        id: string;
-        role: string;
-        content: string;
-        citations?: Citation[];
-        isCrisis?: boolean;
-        createdAt: string | Date;
-      }) => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        citations: m.citations || [],
-        toolsUsed: [],
-        isCrisis: Boolean(m.isCrisis),
-        createdAt: new Date(m.createdAt),
-      }));
+      const loadedMsgs: ChatMessage[] = rawMsgs.map(
+        (m: {
+          id: string;
+          role: string;
+          content: string;
+          citations?: Citation[];
+          isCrisis?: boolean;
+          createdAt: string | Date;
+        }) => ({
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          citations: m.citations || [],
+          toolsUsed: [],
+          isCrisis: Boolean(m.isCrisis),
+          createdAt: new Date(m.createdAt),
+        }),
+      );
 
       setMessages(loadedMsgs);
       setConversationId(selectedId);
@@ -206,28 +170,6 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setIsLoadingChat(false);
       textareaRef.current?.focus();
     }
-  };
-
-  const formatTimeOrDate = (isoStr?: string) => {
-    if (!isoStr) return '';
-    const d = new Date(isoStr);
-    const now = new Date();
-    const isToday = d.toDateString() === now.toDateString();
-    if (isToday) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  };
-
-  const handleStop = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setIsStreaming(false);
-    setActiveTool(null);
-    setScreenReaderAnnouncement('Response generation stopped by user.');
-    textareaRef.current?.focus();
   };
 
   const sendMessage = async (textToSend?: string) => {
@@ -413,155 +355,48 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage();
+      void sendMessage();
     }
   };
 
-  // Quick suggestions based on persona & simulated Canvas page
-  const getSuggestions = () => {
-    if (isStudent) {
-      return [
+  const suggestions = isStudent
+    ? [
         'When is Safety Lab 1 due?',
         'What assignments do I have due across all my classes this week?',
         'I am stuck on firearm nomenclature and barrel twist.',
         'What does the syllabus say about late submissions?',
         'Calculate bullet energy for a 55gr bullet at 3100 fps',
-      ];
-    } else {
-      return [
+      ]
+    : [
         'Which assignments are missing due dates?',
         'Summarize student submission stats for Safety Lab 1.',
         'Draft an announcement reminding students about firearm safety.',
         'Give me an overview of the gradebook distribution.',
       ];
-    }
-  };
 
   return (
     <div className="chat-interface" role="region" aria-label="Virtual TA Chat">
-      {/* Screen Reader Live Region (Accessible live updates per modern-web-guidance) */}
       <div aria-live="polite" aria-atomic="false" className="visually-hidden">
         {screenReaderAnnouncement}
       </div>
 
-      {/* Top Controls Toolbar: New Chat & History */}
-      <div className="chat-toolbar" role="toolbar" aria-label="Conversation tools">
-        <button
-          type="button"
-          className="toolbar-btn new-chat-btn"
-          onClick={handleNewChat}
-          aria-label="Start a new chat"
-          title="Start a new chat"
-        >
-          <PlusIcon size={14} className="btn-icon" />
-          <span>New Chat</span>
-        </button>
+      <ChatHistoryPanel
+        showHistory={showHistory}
+        conversationId={conversationId}
+        conversationList={conversationList}
+        isLoadingHistory={isLoadingHistory}
+        onNewChat={handleNewChat}
+        onToggleHistory={() => {
+          setShowHistory((prev) => !prev);
+          if (!showHistory) {
+            void loadConversationList();
+          }
+        }}
+        onCloseHistory={() => setShowHistory(false)}
+        onRefreshHistory={() => void loadConversationList()}
+        onSelectConversation={(id) => void handleSelectConversation(id)}
+      />
 
-        <button
-          type="button"
-          className={`toolbar-btn history-toggle-btn ${showHistory ? 'active' : ''}`}
-          onClick={() => {
-            setShowHistory((prev) => !prev);
-            if (!showHistory) {
-              void loadConversationList();
-            }
-          }}
-          aria-expanded={showHistory}
-          aria-label={showHistory ? 'Close previous chats' : 'View previous chats'}
-          title="Previous chats"
-        >
-          <HistoryIcon size={14} className="btn-icon" />
-          <span>Previous Chats</span>
-          {conversationList.length > 0 && (
-            <span className="history-badge" aria-label={`${conversationList.length} previous chats`}>
-              {conversationList.length}
-            </span>
-          )}
-        </button>
-      </div>
-
-      {/* Previous Chats Drawer / Slide-over Panel */}
-      {showHistory && (
-        <div className="history-panel" role="region" aria-label="Previous chats list">
-          <div className="history-header">
-            <div className="history-title-wrap">
-              <HistoryIcon size={15} className="history-header-icon" />
-              <h4>Previous Chats ({conversationList.length})</h4>
-            </div>
-            <div className="history-header-actions">
-              <button
-                type="button"
-                className="history-icon-btn"
-                onClick={() => void loadConversationList()}
-                disabled={isLoadingHistory}
-                aria-label="Refresh previous chats"
-                title="Refresh list"
-              >
-                <RefreshIcon size={14} />
-              </button>
-              <button
-                type="button"
-                className="history-icon-btn"
-                onClick={() => setShowHistory(false)}
-                aria-label="Close previous chats panel"
-                title="Close"
-              >
-                <CloseIcon size={14} />
-              </button>
-            </div>
-          </div>
-
-          <div className="history-list" tabIndex={0} aria-label="List of previous chats">
-            {isLoadingHistory ? (
-              <div className="history-loading">
-                <span className="history-spinner" aria-hidden="true"></span>
-                <span>Loading your chats...</span>
-              </div>
-            ) : conversationList.length === 0 ? (
-              <div className="history-empty">
-                <p>No previous chats for this course.</p>
-                <span>Ask a question to start your first chat!</span>
-              </div>
-            ) : (
-              conversationList.map((conv) => {
-                const isActive = conv.id === conversationId;
-                return (
-                  <div
-                    key={conv.id}
-                    className={`history-card ${isActive ? 'active-chat' : ''}`}
-                    onClick={() => void handleSelectConversation(conv.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        void handleSelectConversation(conv.id);
-                      }
-                    }}
-                    aria-label={`Resume chat: ${conv.title || 'Chat'}, ${conv.messageCount ?? 0} messages, ${formatTimeOrDate(conv.lastMessageAt || conv.updatedAt)}`}
-                  >
-                    <div className="history-card-main">
-                      <span className="history-card-title">{conv.title || 'Conversation'}</span>
-                      <span className="history-card-date">
-                        {formatTimeOrDate(conv.lastMessageAt || conv.updatedAt)}
-                      </span>
-                    </div>
-                    <div className="history-card-meta">
-                      {isActive ? (
-                        <span className="current-chat-pill">Active</span>
-                      ) : (
-                        <span className="msg-count-pill">{conv.messageCount ?? 0} msgs</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Loading overlay when switching/resuming conversation */}
       {isLoadingChat && (
         <div className="chat-loading-banner" role="status">
           <span className="history-spinner" aria-hidden="true"></span>
@@ -569,139 +404,23 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         </div>
       )}
 
-      {/* Messages Scroll Area */}
-      <div className="messages-container" tabIndex={0} aria-label="Chat messages history">
-        {messages.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-icon" aria-hidden="true">
-              {isStudent ? <AcademicCapIcon size={44} /> : <BookOpenIcon size={44} />}
-            </div>
-            <h3 className="empty-title">
-              {isStudent ? 'SDI Student Virtual TA' : 'SDI Instructor Virtual TA'}
-            </h3>
-            <p className="empty-desc">
-              {isStudent
-                ? 'Ask questions about assignments, due dates, or course concepts. I guide Socratically to help you master the material.'
-                : 'Directly look up course assignments, submission summaries, or draft announcements and lesson content.'}
-            </p>
-            <div className="page-context-pill">
-              <span className="context-label">Simulated Canvas Page:</span>
-              <span className="context-value">{currentPageTitle}</span>
-            </div>
+      <ChatMessageList
+        messages={messages}
+        isStudent={isStudent}
+        isStreaming={isStreaming}
+        currentPageTitle={currentPageTitle}
+        suggestions={suggestions}
+        activeTool={activeTool}
+        error={error}
+        messagesEndRef={messagesEndRef}
+        onSelectSuggestion={(prompt) => void sendMessage(prompt)}
+      />
 
-            <div className="starter-prompts">
-              <span className="starter-heading">Suggested questions:</span>
-              <div className="prompt-chips">
-                {getSuggestions().map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    className="prompt-chip"
-                    onClick={() => sendMessage(prompt)}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`message-bubble ${msg.role}`}>
-              <div className="message-header">
-                <span className="message-sender">
-                  {msg.role === 'user' ? (isStudent ? 'Alex (Student)' : 'Staff') : 'SDI Virtual TA'}
-                </span>
-                <span className="message-time">
-                  {msg.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-              </div>
-
-              <div
-                className="message-content"
-                dangerouslySetInnerHTML={{
-                  __html:
-                    msg.content.trim().length > 0
-                      ? renderMarkdownWithMath(msg.content)
-                      : isStreaming && msg.role === 'assistant'
-                        ? '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>'
-                        : '',
-                }}
-              />
-
-              {msg.citations && msg.citations.length > 0 && (
-                <div className="citations-list" aria-label="Canvas citations">
-                  <span className="citations-heading">Citations:</span>
-                  <div className="citations-badges">
-                    {msg.citations.map((cite, i) => (
-                      <CitationBadge key={i} citation={cite} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {msg.role === 'assistant' && (msg.isCrisis || Boolean(msg.crisis)) && (
-                <div className="crisis-action-card" role="alert" aria-label="Emergency Crisis Support">
-                  <div className="crisis-card-header">
-                    <ShieldAlertIcon size={18} className="crisis-icon" />
-                    <strong>Immediate Confidential Support (24/7)</strong>
-                  </div>
-                  <div className="crisis-card-actions">
-                    <a href={`tel:${msg.crisis?.phone || '988'}`} className="crisis-btn crisis-btn-call">
-                      <PhoneIcon size={14} className="crisis-btn-icon" />
-                      <span>Call {msg.crisis?.phone || '988'}</span>
-                    </a>
-                    {(msg.crisis?.sms ?? '988') && (
-                      <a
-                        href={`sms:${msg.crisis?.sms || '988'}`}
-                        className="crisis-btn crisis-btn-sms"
-                      >
-                        <ChatBubbleIcon size={14} className="crisis-btn-icon" />
-                        <span>Text {msg.crisis?.sms || '988'}</span>
-                      </a>
-                    )}
-                    <a
-                      href={msg.crisis?.url || 'https://988lifeline.org'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="crisis-btn crisis-btn-chat"
-                    >
-                      <GlobeIcon size={14} className="crisis-btn-icon" />
-                      <span>{msg.crisis?.hotlineName || '988 Online Chat'}</span>
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
-        )}
-
-        {/* Active Tool Status Indicator */}
-        {activeTool && (
-          <ToolStatusPill
-            toolName={activeTool.toolName}
-            status={activeTool.status}
-            message={activeTool.message}
-          />
-        )}
-
-        {/* Error notification */}
-        {error && (
-          <div className="feedback-alert error" role="alert">
-            <AlertTriangleIcon size={16} className="feedback-icon" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input Form Controls */}
       <div className="chat-input-area">
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            sendMessage();
+            void sendMessage();
           }}
           className="input-form"
         >
@@ -737,7 +456,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     onClick={handleStop}
                     aria-label="Stop generating response"
                   >
-                    <span className="stop-icon" aria-hidden="true">■</span> Stop
+                    <span className="stop-icon" aria-hidden="true">
+                      ■
+                    </span>{' '}
+                    Stop
                   </button>
                 ) : (
                   <button

@@ -50,6 +50,7 @@ export interface PageContext {
 }
 
 export interface TurnParameters {
+  token?: string;
   personaId?: string;
   courseId?: string;
   conversationId?: string;
@@ -271,6 +272,7 @@ export class VirtualTaEngine {
 
     // 1. Resolve identity and verify persona
     const authContext = await this.deps.identity.resolveIdentity({
+      token: params.token,
       personaId: params.personaId,
       courseId: params.courseId,
     });

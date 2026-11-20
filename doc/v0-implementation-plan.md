@@ -282,6 +282,8 @@ _Status, 2026-11-20: Phase 5 is complete. Cloudflare Tunnel compose profile and 
 
 ## Phase 6 (stretch): Inside Canvas
 
+_Status, 2026-11-20: Phase 6 (Option A) and Sprint 3 Option C (code health, retention & architecture cleanup) are complete. `LtiIdentityAdapter` implements third-party OIDC initiation, RS256 signed JWT launch validation via Canvas JWKS, LTI 1.3 IMS role URI resolution, test-account allowlisting, and `top_navigation` / `course_navigation` Developer Key config (`/api/lti/config`, `/api/lti/jwks`, `/api/lti/login`, `/api/lti/launch`, `/api/lti/session`). `DemoShell` handles transient URL token scrubbing into `lti.put_data` / `lti.get_data` platform storage and `lti.getPageSettings` (`use_high_contrast`). Under Option C, `apps/api/src/server.ts` was modularized into route/auth modules, `apps/web/src/components/ChatInterface.tsx` was split into `ChatHistoryPanel` and `ChatMessageList`, `PersistencePort.purgeExpiredConversations` + `POST /api/admin/retention/purge` added configurable retention windows (`DATA_RETENTION_DAYS`), `.dependency-cruiser.cjs` banned Node built-ins in `packages/core` and server imports in `apps/web`, and duplicate SDI PNG assets were removed._
+
 **Goal:** the Virtual TA launches in Canvas's own sidebar.
 
 **Work:**

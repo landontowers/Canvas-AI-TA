@@ -13,7 +13,7 @@ import {
   CrisisIncident,
   ScaffoldingState,
 } from '@virtual-ta/core';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from './schema.js';
@@ -514,5 +514,37 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
           updatedAt: new Date(),
         },
       });
+  }
+
+  async purgeExpiredConversations(
+    retentionDays: number,
+    now: Date = new Date(),
+  ): Promise<{ deletedConversations: number; deletedMessages: number }> {
+    const cutoff = new Date(now.getTime() - retentionDays * 86_400_000);
+    const expired = await this.db
+      .select({ id: schema.conversationsTable.id })
+      .from(schema.conversationsTable)
+      .where(lt(schema.conversationsTable.updatedAt, cutoff));
+
+    if (expired.length === 0) {
+      return { deletedConversations: 0, deletedMessages: 0 };
+    }
+
+    let deletedMessages = 0;
+    for (const conv of expired) {
+      const removedMsgs = await this.db
+        .delete(schema.messagesTable)
+        .where(eq(schema.messagesTable.conversationId, conv.id))
+        .returning({ id: schema.messagesTable.id });
+      deletedMessages += removedMsgs.length;
+      await this.db
+        .delete(schema.conversationsTable)
+        .where(eq(schema.conversationsTable.id, conv.id));
+    }
+
+    return {
+      deletedConversations: expired.length,
+      deletedMessages,
+    };
   }
 }

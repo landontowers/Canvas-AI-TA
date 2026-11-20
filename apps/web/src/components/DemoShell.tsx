@@ -16,19 +16,42 @@ interface HealthStatus {
   timestamp: string;
 }
 
+const LTI_PLATFORM_STORAGE_KEY = 'virtual_ta_lti_token';
+
+function readInitialSearchParams(): {
+  ltiToken: string | null;
+  placement: string | null;
+  courseId: string | null;
+} {
+  if (typeof window === 'undefined') {
+    return { ltiToken: null, placement: null, courseId: null };
+  }
+  const params = new URLSearchParams(window.location.search);
+  return {
+    ltiToken: params.get('ltiToken'),
+    placement: params.get('placement'),
+    courseId: params.get('courseId'),
+  };
+}
+
 export const DemoShell: React.FC = () => {
+  const initialParams = readInitialSearchParams();
+
   const [persona, setPersona] = useState<string>('demo_student');
-  const [courseId, setCourseId] = useState<string>('sdi-ftt101');
+  const [courseId, setCourseId] = useState<string>(initialParams.courseId || 'sdi-ftt101');
   const [activePage, setActivePage] = useState<string>('Assignment: Safety Lab 1');
   const [activePageUrl, setActivePageUrl] = useState<string | undefined>(undefined);
   const [activePageContent, setActivePageContent] = useState<string | undefined>(undefined);
   const [chatResetKey, setChatResetKey] = useState<number>(0);
   const [highContrast, setHighContrast] = useState<boolean>(false);
-  const [currentView, setCurrentView] = useState<'chat' | 'settings'>('chat');
+  const [currentView, setCurrentView] = useState<'chat' | 'settings'>(
+    initialParams.placement === 'course_navigation' ? 'settings' : 'chat',
+  );
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
-  // Authentication & Hardening (critique §4.3)
+  // Authentication & Hardening (critique §3.1, §4.3)
   const [authToken, setAuthToken] = useState<string | null>(() => {
+    if (initialParams.ltiToken) return initialParams.ltiToken;
     return typeof window !== 'undefined' ? sessionStorage.getItem('demo_token') : null;
   });
   const [authRequired, setAuthRequired] = useState<boolean>(false);
@@ -50,6 +73,29 @@ export const DemoShell: React.FC = () => {
       document.body.classList.remove('embedded-mode');
     }
   }, [isEmbedded]);
+
+  // Scrub any transient LTI token from URL and store in Canvas Platform Storage when embedded (critique §3.1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const urlLtiToken = params.get('ltiToken');
+    if (urlLtiToken) {
+      params.delete('ltiToken');
+      const remaining = params.toString();
+      const nextUrl = `${window.location.pathname}${remaining ? `?${remaining}` : ''}${window.location.hash}`;
+      try {
+        window.history.replaceState({}, '', nextUrl);
+      } catch {
+        // Ignore history restrictions in sandboxed environments
+      }
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(
+          { subject: 'lti.put_data', key: LTI_PLATFORM_STORAGE_KEY, value: urlLtiToken },
+          '*',
+        );
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -73,12 +119,61 @@ export const DemoShell: React.FC = () => {
         if (data.persona) {
           setPersona(String(data.persona));
         }
+      } else if (
+        data.subject === 'lti.pageSettings' ||
+        data.subject === 'lti.getPageSettings.response' ||
+        data.type === 'canvas_page_settings'
+      ) {
+        const highContrastSetting = data.use_high_contrast ?? data.useHighContrast;
+        if (highContrastSetting !== undefined) {
+          setHighContrast(Boolean(highContrastSetting));
+        }
+      } else if (
+        (data.subject === 'lti.get_data.response' || data.subject === 'lti.get_data') &&
+        data.key === LTI_PLATFORM_STORAGE_KEY &&
+        typeof data.value === 'string' &&
+        data.value.startsWith('lti_')
+      ) {
+        setAuthToken(data.value);
       }
     };
 
     window.addEventListener('message', handleMessage);
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({ subject: 'lti.getPageContent' }, '*');
+      window.parent.postMessage({ subject: 'lti.getPageSettings' }, '*');
+      if (!authToken || !authToken.startsWith('lti_')) {
+        window.parent.postMessage({ subject: 'lti.get_data', key: LTI_PLATFORM_STORAGE_KEY }, '*');
+      }
+    }
+
+    if (authToken && authToken.startsWith('lti_')) {
+      fetch('/api/lti/session', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then(
+          (
+            data: {
+              personaId?: string;
+              placement?: string;
+              context?: { courseId?: string };
+            } | null,
+          ) => {
+            if (!data) return;
+            if (data.personaId) {
+              setPersona(data.personaId);
+            }
+            if (data.context?.courseId) {
+              setCourseId(data.context.courseId);
+            }
+            if (data.placement === 'course_navigation') {
+              setCurrentView('settings');
+            }
+            setAuthenticated(true);
+          },
+        )
+        .catch(() => {});
     }
 
     fetch('/health')

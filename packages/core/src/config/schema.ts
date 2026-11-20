@@ -33,6 +33,19 @@ export const DemoAuthConfigSchema = z.object({
   cfAccessAud: z.string().optional(),
 });
 
+export const LtiConfigSchema = z.object({
+  enabled: z.boolean().default(false),
+  clientId: z.string().default('virtual-ta-lti-client'),
+  deploymentId: z.string().default('sdi-deployment-1'),
+  issuer: z.string().default('https://canvas.instructure.com'),
+  platformAuthUrl: z
+    .string()
+    .url()
+    .default('https://classroom.sdi.edu/api/lti/authorize_redirect'),
+  platformJwksUrl: z.string().url().default('https://classroom.sdi.edu/api/lti/security/jwks'),
+  toolPublicUrl: z.string().url().default('http://localhost:5173'),
+});
+
 export const CollegeConfigSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -58,6 +71,7 @@ export const AppConfigSchema = z.object({
   database: z.object({
     url: z.string().url(),
     persistenceMode: z.enum(['memory', 'postgres']).default('memory'),
+    retentionDays: z.number().int().positive().default(90),
   }),
   canvas: z.object({
     baseUrl: z.string().url(),
@@ -76,6 +90,15 @@ export const AppConfigSchema = z.object({
     enabled: false,
     invitedEmails: [],
   }),
+  lti: LtiConfigSchema.default({
+    enabled: false,
+    clientId: 'virtual-ta-lti-client',
+    deploymentId: 'sdi-deployment-1',
+    issuer: 'https://canvas.instructure.com',
+    platformAuthUrl: 'https://classroom.sdi.edu/api/lti/authorize_redirect',
+    platformJwksUrl: 'https://classroom.sdi.edu/api/lti/security/jwks',
+    toolPublicUrl: 'http://localhost:5173',
+  }),
   crisisAlert: z
     .object({
       webhookUrl: z.string().url().optional(),
@@ -87,5 +110,6 @@ export const AppConfigSchema = z.object({
 
 export type AppConfig = z.infer<typeof AppConfigSchema>;
 export type DemoAuthConfig = z.infer<typeof DemoAuthConfigSchema>;
+export type LtiConfig = z.infer<typeof LtiConfigSchema>;
 export type CollegeConfig = z.infer<typeof CollegeConfigSchema>;
 export type DemoPersona = z.infer<typeof DemoPersonaSchema>;

@@ -67,4 +67,9 @@ export interface PersistencePort {
   listCrisisIncidents(collegeId: string): Promise<import('./crisis-alert.port.js').CrisisIncident[]>;
 
   clearUserData(userId: string): Promise<void>;
+
+  purgeExpiredConversations(
+    retentionDays: number,
+    now?: Date,
+  ): Promise<{ deletedConversations: number; deletedMessages: number }>;
 }

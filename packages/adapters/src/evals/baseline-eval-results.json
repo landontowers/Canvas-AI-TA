@@ -6,7 +6,7 @@
   "metrics": {
     "provider": "fake",
     "modelLabel": "fake",
-    "avgLatencyMs": 0.07,
+    "avgLatencyMs": 0.1,
     "p95LatencyMs": 1,
     "avgTtftMs": 0.05,
     "totalPromptTokens": 20224,

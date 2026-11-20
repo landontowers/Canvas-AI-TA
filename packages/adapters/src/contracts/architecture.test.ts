@@ -36,4 +36,42 @@ describe('Architecture Boundary Verification', () => {
       }
     }
   });
+
+  it('catches Node built-in imports in core and adapter imports in web', { timeout: 30000 }, () => {
+    const coreBuiltinViolation = path.resolve(rootDir, 'packages/core/src/builtin-violation.tmp.ts');
+    const webAdapterViolation = path.resolve(rootDir, 'apps/web/src/adapter-violation.tmp.ts');
+    try {
+      fs.writeFileSync(
+        coreBuiltinViolation,
+        "import crypto from 'node:crypto';\nexport const h = crypto.randomUUID();\n",
+      );
+      let coreThrew = false;
+      try {
+        execSync('pnpm dep-check', { cwd: rootDir, encoding: 'utf-8', stdio: 'pipe' });
+      } catch (err: unknown) {
+        coreThrew = true;
+        const output = String((err as { stdout?: Buffer; stderr?: Buffer }).stdout || '');
+        expect(output).toContain('core-no-node-builtins');
+      }
+      expect(coreThrew).toBe(true);
+      fs.unlinkSync(coreBuiltinViolation);
+
+      fs.writeFileSync(
+        webAdapterViolation,
+        "import { FakeIdentityAdapter } from '../../../packages/adapters/src/fake/fake-identity.adapter.js';\nexport const a = FakeIdentityAdapter;\n",
+      );
+      let webThrew = false;
+      try {
+        execSync('pnpm dep-check', { cwd: rootDir, encoding: 'utf-8', stdio: 'pipe' });
+      } catch (err: unknown) {
+        webThrew = true;
+        const output = String((err as { stdout?: Buffer; stderr?: Buffer }).stdout || '');
+        expect(output).toContain('web-no-adapters-or-api');
+      }
+      expect(webThrew).toBe(true);
+    } finally {
+      if (fs.existsSync(coreBuiltinViolation)) fs.unlinkSync(coreBuiltinViolation);
+      if (fs.existsSync(webAdapterViolation)) fs.unlinkSync(webAdapterViolation);
+    }
+  });
 });

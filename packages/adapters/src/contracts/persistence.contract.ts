@@ -119,5 +119,29 @@ export function runPersistenceContractTests(
       expect(incidents.length).toBeGreaterThan(0);
       expect(incidents.some((i) => i.id === incident.id)).toBe(true);
     });
+
+    it('preserves active conversations when purging outside retention window', async () => {
+      const adapter = await createAdapter();
+      const conv = await adapter.createConversation({
+        collegeId: 'sdi-test',
+        courseId: 'course-abc',
+        userId: 'user-retention-active',
+        role: 'student',
+      });
+      await adapter.saveMessage({
+        conversationId: conv.id,
+        role: 'user',
+        content: 'Recent conversation should remain',
+      });
+
+      const result = await adapter.purgeExpiredConversations(365, new Date());
+      expect(result.deletedConversations).toBe(0);
+      expect(result.deletedMessages).toBe(0);
+
+      const reloaded = await adapter.getConversation(conv.id);
+      expect(reloaded?.id).toBe(conv.id);
+
+      await adapter.clearUserData('user-retention-active');
+    });
   });
 }

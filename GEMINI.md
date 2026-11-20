@@ -13,7 +13,7 @@ Virtual TA v0 is a Socratic Virtual TA that runs inside the Canvas LMS. One engi
 
 ## Where things stand (2026-11-20)
 
-- **Phases 0 through 5 (cleanup, foundation, Canvas integration, Virtual TA engine, interface, demo hosting & hardening) are complete**, including FERPA § 99.31(b) privacy-preserving structured telemetry and FERPA § 99.36 crisis escalation. Next up is Phase 6, stretch goal: inside Canvas (LTI 1.3 registration).
+- **Phases 0 through 6 are complete**, including FERPA § 99.31(b) privacy-preserving structured telemetry, FERPA § 99.36 crisis escalation, Sprint 1–2 hardening & pedagogy upgrades, native Canvas LTI 1.3 launch/OIDC integration (`top_navigation` & `course_navigation`), modularized API/web slices, configurable conversation retention purge, and stricter hexagonal boundary rules. Next up is Phase 7: pilot readiness (SDI written agreement, OAuth2 opt-in, and Azure OpenAI adapters).
 - **The current goal is a functional demo hosted locally** (critique §4), not production.
 - **The old prototype is preserved at the `prototype-final` tag.** It's reference only: don't copy its code back in, and link to it only at the tag.
 
