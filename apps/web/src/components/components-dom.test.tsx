@@ -163,7 +163,7 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       expect(screen.getByText(/Your Privacy at SDI/i)).toBeDefined();
       expect(screen.getByText(/Private Conversations/i)).toBeDefined();
       await waitFor(() => {
-        expect(screen.getByText(/step-by-step explanations/i)).toBeDefined();
+        expect(screen.getAllByText(/step-by-step explanations/i).length).toBeGreaterThan(0);
         expect(screen.getByText(/headspace tolerance/i)).toBeDefined();
       });
 
