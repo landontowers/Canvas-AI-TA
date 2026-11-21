@@ -190,14 +190,14 @@ export function registerConversationsAndAdminRoutes(
     return { success: true };
   });
 
-  async function handleClearUserData(
+  async function resolveAuthorizedSelfUserId(
     request: FastifyRequest,
     reply: FastifyReply,
     rawParamUserId: string,
-  ) {
+  ): Promise<string | null> {
     if (!(await authGuard.isAuthorized(request))) {
       reply.status(401);
-      return { error: 'Unauthorized', message: 'Demo authentication required.' };
+      return null;
     }
 
     const token = authGuard.extractBearerToken(request);
@@ -212,7 +212,7 @@ export function registerConversationsAndAdminRoutes(
         rawParamUserId === query.personaId;
       if (!matchesSelf) {
         reply.status(403);
-        return { error: 'Forbidden', message: 'You may only delete your own conversation data.' };
+        return null;
       }
       targetUserId = auth.userId;
     } else if (query.personaId) {
@@ -223,7 +223,7 @@ export function registerConversationsAndAdminRoutes(
         rawParamUserId === auth.userId;
       if (!matchesSelf) {
         reply.status(403);
-        return { error: 'Forbidden', message: 'You may only delete your own conversation data.' };
+        return null;
       }
       targetUserId = auth.userId;
     } else if (rawParamUserId === 'me') {
@@ -239,13 +239,68 @@ export function registerConversationsAndAdminRoutes(
       targetUserId = auth.userId;
     }
 
-    await ports.persistence.clearUserData(targetUserId);
-    return { success: true, message: 'All user conversations and data cleared.' };
+    return targetUserId;
   }
 
   server.delete('/api/users/:userId/data', async (request, reply) => {
     const { userId } = request.params as { userId: string };
-    return handleClearUserData(request, reply, userId);
+    const targetUserId = await resolveAuthorizedSelfUserId(request, reply, userId);
+    if (!targetUserId) {
+      return reply.statusCode === 401
+        ? { error: 'Unauthorized', message: 'Demo authentication required.' }
+        : { error: 'Forbidden', message: 'You may only delete your own conversation data.' };
+    }
+
+    const scope = ((request.query || {}) as { scope?: string }).scope || 'chats';
+    if (scope === 'context') {
+      await ports.persistence.clearUserLearningContext(targetUserId);
+      return { success: true, scope, message: 'Personal learning context cleared.' };
+    }
+    if (scope === 'all') {
+      await ports.persistence.clearUserData(targetUserId);
+      await ports.persistence.clearUserLearningContext(targetUserId);
+      return { success: true, scope, message: 'Previous chats and personal learning context cleared.' };
+    }
+
+    await ports.persistence.clearUserData(targetUserId);
+    return { success: true, scope: 'chats', message: 'Previous chats cleared.' };
+  });
+
+  server.get('/api/users/:userId/context', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const targetUserId = await resolveAuthorizedSelfUserId(request, reply, userId);
+    if (!targetUserId) {
+      return reply.statusCode === 401
+        ? { error: 'Unauthorized', message: 'Demo authentication required.' }
+        : { error: 'Forbidden', message: 'You may only view your own learning context.' };
+    }
+
+    const ctx = await ports.persistence.getUserLearningContext(targetUserId);
+    return (
+      ctx ?? {
+        userId: targetUserId,
+        preferredStyle: null,
+        recurringTopics: [],
+        notes: null,
+      }
+    );
+  });
+
+  server.delete('/api/users/:userId/context', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const targetUserId = await resolveAuthorizedSelfUserId(request, reply, userId);
+    if (!targetUserId) {
+      return reply.statusCode === 401
+        ? { error: 'Unauthorized', message: 'Demo authentication required.' }
+        : { error: 'Forbidden', message: 'You may only delete your own learning context.' };
+    }
+
+    const cleared = await ports.persistence.clearUserLearningContext(targetUserId);
+    return {
+      success: true,
+      cleared,
+      message: 'Personal learning context cleared.',
+    };
   });
 
   server.post('/api/demo/reset', async (request, reply) => {

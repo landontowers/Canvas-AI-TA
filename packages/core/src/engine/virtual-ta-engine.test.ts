@@ -210,6 +210,18 @@ class MockPersistence implements PersistencePort {
   async purgeExpiredConversations() {
     return { deletedConversations: 0, deletedMessages: 0 };
   }
+  private userContexts = new Map<string, any>();
+  async getUserLearningContext(userId: string) {
+    return this.userContexts.get(userId) || null;
+  }
+  async upsertUserLearningContext(ctx: any) {
+    const saved = { ...ctx, updatedAt: new Date() };
+    this.userContexts.set(ctx.userId, saved);
+    return saved;
+  }
+  async clearUserLearningContext(userId: string) {
+    return this.userContexts.delete(userId);
+  }
 }
 
 class MockIdentity implements IdentityPort {
@@ -239,7 +251,21 @@ class MockModeration implements ModerationPort {
       triggerSnippet: isCrisis ? 'end my life' : undefined,
       reason: isCrisis ? 'Detected crisis intent' : undefined,
       stage: isCrisis ? ('lexical' as const) : ('none' as const),
+      deletedConversations: 0,
+      deletedMessages: 0,
     };
+  }
+  private userContexts = new Map<string, any>();
+  async getUserLearningContext(userId: string) {
+    return this.userContexts.get(userId) || null;
+  }
+  async upsertUserLearningContext(ctx: any) {
+    const saved = { ...ctx, updatedAt: new Date() };
+    this.userContexts.set(ctx.userId, saved);
+    return saved;
+  }
+  async clearUserLearningContext(userId: string) {
+    return this.userContexts.delete(userId);
   }
 }
 
@@ -962,5 +988,55 @@ describe('VirtualTaEngine Comprehensive Suite', () => {
     expect(text).toBe('Safety Lab 1 has 18 submissions.');
     expect(instructorLlm.recordedOptions).toHaveLength(4);
     expect(instructorLlm.recordedOptions[3].toolNames).toEqual([]);
+  });
+
+  it('persists non-crisis user learning context across conversations and injects it into subsequent turns', async () => {
+    const llm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+
+    llm.streamResponses = [
+      [{ type: 'text-delta', delta: 'Let us walk through chamber headspace step by step.' }],
+      [{ type: 'text-delta', delta: 'Building on your earlier headspace work...' }],
+    ];
+
+    const engine = new VirtualTaEngine({
+      llm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      moderation: new MockModeration() as any,
+      lms: new MockLms() as any,
+      calculator: new MockCalculator() as any,
+    });
+
+    // Turn 1: expresses preferred style + concept
+    for await (const _ of engine.executeTurn({
+      personaId: 'demo_student',
+      courseId: 'sdi-ftt101',
+      message: 'Please explain chamber headspace tolerance step by step.',
+    })) {
+      // consume
+    }
+
+    const savedCtx = await persistence.getUserLearningContext('demo_student');
+    expect(savedCtx?.preferredStyle).toBe('step-by-step explanations');
+    expect(savedCtx?.recurringTopics.length).toBeGreaterThan(0);
+
+    // Turn 2: brand new conversation still receives <user_learning_context>
+    for await (const _ of engine.executeTurn({
+      personaId: 'demo_student',
+      courseId: 'sdi-ftt101',
+      message: 'When is Lab 1 due?',
+    })) {
+      // consume
+    }
+
+    expect(llm.recordedOptions[1].systemPrompt).toContain('<user_learning_context>');
+    expect(llm.recordedOptions[1].systemPrompt).toContain('step-by-step explanations');
   });
 });

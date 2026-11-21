@@ -24,6 +24,15 @@ export interface ConfusionPulseResult {
   topics: ConfusionPulseTopic[];
 }
 
+export interface UserLearningContext {
+  userId: string;
+  collegeId: string;
+  preferredStyle?: string;
+  recurringTopics: string[];
+  notes?: string;
+  updatedAt: Date;
+}
+
 export interface CollegeRecord {
   id: string;
   name: string;
@@ -92,6 +101,12 @@ export interface PersistencePort {
   ): Promise<CrisisIncident | null>;
 
   clearUserData(userId: string): Promise<void>;
+
+  getUserLearningContext(userId: string): Promise<UserLearningContext | null>;
+  upsertUserLearningContext(
+    context: Omit<UserLearningContext, 'updatedAt'>,
+  ): Promise<UserLearningContext>;
+  clearUserLearningContext(userId: string): Promise<boolean>;
 
   purgeExpiredConversations(
     retentionDays: number,

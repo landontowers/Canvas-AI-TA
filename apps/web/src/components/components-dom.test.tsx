@@ -122,13 +122,31 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
   });
 
   describe('StudentSettings', () => {
-    it('renders privacy details and handles conversation data clearing', async () => {
+    it('renders privacy details, saved learning context, and separate chat vs context deletion options', async () => {
       const onClose = vi.fn();
       const onCleared = vi.fn();
 
-      globalThis.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve({ success: true, deletedConversations: 2, deletedMessages: 10, message: 'Deleted 2 conversations and 10 messages' }),
+      globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+        if (url.includes('/context') && (!init?.method || init.method === 'GET')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                preferredStyle: 'step-by-step explanations',
+                recurringTopics: ['headspace tolerance'],
+              }),
+          });
+        }
+        if (url.includes('/context') && init?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ success: true, cleared: true, message: 'Personal learning context cleared.' }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ success: true, message: 'Previous chats cleared.' }),
+        });
       });
 
       render(
@@ -144,24 +162,41 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
 
       expect(screen.getByText(/Your Privacy at SDI/i)).toBeDefined();
       expect(screen.getByText(/Private Conversations/i)).toBeDefined();
+      await waitFor(() => {
+        expect(screen.getByText(/step-by-step explanations/i)).toBeDefined();
+        expect(screen.getByText(/headspace tolerance/i)).toBeDefined();
+      });
 
-      const clearBtn = screen.getByRole('button', { name: /Request data deletion|Clear My Conversation Data/i });
-      fireEvent.click(clearBtn);
-
-      const confirmBtn = screen.getByRole('button', { name: /Yes, Delete My Data/i });
-      fireEvent.click(confirmBtn);
+      // Option 1: Delete Only Previous Chats
+      fireEvent.click(screen.getByRole('button', { name: /Delete only previous chats/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Yes, Delete Previous Chats/i }));
 
       await waitFor(() => {
-        expect(screen.getByText(/Deleted 2 conversations and 10 messages/i)).toBeDefined();
+        expect(screen.getByText(/Previous chats cleared/i)).toBeDefined();
       });
       expect(globalThis.fetch).toHaveBeenCalledWith(
-        '/api/users/demo_student/data?personaId=demo_student',
+        '/api/users/demo_student/data?personaId=demo_student&scope=chats',
         expect.objectContaining({
           method: 'DELETE',
           headers: { Authorization: 'Bearer session-tok-123' },
         }),
       );
       expect(onCleared).toHaveBeenCalled();
+
+      // Option 2: Delete Personal Context
+      fireEvent.click(screen.getByRole('button', { name: /Delete personal context/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Yes, Delete Personal Context/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/Personal learning context cleared/i)).toBeDefined();
+      });
+      expect(globalThis.fetch).toHaveBeenCalledWith(
+        '/api/users/demo_student/context?personaId=demo_student',
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer session-tok-123' },
+        }),
+      );
 
       const backBtn = screen.getByRole('button', { name: /Back to.*Drawer/i });
       fireEvent.click(backBtn);

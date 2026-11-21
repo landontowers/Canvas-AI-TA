@@ -163,5 +163,18 @@ describe.skipIf(!testPostgresUrl)('DrizzlePersistenceAdapter (Live PostgreSQL In
     const reviewed = await pgConn.adapter.updateCrisisIncidentStatus(inc.id, 'acknowledged', 'inst-pg');
     expect(reviewed?.status).toBe('acknowledged');
     expect(reviewed?.reviewedBy).toBe('inst-pg');
+
+    const ctx = await pgConn.adapter.upsertUserLearningContext({
+      userId: 'user-pg-ctx',
+      collegeId: 'sdi',
+      preferredStyle: 'concise bulleted summaries',
+      recurringTopics: ['twist rate'],
+    });
+    expect(ctx.preferredStyle).toBe('concise bulleted summaries');
+    expect((await pgConn.adapter.getUserLearningContext('user-pg-ctx'))?.recurringTopics).toEqual([
+      'twist rate',
+    ]);
+    expect(await pgConn.adapter.clearUserLearningContext('user-pg-ctx')).toBe(true);
+    expect(await pgConn.adapter.getUserLearningContext('user-pg-ctx')).toBeNull();
   });
 });

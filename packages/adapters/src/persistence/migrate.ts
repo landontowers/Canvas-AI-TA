@@ -81,6 +81,14 @@ export const MIGRATION_STATEMENTS: string[] = [
   `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'new';`,
   `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS reviewed_by TEXT;`,
   `ALTER TABLE crisis_incidents ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;`,
+  `CREATE TABLE IF NOT EXISTS user_learning_contexts (
+    user_id TEXT PRIMARY KEY,
+    college_id TEXT NOT NULL REFERENCES colleges(id),
+    preferred_style TEXT,
+    recurring_topics JSONB NOT NULL DEFAULT '[]'::jsonb,
+    notes TEXT,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  );`,
 ];
 
 /**

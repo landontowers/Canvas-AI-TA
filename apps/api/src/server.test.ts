@@ -1185,6 +1185,43 @@ describe('API Server', () => {
         payload: { personaId: 'demo_instructor', status: 'acknowledged' },
       });
       expect(missingPatch.statusCode).toBe(404);
+
+      // Persistent user learning context & separate chat vs context deletion
+      await server.inject({
+        method: 'POST',
+        url: '/api/chat',
+        payload: {
+          personaId: 'demo_student',
+          courseId: 'sdi-ftt101',
+          message: 'Please explain chamber headspace tolerance step by step.',
+        },
+      });
+      const getCtxRes = await server.inject({
+        method: 'GET',
+        url: '/api/users/demo_student/context?personaId=demo_student',
+      });
+      expect(getCtxRes.statusCode).toBe(200);
+      expect(getCtxRes.json().preferredStyle).toBe('step-by-step explanations');
+
+      // Delete only previous chats preserves personal context
+      const delChatsOnly = await server.inject({
+        method: 'DELETE',
+        url: '/api/users/demo_student/data?personaId=demo_student&scope=chats',
+      });
+      expect(delChatsOnly.statusCode).toBe(200);
+      const ctxAfterChats = await server.inject({
+        method: 'GET',
+        url: '/api/users/demo_student/context?personaId=demo_student',
+      });
+      expect(ctxAfterChats.json().preferredStyle).toBe('step-by-step explanations');
+
+      // Delete personal context clears context
+      const delCtxRes = await server.inject({
+        method: 'DELETE',
+        url: '/api/users/demo_student/context?personaId=demo_student',
+      });
+      expect(delCtxRes.statusCode).toBe(200);
+      expect(delCtxRes.json().cleared).toBe(true);
     });
   });
 });

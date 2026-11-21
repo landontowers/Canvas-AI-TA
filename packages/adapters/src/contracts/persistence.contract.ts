@@ -227,6 +227,20 @@ export function runPersistenceContractTests(
       expect(ack?.reviewedBy).toBe('inst-1');
       const res = await adapter.updateCrisisIncidentStatus(inc.id, 'resolved', 'inst-1');
       expect(res?.status).toBe('resolved');
+
+      // Per-user persistent learning context
+      const savedCtx = await adapter.upsertUserLearningContext({
+        userId: 'ctx-user-1',
+        collegeId: 'sdi-test',
+        preferredStyle: 'step-by-step explanations',
+        recurringTopics: ['headspace tolerance'],
+        notes: 'Prefers explicit units',
+      });
+      expect(savedCtx.preferredStyle).toBe('step-by-step explanations');
+      const loadedCtx = await adapter.getUserLearningContext('ctx-user-1');
+      expect(loadedCtx?.recurringTopics).toEqual(['headspace tolerance']);
+      expect(await adapter.clearUserLearningContext('ctx-user-1')).toBe(true);
+      expect(await adapter.getUserLearningContext('ctx-user-1')).toBeNull();
     });
   });
 }

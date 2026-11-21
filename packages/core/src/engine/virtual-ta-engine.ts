@@ -3,6 +3,7 @@ import {
   LmsPort,
   IdentityPort,
   PersistencePort,
+  UserLearningContext,
   CalculatorPort,
   ModerationPort,
   TelemetryPort,
@@ -141,14 +142,53 @@ export class VirtualTaEngine {
     return 'course_material';
   }
 
+  private extractPreferredStyle(message: string): string | undefined {
+    const lower = message.toLowerCase();
+    if (lower.includes('step by step') || lower.includes('step-by-step')) {
+      return 'step-by-step explanations';
+    }
+    if (lower.includes('bullet point') || lower.includes('bulleted')) {
+      return 'concise bulleted summaries';
+    }
+    if (lower.includes('brief') || lower.includes('short answer') || lower.includes('concise')) {
+      return 'brief, concise answers';
+    }
+    if (lower.includes('analogy') || lower.includes('analogies') || lower.includes('real-world example')) {
+      return 'real-world analogies and examples';
+    }
+    if (lower.includes('beginner') || lower.includes('simple terms') || lower.includes('plain english')) {
+      return 'plain-language beginner explanations';
+    }
+    return undefined;
+  }
+
   private buildSystemPrompt(
     profile: HarnessProfile,
     role: AssistantRole,
     courseSetting: CourseSettingValue,
     pageContext?: PageContext,
     scaffoldingState?: ScaffoldingState,
+    userContext?: UserLearningContext | null,
   ): string {
     const promptSections: string[] = [profile.systemPrompt];
+
+    if (userContext) {
+      const ctxLines: string[] = [];
+      if (userContext.preferredStyle) {
+        ctxLines.push(`- Preferred explanation style: ${userContext.preferredStyle}`);
+      }
+      if (userContext.recurringTopics.length > 0) {
+        ctxLines.push(`- Recent recurring study topics: ${userContext.recurringTopics.join(', ')}`);
+      }
+      if (userContext.notes) {
+        ctxLines.push(`- Notes: ${userContext.notes.slice(0, 400)}`);
+      }
+      if (ctxLines.length > 0) {
+        promptSections.push(
+          `<user_learning_context>\nPersistent learning preferences & study context for this user (adapt tone/examples accordingly without repeating raw metadata):\n${ctxLines.join('\n')}\n</user_learning_context>`,
+        );
+      }
+    }
 
     if (role === 'student' && courseSetting === 'full' && scaffoldingState) {
       promptSections.push(buildHintLadderInstruction(scaffoldingState));
@@ -470,12 +510,15 @@ export class VirtualTaEngine {
       effectiveCourseSetting,
     );
 
+    const userContext = await this.deps.persistence.getUserLearningContext(authContext.userId);
+
     const systemPrompt = this.buildSystemPrompt(
       profile,
       authContext.assistantRole,
       effectiveCourseSetting,
       params.pageContext,
       activeScaffoldingState,
+      userContext,
     );
     const activeLlm = isStudent ? this.deps.llm : (this.deps.instructorLlm ?? this.deps.llm);
 
@@ -648,6 +691,23 @@ export class VirtualTaEngine {
       content: fullAssistantResponse,
       citations: accumulatedCitations,
     });
+
+    // Update persistent non-crisis user learning context when a new topic or preference is observed
+    const detectedStyle = this.extractPreferredStyle(params.message);
+    const activeConcept = activeScaffoldingState?.activeConcept;
+    if (detectedStyle || activeConcept) {
+      const existingTopics = userContext?.recurringTopics ?? [];
+      const mergedTopics = activeConcept
+        ? [activeConcept, ...existingTopics.filter((t) => t !== activeConcept)].slice(0, 8)
+        : existingTopics;
+      await this.deps.persistence.upsertUserLearningContext({
+        userId: authContext.userId,
+        collegeId: authContext.collegeId,
+        preferredStyle: detectedStyle ?? userContext?.preferredStyle,
+        recurringTopics: mergedTopics,
+        notes: userContext?.notes,
+      });
+    }
 
     yield {
       type: 'done',

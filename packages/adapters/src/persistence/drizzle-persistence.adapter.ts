@@ -14,6 +14,7 @@ import {
   CrisisIncidentStatus,
   ConfusionPulseResult,
   ScaffoldingState,
+  UserLearningContext,
 } from '@virtual-ta/core';
 import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import postgres from 'postgres';
@@ -701,5 +702,68 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
       deletedConversations: expired.length,
       deletedMessages,
     };
+  }
+
+  async getUserLearningContext(userId: string): Promise<UserLearningContext | null> {
+    const rows = await this.db
+      .select()
+      .from(schema.userLearningContextsTable)
+      .where(eq(schema.userLearningContextsTable.userId, userId))
+      .limit(1);
+
+    if (rows.length === 0) return null;
+    const r = rows[0];
+    return {
+      userId: r.userId,
+      collegeId: r.collegeId,
+      preferredStyle: r.preferredStyle ?? undefined,
+      recurringTopics: Array.isArray(r.recurringTopics) ? r.recurringTopics : [],
+      notes: r.notes ?? undefined,
+      updatedAt: r.updatedAt,
+    };
+  }
+
+  async upsertUserLearningContext(
+    context: Omit<UserLearningContext, 'updatedAt'>,
+  ): Promise<UserLearningContext> {
+    const now = new Date();
+    const topics = [...context.recurringTopics].slice(0, 8);
+    const [row] = await this.db
+      .insert(schema.userLearningContextsTable)
+      .values({
+        userId: context.userId,
+        collegeId: context.collegeId,
+        preferredStyle: context.preferredStyle ?? null,
+        recurringTopics: topics,
+        notes: context.notes ?? null,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: schema.userLearningContextsTable.userId,
+        set: {
+          preferredStyle: context.preferredStyle ?? null,
+          recurringTopics: topics,
+          notes: context.notes ?? null,
+          updatedAt: now,
+        },
+      })
+      .returning();
+
+    return {
+      userId: row.userId,
+      collegeId: row.collegeId,
+      preferredStyle: row.preferredStyle ?? undefined,
+      recurringTopics: Array.isArray(row.recurringTopics) ? row.recurringTopics : [],
+      notes: row.notes ?? undefined,
+      updatedAt: row.updatedAt,
+    };
+  }
+
+  async clearUserLearningContext(userId: string): Promise<boolean> {
+    const removed = await this.db
+      .delete(schema.userLearningContextsTable)
+      .where(eq(schema.userLearningContextsTable.userId, userId))
+      .returning({ userId: schema.userLearningContextsTable.userId });
+    return removed.length > 0;
   }
 }

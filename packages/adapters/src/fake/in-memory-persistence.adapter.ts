@@ -14,6 +14,7 @@ import {
   CrisisIncidentStatus,
   ConfusionPulseResult,
   ScaffoldingState,
+  UserLearningContext,
 } from '@virtual-ta/core';
 import crypto from 'node:crypto';
 
@@ -23,6 +24,7 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
   private courses = new Map<string, Course>();
   private courseSettings = new Map<string, CourseSettings>();
   private conversations = new Map<string, Conversation>();
+  private userContexts = new Map<string, UserLearningContext>();
   private messages: Message[] = [];
   private crisisIncidents: CrisisIncident[] = [];
 
@@ -325,5 +327,25 @@ export class InMemoryPersistenceAdapter implements PersistencePort {
       deletedConversations: expiredIds.size,
       deletedMessages,
     };
+  }
+
+  async getUserLearningContext(userId: string): Promise<UserLearningContext | null> {
+    return this.userContexts.get(userId) ?? null;
+  }
+
+  async upsertUserLearningContext(
+    context: Omit<UserLearningContext, 'updatedAt'>,
+  ): Promise<UserLearningContext> {
+    const saved: UserLearningContext = {
+      ...context,
+      recurringTopics: [...context.recurringTopics].slice(0, 8),
+      updatedAt: new Date(),
+    };
+    this.userContexts.set(context.userId, saved);
+    return saved;
+  }
+
+  async clearUserLearningContext(userId: string): Promise<boolean> {
+    return this.userContexts.delete(userId);
   }
 }

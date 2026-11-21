@@ -334,6 +334,18 @@ export async function seedDemoData(databaseUrl: string) {
       ])
       .onConflictDoNothing();
 
+    // Seed persistent demo_student learning context
+    await db
+      .insert(schema.userLearningContextsTable)
+      .values({
+        userId: 'user-1001',
+        collegeId: 'sdi',
+        preferredStyle: 'step-by-step explanations',
+        recurringTopics: ['headspace tolerance', 'greenhill twist rate'],
+        notes: 'Prefers explicit unit conversions (grains, fps, inches) and safety-first checklists.',
+      })
+      .onConflictDoNothing();
+
     console.log('Synthetic demo dataset seeded successfully.');
   } finally {
     await sql.end();

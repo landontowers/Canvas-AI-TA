@@ -76,3 +76,12 @@ export const crisisIncidentsTable = pgTable('crisis_incidents', {
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const userLearningContextsTable = pgTable('user_learning_contexts', {
+  userId: text('user_id').primaryKey(),
+  collegeId: text('college_id').notNull().references(() => collegesTable.id),
+  preferredStyle: text('preferred_style'),
+  recurringTopics: jsonb('recurring_topics').$type<string[]>().default([]).notNull(),
+  notes: text('notes'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
