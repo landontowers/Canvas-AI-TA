@@ -607,11 +607,45 @@ export class VirtualTaEngine {
       }
     }
 
+    // If all tool rounds ended without assistant text, force a final tool-free synthesis turn
+    if (!fullAssistantResponse.trim()) {
+      const synthStream = activeLlm.stream({
+        systemPrompt,
+        messages: messagesForLlm,
+        tools: [],
+        maxTokens: profile.maxTokens,
+        temperature: profile.temperature,
+        reasoning: profile.reasoning,
+      });
+
+      for await (const event of synthStream) {
+        if (event.type === 'text-delta') {
+          if (firstTokenTime === undefined && event.delta.length > 0) {
+            firstTokenTime = Date.now();
+          }
+          fullAssistantResponse += event.delta;
+          yield toClientStreamEvent(event);
+        } else if (event.type === 'citation') {
+          accumulatedCitations.push(event.citation);
+          yield toClientStreamEvent(event);
+        } else if (event.type === 'usage') {
+          promptTokens += event.promptTokens;
+          completionTokens += event.completionTokens;
+          totalTokens += event.totalTokens;
+        }
+      }
+    }
+
+    if (!fullAssistantResponse.trim()) {
+      fullAssistantResponse = 'I have reviewed your course information.';
+      yield { type: 'text-delta', delta: fullAssistantResponse };
+    }
+
     // 8. Save final assistant message
     const savedAssistantMsg = await this.deps.persistence.saveMessage({
       conversationId: conversation.id,
       role: 'assistant',
-      content: fullAssistantResponse || 'I have reviewed your course information.',
+      content: fullAssistantResponse,
       citations: accumulatedCitations,
     });
 

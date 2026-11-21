@@ -913,4 +913,54 @@ describe('VirtualTaEngine Comprehensive Suite', () => {
     );
     expect(llm.recordedOptions).toHaveLength(1);
   });
+
+  it('runs a final tool-free synthesis turn when all maxToolRounds emit tool calls without text', async () => {
+    const instructorLlm = new MockLlm();
+    const persistence = new MockPersistence();
+    const identity = new MockIdentity();
+    const telemetry = new MockTelemetry();
+    const toolRegistry = new ToolRegistry();
+    toolRegistry.register({
+      name: 'get_submission_stats',
+      description: 'Get submission stats',
+      parameters: z.object({}),
+      requiredRole: 'instructor',
+      requiredScopes: [],
+      execute: async () => [{ assignmentId: 'assign-103', submittedCount: 18 }],
+    });
+
+    instructorLlm.streamResponses = [
+      [{ type: 'tool-status', toolName: 'get_submission_stats', status: 'calling', callId: 'c1', args: {} }],
+      [{ type: 'tool-status', toolName: 'get_submission_stats', status: 'calling', callId: 'c2', args: {} }],
+      [{ type: 'tool-status', toolName: 'get_submission_stats', status: 'calling', callId: 'c3', args: {} }],
+      [{ type: 'text-delta', delta: 'Safety Lab 1 has 18 submissions.' }],
+    ];
+
+    const engine = new VirtualTaEngine({
+      llm: new MockLlm(),
+      instructorLlm,
+      persistence,
+      toolRegistry,
+      identity,
+      telemetry,
+      collegeConfig: mockCollege,
+      moderation: new MockModeration() as any,
+      lms: new MockLms() as any,
+      calculator: new MockCalculator() as any,
+    });
+
+    const events: StreamEvent[] = [];
+    for await (const ev of engine.executeTurn({
+      personaId: 'demo_instructor',
+      courseId: 'sdi-ftt101',
+      message: 'Summarize student submission stats for Safety Lab 1.',
+    })) {
+      events.push(ev);
+    }
+
+    const text = events.filter((e) => e.type === 'text-delta').map((e) => (e as any).delta).join('');
+    expect(text).toBe('Safety Lab 1 has 18 submissions.');
+    expect(instructorLlm.recordedOptions).toHaveLength(4);
+    expect(instructorLlm.recordedOptions[3].toolNames).toEqual([]);
+  });
 });
