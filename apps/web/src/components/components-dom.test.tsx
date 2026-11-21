@@ -137,6 +137,16 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
               }),
           });
         }
+        if (url.includes('/context') && init?.method === 'PUT') {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                preferredStyle: 'concise bulleted summaries',
+                recurringTopics: ['headspace tolerance'],
+              }),
+          });
+        }
         if (url.includes('/context') && init?.method === 'DELETE') {
           return Promise.resolve({
             ok: true,

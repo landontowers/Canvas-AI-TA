@@ -125,7 +125,7 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
   const hasSavedContext = Boolean(
     learningContext &&
       (learningContext.preferredStyle ||
-        learningContext.recurringTopics.length > 0 ||
+        (learningContext.recurringTopics?.length ?? 0) > 0 ||
         learningContext.notes),
   );
 
@@ -191,7 +191,7 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
                   </div>
                 </li>
               )}
-              {learningContext && learningContext.recurringTopics.length > 0 && (
+              {learningContext && (learningContext.recurringTopics?.length ?? 0) > 0 && (
                 <li>
                   <div>
                     <strong>Recent Study Topics:</strong> {learningContext.recurringTopics.join(', ')}
