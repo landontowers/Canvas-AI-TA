@@ -42,6 +42,13 @@ export const PracticeCheckBodySchema = z.object({
   topic: z.string().max(200).optional(),
 });
 
+export const UserLearningContextPutBodySchema = z.object({
+  preferredStyle: z.string().trim().max(150).nullable().optional(),
+  recurringTopics: z.array(z.string().trim().min(1).max(100)).max(8).optional(),
+  notes: z.string().trim().max(500).nullable().optional(),
+  personaId: z.string().optional(),
+});
+
 export const ChatBodySchema = z.object({
   personaId: z.string().optional(),
   courseId: z.string().optional(),

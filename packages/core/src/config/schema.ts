@@ -78,10 +78,20 @@ export const AppConfigSchema = z.object({
     accessToken: z.string().min(1),
     demoPersonas: z.array(DemoPersonaSchema).default([]),
     useFakeCourseData: z.boolean().default(true),
+    oauth: z
+      .object({
+        enabled: z.boolean().default(false),
+        clientId: z.string().optional(),
+        clientSecret: z.string().optional(),
+        redirectUri: z.string().url().optional(),
+      })
+      .optional(),
   }),
   model: z.object({
     provider: z.enum(['fake', 'gemini', 'azure-openai']).default('fake'),
     apiKey: z.string().optional(),
+    azureEndpoint: z.string().url().optional(),
+    azureApiVersion: z.string().default('2025-03-01-preview'),
     studentModel: z.string().default('gemini-3.8-flash'),
     instructorModel: z.string().default('gemini-3.8-flash'),
     classifierModel: z.string().default('gemini-3.8-flash'),

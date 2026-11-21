@@ -5,6 +5,7 @@ interface InstructorSettingsProps {
   personaId: string;
   authToken?: string | null;
   onClose: () => void;
+  onDraftPulseAnnouncement?: (topics: string[]) => void;
 }
 
 interface ConfusionPulseState {
@@ -28,6 +29,7 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
   personaId,
   authToken,
   onClose,
+  onDraftPulseAnnouncement,
 }) => {
   const [setting, setSetting] = useState<'full' | 'logistics_only' | 'off'>('full');
   const [blackoutStart, setBlackoutStart] = useState('');
@@ -332,14 +334,27 @@ export const InstructorSettings: React.FC<InstructorSettingsProps> = ({
                     trends.
                   </p>
                 ) : (
-                  <ul className="pulse-list">
-                    {confusionPulse.topics.map((t) => (
-                      <li key={t.topic}>
-                        <span>{t.topic}</span>
-                        <strong>{t.count} threads</strong>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul className="pulse-list">
+                      {confusionPulse.topics.map((t) => (
+                        <li key={t.topic}>
+                          <span>{t.topic}</span>
+                          <strong>{t.count} threads</strong>
+                        </li>
+                      ))}
+                    </ul>
+                    {onDraftPulseAnnouncement && confusionPulse.topics.length > 0 && (
+                      <button
+                        type="button"
+                        className="msg-action-btn"
+                        onClick={() =>
+                          onDraftPulseAnnouncement(confusionPulse.topics.map((t) => t.topic))
+                        }
+                      >
+                        Draft Review Announcement
+                      </button>
+                    )}
+                  </>
                 )}
               </section>
             )}

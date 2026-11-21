@@ -1215,6 +1215,19 @@ describe('API Server', () => {
       });
       expect(ctxAfterChats.json().preferredStyle).toBe('step-by-step explanations');
 
+      // Update learning context via PUT
+      const putCtxRes = await server.inject({
+        method: 'PUT',
+        url: '/api/users/demo_student/context?personaId=demo_student',
+        payload: {
+          preferredStyle: 'concise bulleted summaries',
+          notes: 'Focus on safety checks',
+        },
+      });
+      expect(putCtxRes.statusCode).toBe(200);
+      expect(putCtxRes.json().preferredStyle).toBe('concise bulleted summaries');
+      expect(putCtxRes.json().notes).toBe('Focus on safety checks');
+
       // Delete personal context clears context
       const delCtxRes = await server.inject({
         method: 'DELETE',
@@ -1222,6 +1235,20 @@ describe('API Server', () => {
       });
       expect(delCtxRes.statusCode).toBe(200);
       expect(delCtxRes.json().cleared).toBe(true);
+
+      // Canvas OAuth2 opt-in status & disabled guard
+      const oauthStatus = await server.inject({
+        method: 'GET',
+        url: '/api/oauth/canvas/status?personaId=demo_student',
+      });
+      expect(oauthStatus.statusCode).toBe(200);
+      expect(oauthStatus.json().enabled).toBe(false);
+
+      const oauthDisabled = await server.inject({
+        method: 'GET',
+        url: '/api/oauth/canvas/login?personaId=demo_student',
+      });
+      expect(oauthDisabled.statusCode).toBe(400);
     });
   });
 });

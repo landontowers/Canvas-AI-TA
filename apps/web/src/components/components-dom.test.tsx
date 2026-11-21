@@ -167,6 +167,15 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
         expect(screen.getByText(/headspace tolerance/i)).toBeDefined();
       });
 
+      // Editable preferences save via PUT
+      fireEvent.change(screen.getByLabelText(/Preferred Explanation Style/i), {
+        target: { value: 'concise bulleted summaries' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Save Preferences/i }));
+      await waitFor(() => {
+        expect(screen.getByText(/Learning preferences saved/i)).toBeDefined();
+      });
+
       // Option 1: Delete Only Previous Chats
       fireEvent.click(screen.getByRole('button', { name: /Delete only previous chats/i }));
       fireEvent.click(screen.getByRole('button', { name: /Yes, Delete Previous Chats/i }));
@@ -1037,6 +1046,31 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
             body: expect.stringContaining('<attached_draft filename=\\"lab1-draft.txt\\">'),
           }),
         );
+      });
+    });
+
+    it('ChatInterface displays proactive logistics/blackout banner and exports study notes', async () => {
+      globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+        if (url.includes('/settings')) {
+          return Promise.resolve({
+            ok: true,
+            json: () => Promise.resolve({ courseId: 'sdi-ftt101', setting: 'logistics_only' }),
+          });
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve([]) });
+      });
+
+      render(
+        <ChatInterface
+          personaId="demo_student"
+          courseId="sdi-ftt101"
+          currentPageTitle="Safety Lab 1"
+          highContrast={false}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Logistics Only mode: deadlines, grades, and syllabus policies/i)).toBeDefined();
       });
     });
   });

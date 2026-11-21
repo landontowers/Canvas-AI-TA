@@ -61,13 +61,27 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
       accessToken: env.CANVAS_ACCESS_TOKEN || 'mock-dev-token',
       demoPersonas,
       useFakeCourseData,
+      oauth: {
+        enabled: env.CANVAS_OAUTH_ENABLED === 'true',
+        clientId: env.CANVAS_OAUTH_CLIENT_ID?.trim() || undefined,
+        clientSecret: env.CANVAS_OAUTH_CLIENT_SECRET?.trim() || undefined,
+        redirectUri: env.CANVAS_OAUTH_REDIRECT_URI?.trim() || undefined,
+      },
     },
     model: {
       provider: (env.MODEL_PROVIDER as 'fake' | 'gemini' | 'azure-openai') || 'fake',
-      apiKey: env.GEMINI_API_KEY || env.AZURE_OPENAI_API_KEY,
-      studentModel: env.STUDENT_MODEL || 'gemini-3.8-flash',
-      instructorModel: env.INSTRUCTOR_MODEL || 'gemini-3.8-flash',
-      classifierModel: env.CLASSIFIER_MODEL || 'gemini-3.8-flash',
+      apiKey:
+        (env.MODEL_PROVIDER === 'azure-openai' ? env.AZURE_OPENAI_API_KEY : env.GEMINI_API_KEY) ||
+        env.GEMINI_API_KEY ||
+        env.AZURE_OPENAI_API_KEY,
+      azureEndpoint: env.AZURE_OPENAI_ENDPOINT?.trim() || undefined,
+      azureApiVersion: env.AZURE_OPENAI_API_VERSION?.trim() || '2025-03-01-preview',
+      studentModel:
+        env.AZURE_OPENAI_DEPLOYMENT_STUDENT || env.STUDENT_MODEL || 'gemini-3.8-flash',
+      instructorModel:
+        env.AZURE_OPENAI_DEPLOYMENT_INSTRUCTOR || env.INSTRUCTOR_MODEL || 'gemini-3.8-flash',
+      classifierModel:
+        env.AZURE_OPENAI_DEPLOYMENT_CLASSIFIER || env.CLASSIFIER_MODEL || 'gemini-3.8-flash',
     },
     demoAuth: {
       enabled: env.DEMO_AUTH_ENABLED === 'true' || Boolean(env.DEMO_PASSWORD),

@@ -58,6 +58,7 @@ export const DemoShell: React.FC = () => {
   const [authenticated, setAuthenticated] = useState<boolean>(true);
   const [resetting, setResetting] = useState<boolean>(false);
   const [resetFeedback, setResetFeedback] = useState<string | null>(null);
+  const [pendingInstructorPrompt, setPendingInstructorPrompt] = useState<string | null>(null);
 
   const isStaff = persona === 'demo_instructor' || persona === 'demo_ta';
 
@@ -416,6 +417,8 @@ export const DemoShell: React.FC = () => {
               }}
               highContrast={highContrast}
               authToken={authToken}
+              initialDraftPrompt={pendingInstructorPrompt}
+              onConsumeInitialPrompt={() => setPendingInstructorPrompt(null)}
             />
           ) : isStaff ? (
             <InstructorSettings
@@ -423,6 +426,12 @@ export const DemoShell: React.FC = () => {
               personaId={persona}
               authToken={authToken}
               onClose={() => setCurrentView('chat')}
+              onDraftPulseAnnouncement={(topics) => {
+                setPendingInstructorPrompt(
+                  `Draft a supportive Canvas announcement addressing the top concepts students are struggling with this week: ${topics.slice(0, 3).join(', ')}.`,
+                );
+                setCurrentView('chat');
+              }}
             />
           ) : (
             <StudentSettings

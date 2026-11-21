@@ -2014,3 +2014,52 @@ body:has(.demo-container.embedded) #root {
   color: #FFFFFF;
   border-color: #FFFFFF;
 }
+
+
+/* Proactive Course Mode Banner & Editable Learning Context Form */
+.course-status-banner {
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: #FFF8E1;
+  color: #7A4F01;
+}
+
+.course-status-banner.off,
+.course-status-banner.blackout {
+  background: #FCE8E6;
+  color: var(--status-error);
+}
+
+.learning-context-form {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.learning-context-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.learning-context-form select,
+.learning-context-form textarea {
+  padding: 6px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+}
+
+.high-contrast-mode .course-status-banner {
+  background: #000000;
+  color: #FFFF00;
+  border-color: #FFFF00;
+}

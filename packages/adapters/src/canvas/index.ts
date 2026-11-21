@@ -3,3 +3,4 @@ export * from './canvas-schemas.js';
 export * from './canvas-client.js';
 export * from './canvas-rest.adapter.js';
 export * from './canvas-demo-identity.adapter.js';
+export * from './canvas-oauth.js';

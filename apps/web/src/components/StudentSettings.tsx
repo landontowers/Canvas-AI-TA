@@ -29,6 +29,9 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [confirmScope, setConfirmScope] = useState<'chats' | 'context' | null>(null);
   const [learningContext, setLearningContext] = useState<LearningContextView | null>(null);
+  const [styleInput, setStyleInput] = useState('');
+  const [notesInput, setNotesInput] = useState('');
+  const [savingContext, setSavingContext] = useState(false);
 
   const targetId = personaId || userId;
 
@@ -41,6 +44,8 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
       .then((data: LearningContextView | null) => {
         if (!cancelled && data) {
           setLearningContext(data);
+          setStyleInput(data.preferredStyle || '');
+          setNotesInput(data.notes || '');
         }
       })
       .catch(() => {
@@ -50,6 +55,37 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
       cancelled = true;
     };
   }, [targetId, authToken]);
+
+  const handleSaveContext = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingContext(true);
+    setFeedback(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/users/${encodeURIComponent(targetId)}/context?personaId=${encodeURIComponent(targetId)}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+          },
+          body: JSON.stringify({
+            preferredStyle: styleInput.trim() || null,
+            notes: notesInput.trim() || null,
+          }),
+        },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updated = (await res.json()) as LearningContextView;
+      setLearningContext(updated);
+      setFeedback('Learning preferences saved.');
+    } catch (err: unknown) {
+      setError(`Failed to save preferences: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSavingContext(false);
+    }
+  };
 
   const handleDelete = async (scope: 'chats' | 'context') => {
     setClearing(true);
@@ -171,6 +207,38 @@ export const StudentSettings: React.FC<StudentSettingsProps> = ({
               )}
             </ul>
           )}
+
+          <form className="learning-context-form" onSubmit={(e) => void handleSaveContext(e)}>
+            <label htmlFor="preferred-style-select">
+              Preferred Explanation Style
+              <select
+                id="preferred-style-select"
+                value={styleInput}
+                onChange={(e) => setStyleInput(e.target.value)}
+              >
+                <option value="">Auto-detect from chat</option>
+                <option value="step-by-step explanations">Step-by-step explanations</option>
+                <option value="concise bulleted summaries">Concise bulleted summaries</option>
+                <option value="brief, concise answers">Brief, concise answers</option>
+                <option value="real-world analogies and examples">Real-world analogies &amp; examples</option>
+                <option value="plain-language beginner explanations">Plain-language beginner explanations</option>
+              </select>
+            </label>
+            <label htmlFor="learning-notes-input">
+              Study Notes
+              <textarea
+                id="learning-notes-input"
+                rows={2}
+                maxLength={500}
+                placeholder="e.g. Show unit conversions explicitly (grains, fps, inches)"
+                value={notesInput}
+                onChange={(e) => setNotesInput(e.target.value)}
+              />
+            </label>
+            <button type="submit" className="msg-action-btn" disabled={savingContext}>
+              {savingContext ? 'Saving...' : 'Save Preferences'}
+            </button>
+          </form>
         </div>
 
         <div className="danger-zone-card">

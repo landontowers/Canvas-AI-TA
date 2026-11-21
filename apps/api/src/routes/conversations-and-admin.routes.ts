@@ -14,6 +14,7 @@ import {
   RetentionPurgeBodySchema,
   FeedbackBodySchema,
   CrisisStatusPatchBodySchema,
+  UserLearningContextPutBodySchema,
 } from '../schemas.js';
 
 export interface ConversationsAndAdminRoutesDeps {
@@ -301,6 +302,43 @@ export function registerConversationsAndAdminRoutes(
       cleared,
       message: 'Personal learning context cleared.',
     };
+  });
+
+  server.put('/api/users/:userId/context', async (request, reply) => {
+    const { userId } = request.params as { userId: string };
+    const targetUserId = await resolveAuthorizedSelfUserId(request, reply, userId);
+    if (!targetUserId) {
+      return reply.statusCode === 401
+        ? { error: 'Unauthorized', message: 'Demo authentication required.' }
+        : { error: 'Forbidden', message: 'You may only update your own learning context.' };
+    }
+
+    const parsedBody = UserLearningContextPutBodySchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) {
+      reply.status(400);
+      return {
+        error: 'Bad Request',
+        message: parsedBody.error.issues.map((i) => i.message).join('; '),
+      };
+    }
+
+    const existing = await ports.persistence.getUserLearningContext(targetUserId);
+    const saved = await ports.persistence.upsertUserLearningContext({
+      userId: targetUserId,
+      collegeId: existing?.collegeId || config.college.id,
+      preferredStyle:
+        parsedBody.data.preferredStyle === undefined
+          ? existing?.preferredStyle
+          : parsedBody.data.preferredStyle || undefined,
+      recurringTopics:
+        parsedBody.data.recurringTopics ?? existing?.recurringTopics ?? [],
+      notes:
+        parsedBody.data.notes === undefined
+          ? existing?.notes
+          : parsedBody.data.notes || undefined,
+    });
+
+    return saved;
   });
 
   server.post('/api/demo/reset', async (request, reply) => {

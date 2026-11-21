@@ -4,6 +4,7 @@ export * from './persistence/index.js';
 export * from './canvas/index.js';
 export * from './lti/index.js';
 export * from './gemini/index.js';
+export * from './azure-openai/index.js';
 export * from './telemetry/index.js';
 export * from './crisis/index.js';
 export * from './moderation/index.js';

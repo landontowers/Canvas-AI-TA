@@ -38,6 +38,8 @@ interface ChatHistoryPanelProps {
   onSelectConversation: (conversationId: string) => void;
   onDeleteConversation?: (conversationId: string) => void;
   onOpenPracticeCheck?: () => void;
+  canExportChat?: boolean;
+  onExportChat?: () => void;
 }
 
 export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
@@ -53,6 +55,8 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
   onSelectConversation,
   onDeleteConversation,
   onOpenPracticeCheck,
+  canExportChat,
+  onExportChat,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -86,6 +90,18 @@ export const ChatHistoryPanel: React.FC<ChatHistoryPanelProps> = ({
           >
             <SparklesIcon size={14} className="btn-icon" />
             <span>Practice</span>
+          </button>
+        )}
+
+        {isStudent && canExportChat && onExportChat && (
+          <button
+            type="button"
+            className="toolbar-btn export-chat-btn"
+            onClick={onExportChat}
+            aria-label="Export study notes as Markdown"
+            title="Download conversation as Markdown study notes"
+          >
+            <span>Export MD</span>
           </button>
         )}
 

@@ -29,6 +29,8 @@ interface ChatInterfaceProps {
   pageContext?: PageContextInfo;
   highContrast: boolean;
   authToken?: string | null;
+  initialDraftPrompt?: string | null;
+  onConsumeInitialPrompt?: () => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -37,6 +39,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   currentPageTitle,
   pageContext,
   authToken,
+  initialDraftPrompt,
+  onConsumeInitialPrompt,
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -56,6 +60,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isLoadingPractice, setIsLoadingPractice] = useState<boolean>(false);
   const [attachedDraft, setAttachedDraft] = useState<ExtractedDraftResult | null>(null);
   const [isExtractingDraft, setIsExtractingDraft] = useState<boolean>(false);
+  const [courseStatusBanner, setCourseStatusBanner] = useState<{
+    kind: 'off' | 'logistics' | 'blackout';
+    message: string;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -63,6 +71,101 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const isStudent = personaId === 'demo_student';
+
+  useEffect(() => {
+    if (initialDraftPrompt) {
+      setInput(initialDraftPrompt);
+      onConsumeInitialPrompt?.();
+      textareaRef.current?.focus();
+    }
+  }, [initialDraftPrompt, onConsumeInitialPrompt]);
+
+  useEffect(() => {
+    if (!isStudent) {
+      setCourseStatusBanner(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/courses/${encodeURIComponent(courseId)}/settings`, {
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then(
+        (
+          data: {
+            setting?: 'full' | 'logistics_only' | 'off';
+            blackoutStart?: string | null;
+            blackoutEnd?: string | null;
+          } | null,
+        ) => {
+          if (cancelled || !data) return;
+          if (data.setting === 'off') {
+            setCourseStatusBanner({
+              kind: 'off',
+              message: 'Virtual TA is currently turned off by your instructor for this course.',
+            });
+            return;
+          }
+          if (data.blackoutStart && data.blackoutEnd) {
+            const now = Date.now();
+            const start = Date.parse(data.blackoutStart);
+            const end = Date.parse(data.blackoutEnd);
+            if (!Number.isNaN(start) && !Number.isNaN(end) && now >= start && now <= end) {
+              setCourseStatusBanner({
+                kind: 'blackout',
+                message: `Exam/Quiz Blackout active until ${new Date(end).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}. Only logistics questions are available.`,
+              });
+              return;
+            }
+          }
+          if (data.setting === 'logistics_only') {
+            setCourseStatusBanner({
+              kind: 'logistics',
+              message: 'Logistics Only mode: deadlines, grades, and syllabus policies are enabled.',
+            });
+            return;
+          }
+          setCourseStatusBanner(null);
+        },
+      )
+      .catch(() => {
+        // Non-blocking
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, isStudent, authToken]);
+
+  const handleExportStudyNotes = () => {
+    if (messages.length === 0) return;
+    const lines: string[] = [
+      `# Virtual TA Study Notes (${courseId})`,
+      `_Exported ${new Date().toLocaleString()}_`,
+      '',
+    ];
+    for (const m of messages) {
+      const speaker = m.role === 'user' ? 'Student' : 'Virtual TA';
+      lines.push(`## ${speaker}`);
+      lines.push(m.content);
+      lines.push('');
+    }
+    const md = lines.join('\n');
+    try {
+      const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `virtual-ta-study-notes-${courseId}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setScreenReaderAnnouncement('Exported study notes as Markdown.');
+    } catch {
+      void navigator.clipboard?.writeText(md);
+      setScreenReaderAnnouncement('Copied study notes to clipboard.');
+    }
+  };
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -526,7 +629,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onSelectConversation={(id) => void handleSelectConversation(id)}
         onDeleteConversation={(id) => void handleDeleteConversation(id)}
         onOpenPracticeCheck={() => void handleOpenPracticeCheck()}
+        canExportChat={messages.length > 0}
+        onExportChat={handleExportStudyNotes}
       />
+
+      {courseStatusBanner && (
+        <div
+          className={`course-status-banner ${courseStatusBanner.kind}`}
+          role="status"
+          aria-live="polite"
+        >
+          {courseStatusBanner.message}
+        </div>
+      )}
 
       {isLoadingChat && (
         <div className="chat-loading-banner" role="status">

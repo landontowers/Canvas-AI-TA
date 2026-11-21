@@ -28,6 +28,8 @@ import {
   AzureBlobLogStorageAdapter,
   CanvasClient,
   CanvasRestAdapter,
+  CanvasOAuthClient,
+  AzureOpenAiAdapter,
   CanvasDemoIdentityAdapter,
   LtiIdentityAdapter,
   GeminiAdapter,
@@ -38,6 +40,7 @@ import { SlidingWindowRateLimiter } from './rate-limiter.js';
 import { createAuthGuard } from './auth-guard.js';
 import { registerAuthRoutes } from './routes/auth.routes.js';
 import { registerLtiRoutes } from './routes/lti.routes.js';
+import { registerOAuthRoutes } from './routes/oauth.routes.js';
 import { registerCourseAndToolsRoutes } from './routes/course-and-tools.routes.js';
 import { registerConversationsAndAdminRoutes } from './routes/conversations-and-admin.routes.js';
 
@@ -145,6 +148,37 @@ export function buildServer(
         apiKey: config.model.apiKey,
         defaultModel: config.model.classifierModel,
         fallbackModel: 'gemini-3.5-flash-lite',
+      });
+    }
+  } else if (config.model.provider === 'azure-openai') {
+    if (!config.model.apiKey || !config.model.azureEndpoint) {
+      server.log.warn(
+        'MODEL_PROVIDER is set to "azure-openai", but AZURE_OPENAI_API_KEY or AZURE_OPENAI_ENDPOINT is missing. Falling back to FakeLlmAdapter.',
+      );
+      defaultLlm = new FakeLlmAdapter();
+      defaultInstructorLlm = defaultLlm;
+      defaultClassifierLlm = defaultLlm;
+    } else {
+      server.log.info(
+        `Configuring AzureOpenAiAdapter with studentDeployment=${config.model.studentModel}, instructorDeployment=${config.model.instructorModel}, classifierDeployment=${config.model.classifierModel}`,
+      );
+      defaultLlm = new AzureOpenAiAdapter({
+        endpoint: config.model.azureEndpoint,
+        apiKey: config.model.apiKey,
+        deployment: config.model.studentModel,
+        apiVersion: config.model.azureApiVersion,
+      });
+      defaultInstructorLlm = new AzureOpenAiAdapter({
+        endpoint: config.model.azureEndpoint,
+        apiKey: config.model.apiKey,
+        deployment: config.model.instructorModel,
+        apiVersion: config.model.azureApiVersion,
+      });
+      defaultClassifierLlm = new AzureOpenAiAdapter({
+        endpoint: config.model.azureEndpoint,
+        apiKey: config.model.apiKey,
+        deployment: config.model.classifierModel,
+        apiVersion: config.model.azureApiVersion,
       });
     }
   } else {
@@ -329,6 +363,20 @@ export function buildServer(
     config,
     ltiAdapter,
     ltiIdentityActive,
+    authGuard,
+  });
+
+  const oauthClient = new CanvasOAuthClient({
+    baseUrl: config.canvas.baseUrl,
+    clientId: config.canvas.oauth?.clientId,
+    clientSecret: config.canvas.oauth?.clientSecret,
+    redirectUri: config.canvas.oauth?.redirectUri,
+  });
+
+  registerOAuthRoutes(server, {
+    config,
+    oauthClient,
+    identity: ports.identity,
     authGuard,
   });
 
