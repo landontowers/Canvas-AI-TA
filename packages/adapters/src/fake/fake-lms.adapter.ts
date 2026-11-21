@@ -41,6 +41,11 @@ export class FakeLmsAdapter implements LmsPort {
       pointsPossible: 100,
       hasSubmitted: true,
       description: 'Complete the safety questionnaire and equipment checklist.',
+      rubric: [
+        { id: 'crit-101-1', description: 'Chamber & Workspace Safety Verification', points: 40 },
+        { id: 'crit-101-2', description: 'Tooling Identification & Torque Specs', points: 40 },
+        { id: 'crit-101-3', description: 'Clear Documentation & Formatting', points: 20 },
+      ],
     },
     {
       id: 'assign-102',
@@ -49,6 +54,24 @@ export class FakeLmsAdapter implements LmsPort {
       pointsPossible: 50,
       hasSubmitted: false,
       description: 'Analyze the schematic provided in Module 2 and identify tolerances.',
+      rubric: [
+        { id: 'crit-102-1', description: 'Headspace Tolerance Calculations', points: 25 },
+        { id: 'crit-102-2', description: 'Blueprint Callout Identification', points: 15 },
+        { id: 'crit-102-3', description: 'Safety & Inspection Notes', points: 10 },
+      ],
+    },
+    {
+      id: 'assign-103',
+      name: 'Safety Lab 1: Practical Verification',
+      dueAt: null,
+      pointsPossible: 75,
+      hasSubmitted: false,
+      description: 'Submit your step-by-step chamber clearance and workspace safety checklist.',
+      rubric: [
+        { id: 'crit-103-1', description: 'Four Rules of Firearm Safety Applied', points: 35 },
+        { id: 'crit-103-2', description: 'Chamber & Magazine Visual/Physical Check', points: 25 },
+        { id: 'crit-103-3', description: 'Bench & PPE Readiness', points: 15 },
+      ],
     },
   ];
 
