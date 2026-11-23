@@ -145,7 +145,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     const adapter = new GeminiAdapter({
       apiKey: 'test-key',
       defaultModel: 'gemini-3.8-flash',
-      fallbackModel: 'gemini-3.5-flash-lite',
+      fallbackModel: 'gemini-3.6-flash',
     });
 
     const response = await adapter.generate({
@@ -156,7 +156,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     expect(response.text).toBe('Recovered answer from fallback model.');
     expect(mockGenerateContent).toHaveBeenCalledTimes(2);
     expect(mockGenerateContent.mock.calls[0][0].model).toBe('gemini-3.8-flash');
-    expect(mockGenerateContent.mock.calls[1][0].model).toBe('gemini-3.5-flash-lite');
+    expect(mockGenerateContent.mock.calls[1][0].model).toBe('gemini-3.6-flash');
   });
 
   it('rethrows non-recoverable error immediately', async () => {
@@ -226,7 +226,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     const adapter = new GeminiAdapter({
       apiKey: 'test-key',
       defaultModel: 'gemini-3.8-flash',
-      fallbackModel: 'gemini-3.5-flash-lite',
+      fallbackModel: 'gemini-3.6-flash',
     });
 
     const stream = adapter.stream({

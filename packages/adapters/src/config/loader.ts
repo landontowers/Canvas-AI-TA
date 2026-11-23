@@ -81,7 +81,7 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
       instructorModel:
         env.AZURE_OPENAI_DEPLOYMENT_INSTRUCTOR || env.INSTRUCTOR_MODEL || 'gemini-3.8-flash',
       classifierModel:
-        env.AZURE_OPENAI_DEPLOYMENT_CLASSIFIER || env.CLASSIFIER_MODEL || 'gemini-3.8-flash',
+        env.AZURE_OPENAI_DEPLOYMENT_CLASSIFIER || env.CLASSIFIER_MODEL || 'gemini-3.6-flash',
     },
     demoAuth: {
       enabled: env.DEMO_AUTH_ENABLED === 'true' || Boolean(env.DEMO_PASSWORD),

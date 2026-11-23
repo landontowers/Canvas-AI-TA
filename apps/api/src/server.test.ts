@@ -53,7 +53,7 @@ describe('API Server', () => {
     const geminiServer = buildServer(geminiConfig) as unknown as { ports: PortsContainer };
     expect(geminiConfig.model.studentModel).toBe('gemini-3.8-flash');
     expect(geminiConfig.model.instructorModel).toBe('gemini-3.8-flash');
-    expect(geminiConfig.model.classifierModel).toBe('gemini-3.8-flash');
+    expect(geminiConfig.model.classifierModel).toBe('gemini-3.6-flash');
     expect(geminiServer.ports.llm.providerName).toBe('gemini');
     expect(geminiServer.ports.classifierLlm?.providerName).toBe('gemini');
   });

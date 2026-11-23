@@ -94,7 +94,7 @@ export const AppConfigSchema = z.object({
     azureApiVersion: z.string().default('2025-03-01-preview'),
     studentModel: z.string().default('gemini-3.8-flash'),
     instructorModel: z.string().default('gemini-3.8-flash'),
-    classifierModel: z.string().default('gemini-3.8-flash'),
+    classifierModel: z.string().default('gemini-3.6-flash'),
   }),
   demoAuth: DemoAuthConfigSchema.default({
     enabled: false,

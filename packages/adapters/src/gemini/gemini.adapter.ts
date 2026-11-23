@@ -34,7 +34,7 @@ export class GeminiAdapter implements LlmPort {
       });
     }
     this.defaultModel = options.defaultModel || 'gemini-3.8-flash';
-    this.fallbackModel = options.fallbackModel || 'gemini-3.5-flash-lite';
+    this.fallbackModel = options.fallbackModel || 'gemini-3.6-flash';
   }
 
   getCapabilities(): LlmCapabilities {
