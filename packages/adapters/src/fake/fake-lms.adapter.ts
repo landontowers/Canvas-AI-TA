@@ -73,6 +73,27 @@ export class FakeLmsAdapter implements LmsPort {
         { id: 'crit-103-3', description: 'Bench & PPE Readiness', points: 15 },
       ],
     },
+    {
+      id: 'assign-104',
+      name: 'Week 3 Headspace Gauge Lab',
+      dueAt: '2026-11-29T23:59:00Z',
+      pointsPossible: 100,
+      hasSubmitted: false,
+      description: 'Document GO, NO-GO, and FIELD gauge checks on a bolt-action receiver.',
+      rubric: [
+        { id: 'crit-104-1', description: 'GO Gauge Minimum Chamber Verification', points: 40 },
+        { id: 'crit-104-2', description: 'NO-GO Gauge Maximum Safe Limit', points: 40 },
+        { id: 'crit-104-3', description: 'Measurement Table & Notes', points: 20 },
+      ],
+    },
+    {
+      id: 'assign-105',
+      name: 'Optional Shop Safety Reflection',
+      dueAt: null,
+      pointsPossible: 25,
+      hasSubmitted: false,
+      description: 'Brief reflection on bench PPE and live-ammo isolation procedures.',
+    },
   ];
 
   private modules: ModuleSummary[] = [
@@ -83,6 +104,8 @@ export class FakeLmsAdapter implements LmsPort {
       items: [
         { id: 'item-1', title: 'Welcome to SDI', type: 'Page', url: 'welcome-to-sdi' },
         { id: 'item-2', title: 'Week 1 Lab', type: 'Assignment', url: 'assign-101' },
+        { id: 'item-4', title: 'Headspace & SAAMI Gauges', type: 'Page', url: 'headspace-saami-gauges' },
+        { id: 'item-5', title: 'Greenhill Twist Rate Guide', type: 'Page', url: 'greenhill-twist-rate' },
       ],
     },
     {
@@ -99,6 +122,20 @@ export class FakeLmsAdapter implements LmsPort {
       title: 'Welcome to SDI',
       body: 'Welcome to Sonoran Desert Institute! This course covers precision mechanics and craft standards.',
       updatedAt: '2026-11-01T00:00:00Z',
+      isPublished: true,
+    },
+    {
+      url: 'headspace-saami-gauges',
+      title: 'Headspace & SAAMI Gauges',
+      body: 'A GO gauge verifies minimum SAAMI chamber dimensions; the bolt should close smoothly. A NO-GO gauge tests maximum safe headspace; the bolt must NOT close.',
+      updatedAt: '2026-11-08T00:00:00Z',
+      isPublished: true,
+    },
+    {
+      url: 'greenhill-twist-rate',
+      title: 'Greenhill Twist Rate Guide',
+      body: 'Greenhill formula: T = (150 * D^2) / L, where D is bullet diameter in inches and L is bullet length in inches.',
+      updatedAt: '2026-11-10T00:00:00Z',
       isPublished: true,
     },
     {
@@ -127,6 +164,12 @@ export class FakeLmsAdapter implements LmsPort {
       id: 'sdi-fbs201',
       name: 'FBS 201: Firearms Basic Ballistics',
       courseCode: 'FBS 201',
+      enrollmentRole: 'student',
+    },
+    {
+      id: 'sdi-gun105',
+      name: 'GUN 105: Gunsmithing Bench Safety',
+      courseCode: 'GUN 105',
       enrollmentRole: 'student',
     },
   ];
@@ -252,6 +295,22 @@ export class FakeLmsAdapter implements LmsPort {
         submittedCount: 18,
         unsubmittedCount: 7,
         gradedCount: 10,
+      },
+      {
+        assignmentId: 'assign-103',
+        assignmentName: 'Safety Lab 1: Practical Verification',
+        totalEnrolled: 25,
+        submittedCount: 21,
+        unsubmittedCount: 4,
+        gradedCount: 15,
+      },
+      {
+        assignmentId: 'assign-104',
+        assignmentName: 'Week 3 Headspace Gauge Lab',
+        totalEnrolled: 25,
+        submittedCount: 9,
+        unsubmittedCount: 16,
+        gradedCount: 4,
       },
     ];
   }

@@ -1,0 +1,5 @@
+FBS-201 Internal Ballistics Notes (Synthetic Draft)
+Bullet weight: 55 grains
+Muzzle velocity: 3100 fps
+Formula check: KE (ft-lbs) = (weight_gr * velocity_fps^2) / 450437
+Need to verify unit conversion steps and Greenhill twist rate for 0.224 in diameter.
