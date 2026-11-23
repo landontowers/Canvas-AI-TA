@@ -1,5 +1,10 @@
 import { DemoShell } from './components/DemoShell.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 
 export default function App() {
-  return <DemoShell />;
+  return (
+    <ErrorBoundary>
+      <DemoShell />
+    </ErrorBoundary>
+  );
 }

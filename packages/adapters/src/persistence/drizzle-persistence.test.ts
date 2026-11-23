@@ -194,6 +194,7 @@ describe('DrizzlePersistenceAdapter Unit Tests', () => {
         },
       ]),
       onConflictDoUpdate: vi.fn().mockResolvedValue({}),
+      onConflictDoNothing: vi.fn().mockResolvedValue({}),
     });
 
     const mockDb: any = {

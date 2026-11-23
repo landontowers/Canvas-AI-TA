@@ -20,6 +20,7 @@ import { eq, and, desc, lt, sql } from 'drizzle-orm';
 import postgres from 'postgres';
 import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import * as schema from './schema.js';
+import { seedDemoDataWithDb } from './seed.js';
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -657,19 +658,26 @@ export class DrizzlePersistenceAdapter implements PersistencePort {
   async resetDemo(courseId = 'sdi-ftt101'): Promise<void> {
     await this.db.delete(schema.messagesTable);
     await this.db.delete(schema.conversationsTable);
+    await this.db.delete(schema.crisisIncidentsTable);
+    await this.db.delete(schema.userLearningContextsTable);
     await this.db
       .insert(schema.courseSettingsTable)
       .values({
         courseId,
         setting: 'full',
+        blackoutStart: null,
+        blackoutEnd: null,
       })
       .onConflictDoUpdate({
         target: schema.courseSettingsTable.courseId,
         set: {
           setting: 'full',
+          blackoutStart: null,
+          blackoutEnd: null,
           updatedAt: new Date(),
         },
       });
+    await seedDemoDataWithDb(this.db);
   }
 
   async purgeExpiredConversations(

@@ -1,62 +1,65 @@
 import postgres from 'postgres';
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { like, inArray, or } from 'drizzle-orm';
 import * as schema from './schema.js';
 import { SDI_COLLEGE_CONFIG } from '../config/sdi.config.js';
+
+export async function seedDatabaseWithDb(db: PostgresJsDatabase<typeof schema>) {
+  // 1. Seed SDI college
+  await db
+    .insert(schema.collegesTable)
+    .values({
+      id: SDI_COLLEGE_CONFIG.id,
+      name: SDI_COLLEGE_CONFIG.name,
+      domain: SDI_COLLEGE_CONFIG.domain,
+    })
+    .onConflictDoNothing();
+
+  // 2. Seed sandbox & cross-course catalog
+  await db
+    .insert(schema.coursesTable)
+    .values([
+      {
+        id: 'sdi-ftt101',
+        collegeId: SDI_COLLEGE_CONFIG.id,
+        externalCanvasId: 'course_101',
+        name: 'FTT-101: Firearms Safety & Fundamentals',
+        courseCode: 'FTT-101',
+      },
+      {
+        id: 'sdi-ftt104',
+        collegeId: SDI_COLLEGE_CONFIG.id,
+        externalCanvasId: 'course_104',
+        name: 'FTT-104: Modern Sporting Rifles',
+        courseCode: 'FTT-104',
+      },
+      {
+        id: 'sdi-fbs201',
+        collegeId: SDI_COLLEGE_CONFIG.id,
+        externalCanvasId: 'course_201',
+        name: 'FBS-201: Firearms Basic Ballistics',
+        courseCode: 'FBS-201',
+      },
+    ])
+    .onConflictDoNothing();
+
+  // 3. Seed default course settings ('full')
+  await db
+    .insert(schema.courseSettingsTable)
+    .values([
+      { courseId: 'sdi-ftt101', setting: 'full' },
+      { courseId: 'sdi-ftt104', setting: 'full' },
+      { courseId: 'sdi-fbs201', setting: 'full' },
+    ])
+    .onConflictDoNothing();
+}
 
 export async function seedDatabase(databaseUrl: string) {
   const sql = postgres(databaseUrl, { max: 1 });
   const db = drizzle(sql, { schema });
 
   try {
-    // 1. Seed SDI college
-    await db
-      .insert(schema.collegesTable)
-      .values({
-        id: SDI_COLLEGE_CONFIG.id,
-        name: SDI_COLLEGE_CONFIG.name,
-        domain: SDI_COLLEGE_CONFIG.domain,
-      })
-      .onConflictDoNothing();
-
-    // 2. Seed sandbox & cross-course catalog
-    await db
-      .insert(schema.coursesTable)
-      .values([
-        {
-          id: 'sdi-ftt101',
-          collegeId: SDI_COLLEGE_CONFIG.id,
-          externalCanvasId: 'course_101',
-          name: 'FTT-101: Firearms Safety & Fundamentals',
-          courseCode: 'FTT-101',
-        },
-        {
-          id: 'sdi-ftt104',
-          collegeId: SDI_COLLEGE_CONFIG.id,
-          externalCanvasId: 'course_104',
-          name: 'FTT-104: Modern Sporting Rifles',
-          courseCode: 'FTT-104',
-        },
-        {
-          id: 'sdi-fbs201',
-          collegeId: SDI_COLLEGE_CONFIG.id,
-          externalCanvasId: 'course_201',
-          name: 'FBS-201: Firearms Basic Ballistics',
-          courseCode: 'FBS-201',
-        },
-      ])
-      .onConflictDoNothing();
-
-    // 3. Seed default course settings ('full')
-    await db
-      .insert(schema.courseSettingsTable)
-      .values([
-        { courseId: 'sdi-ftt101', setting: 'full' },
-        { courseId: 'sdi-ftt104', setting: 'full' },
-        { courseId: 'sdi-fbs201', setting: 'full' },
-      ])
-      .onConflictDoNothing();
-
+    await seedDatabaseWithDb(db);
     console.log('Database seeded successfully with SDI college and FTT-101 sandbox course.');
   } finally {
     await sql.end();
@@ -64,17 +67,10 @@ export async function seedDatabase(databaseUrl: string) {
 }
 
 /**
- * Populates rich, idempotent synthetic demo data (conversations, messages,
- * k-anonymous confusion pulse cohort threads, and crisis triage queue items)
- * and removes leftover automated test rows.
+ * Populates rich, idempotent synthetic demo data using an existing Drizzle DB handle.
  */
-export async function seedDemoData(databaseUrl: string) {
-  await seedDatabase(databaseUrl);
-
-  const sql = postgres(databaseUrl, { max: 1 });
-  const db = drizzle(sql, { schema });
-
-  try {
+export async function seedDemoDataWithDb(db: PostgresJsDatabase<typeof schema>) {
+  await seedDatabaseWithDb(db);
     // Clean up leftover integration test artifacts
     await db
       .delete(schema.crisisIncidentsTable)
@@ -345,7 +341,19 @@ export async function seedDemoData(databaseUrl: string) {
         notes: 'Prefers explicit unit conversions (grains, fps, inches) and safety-first checklists.',
       })
       .onConflictDoNothing();
+}
 
+/**
+ * Populates rich, idempotent synthetic demo data (conversations, messages,
+ * k-anonymous confusion pulse cohort threads, and crisis triage queue items)
+ * and removes leftover automated test rows.
+ */
+export async function seedDemoData(databaseUrl: string) {
+  const sql = postgres(databaseUrl, { max: 1 });
+  const db = drizzle(sql, { schema });
+
+  try {
+    await seedDemoDataWithDb(db);
     console.log('Synthetic demo dataset seeded successfully.');
   } finally {
     await sql.end();

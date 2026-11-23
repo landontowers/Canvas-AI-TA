@@ -10,6 +10,7 @@ import { ChatInterface } from './ChatInterface.js';
 import { ChatHistoryPanel } from './ChatHistoryPanel.js';
 import { ChatMessageList } from './ChatMessageList.js';
 import { DemoShell } from './DemoShell.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import * as Icons from './Icons.js';
 
 describe('Web UI Components DOM Rendering & Interaction Suite', () => {
@@ -1082,6 +1083,24 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       await waitFor(() => {
         expect(screen.getByText(/Logistics Only mode: deadlines, grades, and syllabus policies/i)).toBeDefined();
       });
+    });
+
+    it('ErrorBoundary catches unexpected render errors and displays recovery UI', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const Thrower = () => {
+        throw new Error('Synthetic render failure');
+      };
+
+      render(
+        <ErrorBoundary>
+          <Thrower />
+        </ErrorBoundary>,
+      );
+
+      expect(screen.getByText(/Something went wrong/i)).toBeDefined();
+      expect(screen.getByText(/Synthetic render failure/i)).toBeDefined();
+      expect(screen.getByRole('button', { name: /Reload Drawer/i })).toBeDefined();
+      consoleErrorSpy.mockRestore();
     });
   });
 });
