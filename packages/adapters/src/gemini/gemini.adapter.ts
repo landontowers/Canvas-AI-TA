@@ -203,8 +203,15 @@ export class GeminiAdapter implements LlmPort {
       msg.includes('timeout') ||
       msg.includes('503') ||
       msg.includes('unavailable') ||
-      msg.includes('overloaded')
+      msg.includes('overloaded') ||
+      msg.includes('high demand') ||
+      msg.includes('try again')
     );
+  }
+
+  private getModelCascade(): string[] {
+    const candidates = [this.defaultModel, this.fallbackModel, 'gemini-3.1-flash-lite'];
+    return Array.from(new Set(candidates.filter(Boolean)));
   }
 
   async generate(options: LlmGenerateOptions): Promise<LlmResponse> {
@@ -232,15 +239,22 @@ export class GeminiAdapter implements LlmPort {
       });
     };
 
+    const models = this.getModelCascade();
     let response;
-    try {
-      response = await callModel(this.defaultModel);
-    } catch (err: unknown) {
-      if (this.isRecoverableError(err) && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
-        response = await callModel(this.fallbackModel);
-      } else {
-        throw err;
+    let lastErr: unknown;
+    for (let i = 0; i < models.length; i++) {
+      try {
+        response = await callModel(models[i]);
+        break;
+      } catch (err: unknown) {
+        lastErr = err;
+        if (!this.isRecoverableError(err) || i === models.length - 1) {
+          throw err;
+        }
       }
+    }
+    if (!response) {
+      throw lastErr;
     }
 
     const text = response.text || '';
@@ -295,20 +309,6 @@ export class GeminiAdapter implements LlmPort {
         },
       });
     };
-
-    let activeStream;
-    let modelUsed = this.defaultModel;
-
-    try {
-      activeStream = await getStream(this.defaultModel);
-    } catch (err: unknown) {
-      if (this.isRecoverableError(err) && this.fallbackModel && this.fallbackModel !== this.defaultModel) {
-        modelUsed = this.fallbackModel;
-        activeStream = await getStream(this.fallbackModel);
-      } else {
-        throw err;
-      }
-    }
 
     const consumeStream = async function* (
       adapter: GeminiAdapter,
@@ -371,19 +371,16 @@ export class GeminiAdapter implements LlmPort {
       }
     };
 
-    try {
-      yield* consumeStream(this, activeStream as AsyncIterable<never>);
-    } catch (streamErr: unknown) {
-      if (
-        this.isRecoverableError(streamErr) &&
-        modelUsed === this.defaultModel &&
-        this.fallbackModel &&
-        this.fallbackModel !== this.defaultModel
-      ) {
-        const fallbackStream = await getStream(this.fallbackModel);
-        yield* consumeStream(this, fallbackStream as AsyncIterable<never>);
-      } else {
-        throw streamErr;
+    const models = this.getModelCascade();
+    for (let i = 0; i < models.length; i++) {
+      try {
+        const stream = await getStream(models[i]);
+        yield* consumeStream(this, stream as AsyncIterable<never>);
+        return;
+      } catch (err: unknown) {
+        if (!this.isRecoverableError(err) || i === models.length - 1) {
+          throw err;
+        }
       }
     }
   }

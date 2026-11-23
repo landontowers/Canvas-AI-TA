@@ -331,4 +331,37 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
       totalTokens: 92,
     });
   });
+
+  it('cascades through default -> fallback -> gemini-3.1-flash-lite on high demand 503 errors', async () => {
+    const mockStream = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('This model is currently experiencing high demand.'))
+      .mockRejectedValueOnce(new Error('503 Service Unavailable'))
+      .mockImplementationOnce(async () => ({
+        async *[Symbol.asyncIterator]() {
+          yield { text: 'Third tier succeeded' };
+        },
+      }));
+    (GoogleGenAI as any).mockImplementationOnce(() => ({
+      models: { generateContentStream: mockStream },
+    }));
+
+    const adapter = new GeminiAdapter({
+      apiKey: 'test-key',
+      defaultModel: 'gemini-3.8-flash',
+      fallbackModel: 'gemini-3.6-flash',
+    });
+
+    const tokens: string[] = [];
+    for await (const ev of adapter.stream({
+      systemPrompt: 'Sys',
+      messages: [{ role: 'user', content: 'Hi' }],
+    })) {
+      if (ev.type === 'text-delta') tokens.push(ev.delta);
+    }
+
+    expect(tokens).toEqual(['Third tier succeeded']);
+    expect(mockStream).toHaveBeenCalledTimes(3);
+    expect(mockStream.mock.calls[2][0].model).toBe('gemini-3.1-flash-lite');
+  });
 });
