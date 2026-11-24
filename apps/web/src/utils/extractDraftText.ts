@@ -14,6 +14,24 @@ function getExtension(filename: string): string {
   return idx >= 0 ? filename.slice(idx + 1).toLowerCase() : '';
 }
 
+async function loadParserModule<T>(loader: () => Promise<T>): Promise<T> {
+  try {
+    return await loader();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (
+      /dynamically imported module|importing a module script|chunkloaderror|loading chunk/i.test(
+        msg,
+      )
+    ) {
+      throw new Error(
+        'The app was updated since this tab was opened. Please refresh the page and try uploading your document again.',
+      );
+    }
+    throw err;
+  }
+}
+
 /**
  * Extracts plain text from .txt, .md, .docx, or .pdf entirely in the browser.
  * Binary parsers (mammoth and pdfjs-dist) are lazy-loaded only when needed.
@@ -25,12 +43,12 @@ export async function extractTextFromFile(file: File): Promise<ExtractedDraftRes
   if (TEXT_EXTENSIONS.has(ext) || file.type.startsWith('text/')) {
     rawText = await file.text();
   } else if (ext === 'docx') {
-    const mammoth = await import('mammoth');
+    const mammoth = await loadParserModule(() => import('mammoth'));
     const buffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer: buffer });
     rawText = result.value || '';
   } else if (ext === 'pdf') {
-    const pdfjs = await import('pdfjs-dist');
+    const pdfjs = await loadParserModule(() => import('pdfjs-dist'));
     if (!pdfjs.GlobalWorkerOptions.workerSrc) {
       pdfjs.GlobalWorkerOptions.workerSrc = new URL(
         'pdfjs-dist/build/pdf.worker.min.mjs',
