@@ -1177,5 +1177,19 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       expect(attachedSection.textContent).toContain('Attached:');
       expect(attachedSection.textContent).toContain('safety-lab1-partial-draft.docx');
     });
+
+    it('ChatInterface allows document upload for instructors as well as students', () => {
+      render(
+        <ChatInterface
+          personaId="demo_instructor"
+          courseId="1799"
+          currentPageTitle="Course Overview"
+          highContrast={false}
+        />,
+      );
+
+      expect(screen.getByLabelText('Upload draft file')).toBeTruthy();
+      expect(screen.getByLabelText('Attach document')).toBeTruthy();
+    });
   });
 });

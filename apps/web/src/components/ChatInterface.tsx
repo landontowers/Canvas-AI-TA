@@ -379,7 +379,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const extracted = await extractTextFromFile(file);
       setAttachedDraft(extracted);
       if (!input.trim()) {
-        setInput('Please check my attached draft against the rubric.');
+        setInput(
+          isStudent
+            ? 'Please check my attached draft against the rubric.'
+            : 'Please review the attached document.',
+        );
       }
       setScreenReaderAnnouncement(
         `Attached draft ${extracted.name} (${extracted.charCount} characters).`,
@@ -727,28 +731,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               </span>
 
               <div className="button-group">
-                {isStudent && !isStreaming && (
-                  <>
-                    <input
-                      ref={draftInputRef}
-                      type="file"
-                      accept=".txt,.md,.markdown,.csv,.docx,.pdf"
-                      onChange={(e) => void handleAttachDraft(e)}
-                      aria-label="Upload draft file"
-                      style={{ display: 'none' }}
-                    />
-                    <button
-                      type="button"
-                      className="attach-draft-btn"
-                      onClick={() => draftInputRef.current?.click()}
-                      disabled={isExtractingDraft}
-                      aria-label="Attach draft document"
-                      title="Extract text from .txt, .md, .docx, or .pdf for rubric review"
-                    >
-                      {isExtractingDraft ? 'Reading...' : 'Attach Draft'}
-                    </button>
-                  </>
-                )}
+                <input
+                  ref={draftInputRef}
+                  type="file"
+                  accept=".txt,.md,.markdown,.csv,.docx,.pdf"
+                  onChange={(e) => void handleAttachDraft(e)}
+                  aria-label="Upload draft file"
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="attach-draft-btn"
+                  onClick={() => draftInputRef.current?.click()}
+                  disabled={isExtractingDraft}
+                  aria-label="Attach document"
+                  title="Extract text from .txt, .md, .docx, or .pdf"
+                >
+                  {isExtractingDraft ? 'Reading...' : isStudent ? 'Attach Draft' : 'Attach Doc'}
+                </button>
                 {isStreaming ? (
                   <button
                     type="button"
