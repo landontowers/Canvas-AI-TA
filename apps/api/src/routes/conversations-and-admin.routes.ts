@@ -44,7 +44,11 @@ function extractHumanErrorMessage(err: unknown): string {
     }
     break;
   }
-  return msg.trim() || 'An unexpected error occurred. Please try again.';
+  const finalMsg = msg.trim();
+  if (/this operation was aborted/i.test(finalMsg)) {
+    return 'The AI request timed out while processing. Please try again.';
+  }
+  return finalMsg || 'An unexpected error occurred. Please try again.';
 }
 
 export interface ConversationsAndAdminRoutesDeps {

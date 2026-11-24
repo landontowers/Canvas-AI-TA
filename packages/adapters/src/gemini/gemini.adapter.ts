@@ -29,7 +29,7 @@ export class GeminiAdapter implements LlmPort {
       this.client = new GoogleGenAI({
         apiKey: key,
         httpOptions: {
-          timeout: options.timeout ?? 15000,
+          timeout: options.timeout ?? 60000,
         },
       });
     }
@@ -191,8 +191,14 @@ export class GeminiAdapter implements LlmPort {
   }
 
   private isRecoverableError(err: unknown): boolean {
-    if (!(err instanceof Error)) return false;
-    const msg = err.message.toLowerCase();
+    const rawMsg =
+      err instanceof Error
+        ? err.message
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as { message: unknown }).message)
+          : '';
+    if (!rawMsg) return false;
+    const msg = rawMsg.toLowerCase();
     return (
       msg.includes('quota') ||
       msg.includes('429') ||
