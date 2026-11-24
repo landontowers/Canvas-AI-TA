@@ -13,6 +13,7 @@ coverage/
 test-results/
 
 # Environment and secrets (template.env is the tracked template)
+secrets/
 .env
 .env.*
 

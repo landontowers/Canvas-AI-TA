@@ -123,31 +123,36 @@ export function buildServer(
   let defaultClassifierLlm: LlmPort;
 
   if (config.model.provider === 'gemini') {
-    if (!config.model.apiKey) {
+    const hasVertexConfig = Boolean(config.model.useVertexAi && config.model.gcpProject);
+    if (!hasVertexConfig && !config.model.apiKey) {
       server.log.warn(
-        'MODEL_PROVIDER is set to "gemini", but GEMINI_API_KEY is not configured. Falling back to FakeLlmAdapter.',
+        'MODEL_PROVIDER is set to "gemini", but neither GEMINI_API_KEY nor Vertex AI (GOOGLE_GENAI_USE_VERTEXAI=true + GOOGLE_CLOUD_PROJECT) is configured. Falling back to FakeLlmAdapter.',
       );
       defaultLlm = new FakeLlmAdapter();
       defaultInstructorLlm = defaultLlm;
       defaultClassifierLlm = defaultLlm;
     } else {
       server.log.info(
-        `Configuring GeminiAdapter with studentModel=${config.model.studentModel}, instructorModel=${config.model.instructorModel}, classifierModel=${config.model.classifierModel}`,
+        `Configuring GeminiAdapter (${hasVertexConfig ? `vertexai project=${config.model.gcpProject} location=${config.model.gcpLocation}` : 'ai-studio'}) with studentModel=${config.model.studentModel}, instructorModel=${config.model.instructorModel}, classifierModel=${config.model.classifierModel}`,
       );
-      defaultLlm = new GeminiAdapter({
+      const geminiBase = {
         apiKey: config.model.apiKey,
+        vertexai: config.model.useVertexAi,
+        project: config.model.gcpProject,
+        location: config.model.gcpLocation,
+        fallbackModel: 'gemini-3.7-flash',
+      };
+      defaultLlm = new GeminiAdapter({
+        ...geminiBase,
         defaultModel: config.model.studentModel,
-        fallbackModel: 'gemini-3.6-flash',
       });
       defaultInstructorLlm = new GeminiAdapter({
-        apiKey: config.model.apiKey,
+        ...geminiBase,
         defaultModel: config.model.instructorModel,
-        fallbackModel: 'gemini-3.6-flash',
       });
       defaultClassifierLlm = new GeminiAdapter({
-        apiKey: config.model.apiKey,
+        ...geminiBase,
         defaultModel: config.model.classifierModel,
-        fallbackModel: 'gemini-3.6-flash',
       });
     }
   } else if (config.model.provider === 'azure-openai') {

@@ -332,7 +332,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     });
   });
 
-  it('cascades through default -> fallback -> gemini-3-flash-preview on high demand 503 errors', async () => {
+  it('cascades through default -> fallback -> gemini-3.7-flash on high demand 503 errors', async () => {
     const mockStream = vi
       .fn()
       .mockRejectedValueOnce(new Error('This model is currently experiencing high demand.'))
@@ -362,6 +362,36 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
 
     expect(tokens).toEqual(['Third tier succeeded']);
     expect(mockStream).toHaveBeenCalledTimes(3);
-    expect(mockStream.mock.calls[2][0].model).toBe('gemini-3-flash-preview');
+    expect(mockStream.mock.calls[2][0].model).toBe('gemini-3.7-flash');
+  });
+
+  it('initializes with Vertex AI project and location when vertexai is enabled', async () => {
+    const mockGenerate = vi.fn().mockResolvedValueOnce({
+      text: 'Vertex OK',
+      usageMetadata: { promptTokenCount: 5, candidatesTokenCount: 2, totalTokenCount: 7 },
+    });
+    (GoogleGenAI as any).mockImplementationOnce(() => ({
+      models: { generateContent: mockGenerate },
+    }));
+
+    const adapter = new GeminiAdapter({
+      vertexai: true,
+      project: 'my-gcp-project',
+      location: 'us-central1',
+    });
+
+    const res = await adapter.generate({
+      systemPrompt: 'Sys',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(res.text).toBe('Vertex OK');
+    expect(GoogleGenAI).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        vertexai: true,
+        project: 'my-gcp-project',
+        location: 'us-central1',
+      }),
+    );
   });
 });

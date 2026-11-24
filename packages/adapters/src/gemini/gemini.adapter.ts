@@ -12,6 +12,9 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 
 export interface GeminiAdapterOptions {
   apiKey?: string;
+  vertexai?: boolean;
+  project?: string;
+  location?: string;
   defaultModel?: string;
   fallbackModel?: string;
   timeout?: number;
@@ -24,8 +27,21 @@ export class GeminiAdapter implements LlmPort {
   private fallbackModel: string;
 
   constructor(options: GeminiAdapterOptions = {}) {
+    const useVertex = options.vertexai ?? process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
+    const project = options.project || process.env.GOOGLE_CLOUD_PROJECT;
+    const location = options.location || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
     const key = options.apiKey || process.env.GEMINI_API_KEY;
-    if (key) {
+
+    if (useVertex && project) {
+      this.client = new GoogleGenAI({
+        vertexai: true,
+        project,
+        location,
+        httpOptions: {
+          timeout: options.timeout ?? 60000,
+        },
+      });
+    } else if (key) {
       this.client = new GoogleGenAI({
         apiKey: key,
         httpOptions: {
@@ -34,7 +50,7 @@ export class GeminiAdapter implements LlmPort {
       });
     }
     this.defaultModel = options.defaultModel || 'gemini-3.6-flash';
-    this.fallbackModel = options.fallbackModel || 'gemini-3-flash-preview';
+    this.fallbackModel = options.fallbackModel || 'gemini-3.7-flash';
   }
 
   getCapabilities(): LlmCapabilities {
@@ -221,7 +237,8 @@ export class GeminiAdapter implements LlmPort {
     const candidates = [
       this.defaultModel,
       this.fallbackModel,
-      'gemini-3-flash-preview',
+      'gemini-3.7-flash',
+      'gemini-3.5-flash',
       'gemini-3.1-flash-lite',
       'gemini-3.5-flash-lite',
     ];

@@ -90,6 +90,9 @@ export const AppConfigSchema = z.object({
   model: z.object({
     provider: z.enum(['fake', 'gemini', 'azure-openai']).default('fake'),
     apiKey: z.string().optional(),
+    useVertexAi: z.boolean().default(false),
+    gcpProject: z.string().optional(),
+    gcpLocation: z.string().default('us-central1'),
     azureEndpoint: z.string().url().optional(),
     azureApiVersion: z.string().default('2025-03-01-preview'),
     studentModel: z.string().default('gemini-3.6-flash'),

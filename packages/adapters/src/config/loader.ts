@@ -74,6 +74,9 @@ export function loadAppConfig(customEnv?: NodeJS.ProcessEnv): AppConfig {
         (env.MODEL_PROVIDER === 'azure-openai' ? env.AZURE_OPENAI_API_KEY : env.GEMINI_API_KEY) ||
         env.GEMINI_API_KEY ||
         env.AZURE_OPENAI_API_KEY,
+      useVertexAi: env.GOOGLE_GENAI_USE_VERTEXAI === 'true',
+      gcpProject: env.GOOGLE_CLOUD_PROJECT?.trim() || undefined,
+      gcpLocation: env.GOOGLE_CLOUD_LOCATION?.trim() || 'us-central1',
       azureEndpoint: env.AZURE_OPENAI_ENDPOINT?.trim() || undefined,
       azureApiVersion: env.AZURE_OPENAI_API_VERSION?.trim() || '2025-03-01-preview',
       studentModel:
