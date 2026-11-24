@@ -29,7 +29,7 @@ export class GeminiAdapter implements LlmPort {
   constructor(options: GeminiAdapterOptions = {}) {
     const useVertex = options.vertexai ?? process.env.GOOGLE_GENAI_USE_VERTEXAI === 'true';
     const project = options.project || process.env.GOOGLE_CLOUD_PROJECT;
-    const location = options.location || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const location = options.location || process.env.GOOGLE_CLOUD_LOCATION || 'global';
     const key = options.apiKey || process.env.GEMINI_API_KEY;
 
     if (useVertex && project) {
@@ -229,6 +229,7 @@ export class GeminiAdapter implements LlmPort {
       msg.includes('high demand') ||
       msg.includes('try again') ||
       msg.includes('404') ||
+      msg.includes('403') ||
       msg.includes('not found')
     );
   }

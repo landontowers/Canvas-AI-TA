@@ -92,7 +92,7 @@ export const AppConfigSchema = z.object({
     apiKey: z.string().optional(),
     useVertexAi: z.boolean().default(false),
     gcpProject: z.string().optional(),
-    gcpLocation: z.string().default('us-central1'),
+    gcpLocation: z.string().default('global'),
     azureEndpoint: z.string().url().optional(),
     azureApiVersion: z.string().default('2025-03-01-preview'),
     studentModel: z.string().default('gemini-3.6-flash'),
