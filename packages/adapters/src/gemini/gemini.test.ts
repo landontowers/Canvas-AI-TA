@@ -332,7 +332,7 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
     });
   });
 
-  it('cascades through default -> fallback -> gemini-3.1-flash-lite on high demand 503 errors', async () => {
+  it('cascades through default -> fallback -> gemini-3-flash-preview on high demand 503 errors', async () => {
     const mockStream = vi
       .fn()
       .mockRejectedValueOnce(new Error('This model is currently experiencing high demand.'))
@@ -362,6 +362,6 @@ describe('GeminiAdapter Unit & Resilience Suite', () => {
 
     expect(tokens).toEqual(['Third tier succeeded']);
     expect(mockStream).toHaveBeenCalledTimes(3);
-    expect(mockStream.mock.calls[2][0].model).toBe('gemini-3.1-flash-lite');
+    expect(mockStream.mock.calls[2][0].model).toBe('gemini-3-flash-preview');
   });
 });
