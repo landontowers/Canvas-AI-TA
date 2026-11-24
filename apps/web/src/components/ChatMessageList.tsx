@@ -47,6 +47,32 @@ export interface PracticeCardItem {
   explanation: string;
 }
 
+function formatHumanError(raw: string): string {
+  let msg = raw;
+  for (let i = 0; i < 4; i++) {
+    const trimmed = msg.trim();
+    if (!trimmed.startsWith('{')) break;
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        message?: unknown;
+        error?: { message?: unknown } | string;
+      };
+      if (typeof parsed.error === 'object' && parsed.error !== null && typeof parsed.error.message === 'string') {
+        msg = parsed.error.message;
+        continue;
+      }
+      if (typeof parsed.message === 'string') {
+        msg = parsed.message;
+        continue;
+      }
+    } catch {
+      break;
+    }
+    break;
+  }
+  return msg.trim() || 'An unexpected error occurred. Please try again.';
+}
+
 interface ChatMessageListProps {
   messages: ChatMessage[];
   isStudent: boolean;
@@ -327,7 +353,9 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
       {error && (
         <div className="feedback-alert error" role="alert">
           <AlertTriangleIcon size={16} className="feedback-icon" />
-          <span>{error}</span>
+          <span>
+            <strong>Error:</strong> {formatHumanError(error)}
+          </span>
         </div>
       )}
 

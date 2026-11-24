@@ -33,8 +33,8 @@ export class GeminiAdapter implements LlmPort {
         },
       });
     }
-    this.defaultModel = options.defaultModel || 'gemini-3.8-flash';
-    this.fallbackModel = options.fallbackModel || 'gemini-3.6-flash';
+    this.defaultModel = options.defaultModel || 'gemini-3.6-flash';
+    this.fallbackModel = options.fallbackModel || 'gemini-3-flash-preview';
   }
 
   getCapabilities(): LlmCapabilities {
@@ -205,12 +205,20 @@ export class GeminiAdapter implements LlmPort {
       msg.includes('unavailable') ||
       msg.includes('overloaded') ||
       msg.includes('high demand') ||
-      msg.includes('try again')
+      msg.includes('try again') ||
+      msg.includes('404') ||
+      msg.includes('not found')
     );
   }
 
   private getModelCascade(): string[] {
-    const candidates = [this.defaultModel, this.fallbackModel, 'gemini-3.1-flash-lite'];
+    const candidates = [
+      this.defaultModel,
+      this.fallbackModel,
+      'gemini-3-flash-preview',
+      'gemini-3.1-flash-lite',
+      'gemini-3.5-flash-lite',
+    ];
     return Array.from(new Set(candidates.filter(Boolean)));
   }
 

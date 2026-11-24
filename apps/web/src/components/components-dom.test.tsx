@@ -1102,5 +1102,43 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       expect(screen.getByRole('button', { name: /Reload Drawer/i })).toBeDefined();
       consoleErrorSpy.mockRestore();
     });
+
+    it('ChatMessageList formats nested JSON API errors into human-readable Error alerts', () => {
+      const ref = { current: null } as unknown as React.RefObject<HTMLDivElement>;
+      const nestedJsonError = JSON.stringify({
+        error: {
+          message: JSON.stringify({
+            error: {
+              code: 503,
+              message: 'This model is currently experiencing high demand. Please try again later.',
+              status: 'UNAVAILABLE',
+            },
+          }),
+          code: 503,
+          status: 'Service Unavailable',
+        },
+      });
+
+      render(
+        <ChatMessageList
+          messages={[]}
+          isStudent={true}
+          isStreaming={false}
+          currentPageTitle="Safety Lab 1"
+          suggestions={[]}
+          activeTool={null}
+          error={nestedJsonError}
+          messagesEndRef={ref}
+          onSelectSuggestion={vi.fn()}
+        />,
+      );
+
+      const alert = screen.getByRole('alert');
+      expect(alert.textContent).toContain('Error:');
+      expect(alert.textContent).toContain(
+        'This model is currently experiencing high demand. Please try again later.',
+      );
+      expect(alert.textContent).not.toContain('"code":503');
+    });
   });
 });

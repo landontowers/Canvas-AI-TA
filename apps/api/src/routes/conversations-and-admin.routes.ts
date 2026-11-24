@@ -17,6 +17,36 @@ import {
   UserLearningContextPutBodySchema,
 } from '../schemas.js';
 
+function extractHumanErrorMessage(err: unknown): string {
+  let msg = err instanceof Error ? err.message : String(err);
+  for (let i = 0; i < 4; i++) {
+    const trimmed = msg.trim();
+    if (!trimmed.startsWith('{')) break;
+    try {
+      const parsed = JSON.parse(trimmed) as {
+        message?: unknown;
+        error?: { message?: unknown } | string;
+      };
+      if (typeof parsed.error === 'object' && parsed.error !== null && typeof parsed.error.message === 'string') {
+        msg = parsed.error.message;
+        continue;
+      }
+      if (typeof parsed.error === 'string') {
+        msg = parsed.error;
+        continue;
+      }
+      if (typeof parsed.message === 'string') {
+        msg = parsed.message;
+        continue;
+      }
+    } catch {
+      break;
+    }
+    break;
+  }
+  return msg.trim() || 'An unexpected error occurred. Please try again.';
+}
+
 export interface ConversationsAndAdminRoutesDeps {
   config: AppConfig;
   ports: {
@@ -542,7 +572,7 @@ export function registerConversationsAndAdminRoutes(
         reply.raw.write(`data: ${JSON.stringify(sanitizedEvent)}\n\n`);
       }
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+      const errMsg = extractHumanErrorMessage(err);
       server.log.error(err);
       reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: errMsg })}\n\n`);
     }
