@@ -12,6 +12,7 @@ import {
   ShieldAlertIcon,
   AlertTriangleIcon,
   CloseIcon,
+  PageIcon,
 } from './Icons.js';
 
 export interface CrisisResourceInfo {
@@ -88,6 +89,26 @@ interface ChatMessageListProps {
   onClosePractice?: () => void;
   onSelectSuggestion: (prompt: string) => void;
   onRateMessage?: (messageId: string, rating: 'up' | 'down') => void;
+}
+
+function parseMessageAttachments(content: string): {
+  displayContent: string;
+  attachedDrafts: string[];
+} {
+  const attachedDrafts: string[] = [];
+  const displayContent = content
+    .replace(
+      /<attached_draft\s+filename="([^"]+)"\s*>[\s\S]*?<\/attached_draft>/gi,
+      (_match, filename: string) => {
+        const trimmed = filename.trim();
+        if (trimmed) attachedDrafts.push(trimmed);
+        return '';
+      },
+    )
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  return { displayContent, attachedDrafts };
 }
 
 export const ChatMessageList: React.FC<ChatMessageListProps> = ({
@@ -220,7 +241,9 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
           </div>
         </div>
       ) : (
-        messages.map((msg) => (
+        messages.map((msg) => {
+          const { displayContent, attachedDrafts } = parseMessageAttachments(msg.content);
+          return (
           <div key={msg.id} className={`message-bubble ${msg.role}`}>
             <div className="message-header">
               <span className="message-sender">
@@ -235,13 +258,29 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
               className="message-content"
               dangerouslySetInnerHTML={{
                 __html:
-                  msg.content.trim().length > 0
-                    ? renderMarkdownWithMath(msg.content)
+                  displayContent.length > 0
+                    ? renderMarkdownWithMath(displayContent)
                     : isStreaming && msg.role === 'assistant'
                       ? '<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>'
                       : '',
               }}
             />
+
+            {attachedDrafts.length > 0 && (
+              <div className="citations-list attached-drafts-list" aria-label="Attached documents">
+                <span className="citations-heading">Attached:</span>
+                <div className="citations-badges">
+                  {attachedDrafts.map((filename, i) => (
+                    <span key={i} className="citation-badge attached-draft-badge">
+                      <span className="citation-icon" aria-hidden="true">
+                        <PageIcon size={12} />
+                      </span>
+                      <span>{filename}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {msg.role === 'assistant' && msg.content.trim().length > 0 && !isStreaming && (
               <div className="message-actions-row">
@@ -339,7 +378,8 @@ export const ChatMessageList: React.FC<ChatMessageListProps> = ({
               </div>
             )}
           </div>
-        ))
+          );
+        })
       )}
 
       {activeTool && (

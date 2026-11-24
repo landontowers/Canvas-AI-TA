@@ -1140,5 +1140,42 @@ describe('Web UI Components DOM Rendering & Interaction Suite', () => {
       );
       expect(alert.textContent).not.toContain('"code":503');
     });
+
+    it('ChatMessageList renders attached draft filename as a badge and hides raw attached_draft tags', () => {
+      const ref = React.createRef<HTMLDivElement>();
+      const userMessageWithDraft = {
+        id: 'u-draft-1',
+        role: 'user' as const,
+        content:
+          'Please check my attached draft against the rubric.\n\n<attached_draft filename="safety-lab1-partial-draft.docx">\nFTT-101 Safety Lab 1 Draft Outline\n\nI removed the magazine.\n</attached_draft>',
+        citations: [],
+        toolsUsed: [],
+        createdAt: new Date('2026-11-24T10:57:00Z'),
+      };
+
+      const { container } = render(
+        <ChatMessageList
+          messages={[userMessageWithDraft]}
+          isStudent={true}
+          isStreaming={false}
+          currentPageTitle="Safety Lab 1"
+          suggestions={[]}
+          activeTool={null}
+          error={null}
+          messagesEndRef={ref}
+          onSelectSuggestion={vi.fn()}
+        />,
+      );
+
+      const contentEl = container.querySelector('.message-content');
+      expect(contentEl?.textContent).toContain('Please check my attached draft against the rubric.');
+      expect(contentEl?.textContent).not.toContain('<attached_draft');
+      expect(contentEl?.textContent).not.toContain('FTT-101 Safety Lab 1 Draft Outline');
+      expect(contentEl?.innerHTML).not.toContain('attached_draft');
+
+      const attachedSection = screen.getByLabelText('Attached documents');
+      expect(attachedSection.textContent).toContain('Attached:');
+      expect(attachedSection.textContent).toContain('safety-lab1-partial-draft.docx');
+    });
   });
 });

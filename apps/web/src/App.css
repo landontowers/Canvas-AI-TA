@@ -1201,6 +1201,18 @@ body:has(.demo-container.embedded) #root {
   color: var(--color-primary);
 }
 
+.message-bubble.user .attached-drafts-list {
+  border-top-color: rgba(255, 255, 255, 0.2);
+}
+
+.message-bubble.user .attached-drafts-list .citations-heading {
+  color: #CACFD5;
+}
+
+.attached-draft-badge {
+  cursor: default;
+}
+
 /* Crisis Action Card (Immediate emergency assistance under FERPA § 99.36) */
 .crisis-action-card {
   margin-top: 12px;
